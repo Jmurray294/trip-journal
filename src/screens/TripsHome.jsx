@@ -1,13 +1,19 @@
-import { Plus } from '../components/Icons.jsx';
+import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
 
-export default function TripsHome({ trips, onOpen, onNewTrip }) {
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily }) {
   const featured = trips.find((t) => t.planning);
   const others = trips.filter((t) => t !== featured);
 
   return (
     <div className="screen pad-tab">
-      <header className="page-head wash">
+      <header className="page-head wash" style={{ position: 'relative' }}>
+        {family.available && (
+          <button className={'family-btn press ' + (family.household ? family.status.state : 'none')} onClick={onFamily} aria-label="Family sharing">
+            <People color="#2A2520" />
+            {family.household && <span className="family-btn-dot" />}
+          </button>
+        )}
         <div className="eyebrow">My journal</div>
         <h1 className="title-xl">Journals</h1>
       </header>

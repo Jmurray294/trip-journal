@@ -1,8 +1,9 @@
-import { Plus, TabTrips, TabMap, TabAlbums } from './Icons.jsx';
+import { Plus, TabTrips, TabMap, TabAlbums, People } from './Icons.jsx';
 import { accentFor, short } from '../lib/derive.js';
+import { statusLabel } from '../screens/FamilySheet.jsx';
 
 // Desktop navigation (≥900px wide); the tab bar takes over on phones.
-export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onAdd, onNewTrip, onOpenTrip }) {
+export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onAdd, onNewTrip, onOpenTrip, family, onFamily }) {
   const cls = (t) => 'side-nav' + (tab === t ? ' active' : '');
   return (
     <aside className="sidebar">
@@ -29,6 +30,18 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         ))}
         <button className="side-trip side-new" onClick={onNewTrip}><Plus size={12} w={1.8} /> New trip</button>
       </div>
+
+      {family.available && (
+        <button className="side-family" onClick={onFamily}>
+          <People />
+          <span className="side-family-text">
+            <span>{family.household ? family.household.name : 'Family sharing'}</span>
+            <span className={'side-family-sub ' + family.status.state}>
+              {family.household ? (statusLabel(family.status) || 'Connecting…') : family.session ? 'Set up your family' : 'Sign in to back up & share'}
+            </span>
+          </span>
+        </button>
+      )}
     </aside>
   );
 }

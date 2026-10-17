@@ -42,6 +42,25 @@ export function seed() {
   ];
 }
 
+export const newTripId = () => 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+export const newEntryId = () => (crypto.randomUUID ? crypto.randomUUID() : 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+
+// Every memory needs a stable id and sort position for sync. Sample memories get deterministic
+// ids so the same sample trip on two phones is the same rows, not duplicates.
+export function normalize(trips) {
+  let changed = false;
+  const out = trips.map((t) => {
+    const demo = DEMO_IDS.includes(t.id);
+    const days = (t.days || []).map((d, i) => {
+      if (d.id && typeof d.pos === 'number') return d;
+      changed = true;
+      return { ...d, id: d.id || (demo ? `${t.id}-${d.num || i + 1}` : newEntryId()), pos: typeof d.pos === 'number' ? d.pos : i };
+    });
+    return days === t.days ? t : { ...t, days };
+  });
+  return { changed, trips: changed ? out : trips };
+}
+
 // Load-time migration: reseed demo trips when the schema advances, keep user trips (ids starting `u`).
 export function migrate(data, version) {
   if (!data || !Array.isArray(data.trips) || !data.trips.length) {

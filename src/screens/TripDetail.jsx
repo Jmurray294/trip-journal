@@ -1,5 +1,5 @@
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
-import { countPhotos, countPlaces, coverBg, photoBg } from '../lib/derive.js';
+import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
 
 function Spinner({ size = 16 }) {
@@ -23,7 +23,8 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
     );
   }
 
-  const hasAudio = !!sg.audio;
+  const audioUrl = songAudioSrc(sg);
+  const hasAudio = !!(sg.audio || sg.audioPath);
   const dur = hasAudio ? (song.audioDur || sg.audioDur || sg.duration) : sg.duration;
   const active = activeLine(song.progress, dur, sg.lines.length);
   const pct = Math.min(100, (song.progress / dur) * 100);
@@ -44,7 +45,7 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
           <div className="song-title">{sg.title}</div>
           <div className="song-mood">{sg.mood}</div>
         </div>
-        <button className="song-play press" onClick={() => onToggle(dur, sg.audio || null)} aria-label={song.playing ? 'Pause song' : 'Play song'}>
+        <button className="song-play press" onClick={() => (hasAudio && !audioUrl ? onToggle(dur, null, true) : onToggle(dur, audioUrl))} aria-label={song.playing ? 'Pause song' : 'Play song'}>
           {song.playing ? <Pause /> : <Play />}
         </button>
       </div>

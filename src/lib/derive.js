@@ -1,3 +1,5 @@
+import { mediaUrl } from './media.js';
+
 // Values derived from trips, never stored.
 
 export const countPhotos = (t) => (t.days || []).reduce((n, d) => n + (d.photos || []).length, 0);
@@ -23,17 +25,16 @@ export function coverBg(t) {
   return { background: STRIPE + ', ' + (t ? t.grad : SAND) };
 }
 
+// A photo is inline (`src`: data URL or bundled sample) or synced (`path` in family storage).
+export const photoSrc = (p) => (!p ? null : p.src ? src(p.src) : mediaUrl(p.path));
+
 export function photoBg(p) {
-  if (p && p.src) return { backgroundImage: `url("${src(p.src)}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  const u = photoSrc(p);
+  if (u) return { backgroundImage: `url("${u}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
   return { background: STRIPE + ', ' + ((p && p.tone) || SAND) };
 }
 
-// The cover photo, else the trip's first photo, for use in image elements.
-export function coverPhoto(t) {
-  if (t.coverSrc) return src(t.coverSrc);
-  for (const d of t.days || []) for (const p of d.photos || []) if (p.src) return src(p.src);
-  return null;
-}
+export const songAudioSrc = (sg) => (!sg ? null : sg.audio || mediaUrl(sg.audioPath));
 
 export const GRADIENTS = [
   'linear-gradient(150deg,#5E7E78,#324F4A)',

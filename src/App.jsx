@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { kvGet, saveJournal, SCHEMA_V, requestPersistence } from './lib/db.js';
-import { migrate, FAMILY } from './lib/seed.js';
+import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js';
+import { onMediaReady } from './lib/media.js';
+import { useFamily } from './lib/useFamily.js';
+import FamilySheet from './screens/FamilySheet.jsx';
 import { geocode } from './lib/geo.js';
 import { todayLabel } from './lib/parser.js';
 import { writeSong as composeSong, sunoText } from './lib/song.js';
@@ -59,7 +62,14 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   const scroller = useRef(null);
-  const tripsRef = useRef(trips); tripsRef.current = trips;
+  // Trips change through applyTrips only, which updates the ref synchronously so sync and edits
+  // always build on the latest state (a queued setState could otherwise be overwritten).
+  const tripsRef = useRef(trips);
+  const applyTrips = useCallback((fn) => {
+    const next = typeof fn === 'function' ? fn(tripsRef.current) : fn;
+    tripsRef.current = next;
+    setTrips(next);
+  }, []);
   const homeRef = useRef(home); homeRef.current = home;
   const navRef = useRef(nav); navRef.current = nav;
   const toastT = useRef(null);
@@ -80,8 +90,9 @@ export default function App() {
     (async () => {
       const raw = await kvGet('journal');
       const { changed, data } = migrate(raw, SCHEMA_V);
-      if (changed) await saveJournal(data);
-      setTrips(data.trips);
+      const norm = normalize(data.trips);
+      if (changed || norm.changed) await saveJournal({ ...data, trips: norm.trips });
+      applyTrips(norm.trips);
       setHome({ home: data.home || '', homeLon: data.homeLon ?? null, homeLat: data.homeLat ?? null });
       setLoaded(true);
       requestPersistence();
@@ -90,9 +101,18 @@ export default function App() {
 
   useEffect(() => { if (loaded) saveJournal({ trips, ...home }); }, [loaded, trips, home]);
 
+  // ---- family sharing + sync ----
+  const [familyOpen, setFamilyOpen] = useState(false);
+  const family = useFamily({ getTrips: () => tripsRef.current, applyTrips, enabled: loaded });
+  useEffect(() => { if (loaded) family.schedule(); }, [loaded, trips]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // synced photos/audio arrive asynchronously; re-render when one is ready
+  const [, setMediaTick] = useState(0);
+  useEffect(() => onMediaReady(() => setMediaTick((n) => n + 1)), []);
+
   // ---- geocoding: fill in anything still unplaced, ≤1 request/second ----
-  const setDayCoords = (tripId, dayIdx, place, c) => setTrips((ts) => ts.map((t) => t.id !== tripId ? t : {
-    ...t, days: t.days.map((d, j) => (j === dayIdx && (d.place || '').trim() === place ? { ...d, lon: c[0], lat: c[1] } : d))
+  const setDayCoords = (tripId, dayId, place, c) => applyTrips((ts) => ts.map((t) => t.id !== tripId ? t : {
+    ...t, days: t.days.map((d) => (d.id === dayId && (d.place || '').trim() === place ? { ...d, lon: c[0], lat: c[1] } : d))
   }));
   const locating = useRef(false);
   const locateMissing = useCallback(async () => {
@@ -105,7 +125,7 @@ export default function App() {
           const place = (d.place || '').trim();
           if (!place || typeof d.lon === 'number') continue;
           const c = await geocode(place);
-          if (c) setDayCoords(t.id, i, place, c);
+          if (c) setDayCoords(t.id, d.id, place, c);
           await new Promise((r) => setTimeout(r, 1100));
         }
       }
@@ -145,7 +165,8 @@ export default function App() {
     a.play().then(() => setSong((s) => ({ ...s, playing: true }))).catch(() => showToast('Tap play again to allow audio'));
   };
 
-  const toggleSong = (dur, srcUrl) => {
+  const toggleSong = (dur, srcUrl, stillLoading) => {
+    if (stillLoading) { showToast(navigator.onLine ? 'Song audio is still downloading' : 'Song audio needs a connection once'); return; }
     if (srcUrl) {
       if (song.playing && audio.current) { audio.current.pause(); setSong((s) => ({ ...s, playing: false })); return; }
       playAudio(srcUrl); return;
@@ -229,7 +250,7 @@ export default function App() {
   });
 
   // ---- mutations ----
-  const updateTrip = (id, fn) => setTrips((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
+  const updateTrip = (id, fn) => applyTrips((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
 
   const openAddFor = (id, mode = 'memory') => {
     const fallback = (trips.find((t) => !t.planning) || trips[0] || {}).id;
@@ -241,19 +262,19 @@ export default function App() {
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return true;
     const where = (place || trip.place || '').trim();
-    const dayIdx = trip.days.length;
+    const id = newEntryId();
     updateTrip(tripId, (t) => ({
-      ...t, days: [...t.days, { num: t.days.length + 1, date: todayLabel(), title: title || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
+      ...t, days: [...t.days, { id, pos: Date.now(), num: t.days.length + 1, date: todayLabel(), title: title || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
     }));
     showToast('Memory saved to journal');
-    if (where) geocode(where).then((c) => { if (c) setDayCoords(tripId, dayIdx, where, c); });
+    if (where) geocode(where).then((c) => { if (c) setDayCoords(tripId, id, where, c); });
     return true;
   };
 
   const saveTrip = ({ title, place, dates, grad }) => {
     if (!title.trim()) { showToast('Give your trip a name'); return false; }
-    const trip = { id: 'u' + Date.now(), title: title.trim(), place: place.trim(), dates: dates.trim() || todayLabel(), grad, planning: false, statusLabel: 'My trip', timelineLabel: 'Timeline', members: FAMILY, song: null, days: [] };
-    setTrips((ts) => {
+    const trip = { id: newTripId(), title: title.trim(), place: place.trim(), dates: dates.trim() || todayLabel(), grad, planning: false, statusLabel: 'My trip', timelineLabel: 'Timeline', members: FAMILY, song: null, days: [] };
+    applyTrips((ts) => {
       const next = [...ts]; const idx = next.findIndex((t) => !t.planning);
       if (idx < 0) next.push(trip); else next.splice(idx, 0, trip);
       return next;
@@ -266,7 +287,8 @@ export default function App() {
   const importParsed = (tripId, parsed) => {
     if (!trips.some((t) => t.id === tripId)) { showToast('Pick a trip first'); return false; }
     updateTrip(tripId, (t) => {
-      const days = [...t.days, ...parsed.map((p) => ({ date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [] }))];
+      const base = Date.now();
+      const days = [...t.days, ...parsed.map((p, i) => ({ id: newEntryId(), pos: base + i, date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [] }))];
       return { ...t, days: days.map((d, i) => ({ ...d, num: i + 1 })) };
     });
     go({ tab: 'trips', tripId });
@@ -284,7 +306,7 @@ export default function App() {
   const deleteTrip = (id) => {
     if (!window.confirm('Delete this whole trip and all of its memories? This cannot be undone.')) return;
     const rest = trips.filter((t) => t.id !== id);
-    setTrips(rest);
+    applyTrips(rest);
     if (mapSel.tripId === id) setMapSel({ tripId: (rest[0] && rest[0].id) || '', stop: 0 });
     go({ tab: 'trips', tripId: null });
     showToast('Trip deleted');
@@ -343,7 +365,7 @@ export default function App() {
         setTimeout(() => done(0), 6000);
         probe.src = dataUrl;
       });
-      updateTrip(id, (x) => ({ ...x, song: { ...(x.song || { title: x.title + ' Song', mood: 'From Suno', lines: [], duration: 180 }), audio: dataUrl, audioName: file.name, audioDur: realDur || null } }));
+      updateTrip(id, (x) => ({ ...x, song: { ...(x.song || { title: x.title + ' Song', mood: 'From Suno', lines: [], duration: 180 }), audio: dataUrl, audioPath: undefined, audioName: file.name, audioDur: realDur || null } }));
       stopSong(); audio.current = null;
       setSong((s) => ({ ...s, playing: false, progress: 0, audioDur: realDur || 0 }));
       showToast('Audio added — press play');
@@ -353,7 +375,7 @@ export default function App() {
   };
 
   const removeAudio = (id) => {
-    updateTrip(id, (x) => (x.song ? { ...x, song: { ...x.song, audio: null, audioName: null, audioDur: null } } : x));
+    updateTrip(id, (x) => (x.song ? { ...x, song: { ...x.song, audio: null, audioPath: undefined, audioName: null, audioDur: null } } : x));
     stopSong(); audio.current = null;
     setSong((s) => ({ ...s, playing: false, progress: 0, audioDur: 0 }));
     showToast('Audio removed');
@@ -386,7 +408,8 @@ export default function App() {
       <div className="app" data-print-hide="1">
         <div className="scroller" ref={scroller}>
           {screen === 'list' && (
-            <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')} />
+            <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
+              family={family} onFamily={() => setFamilyOpen(true)} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -427,6 +450,7 @@ export default function App() {
           onAdd={() => openAddFor(nav.tripId)}
           onNewTrip={() => openAddFor(null, 'trip')}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
+          family={family} onFamily={() => setFamilyOpen(true)}
         />
 
         <TabBar
@@ -462,6 +486,8 @@ export default function App() {
             toast={showToast}
           />
         )}
+
+        {familyOpen && <FamilySheet family={family} onClose={() => setFamilyOpen(false)} toast={showToast} />}
       </div>
       {storyTrip && <StoryPrint trip={storyTrip} />}
     </>

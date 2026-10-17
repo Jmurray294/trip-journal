@@ -3,7 +3,7 @@ import TripMap from '../components/TripMap.jsx';
 import Chips from '../components/Chips.jsx';
 import { House, Pencil } from '../components/Icons.jsx';
 import { buildStops } from '../lib/geo.js';
-import { photoBg, short, src } from '../lib/derive.js';
+import { photoBg, photoSrc, short } from '../lib/derive.js';
 
 const STONE = { tone: '#9E9684' };
 const TONES = ['#8DA1A8', '#9CA886', '#B5663F', '#BE7A50', '#C9A85C', '#7E8A66', '#6F7E84', '#C7A06E', '#9E9684'];
@@ -18,7 +18,7 @@ export default function MapView({ trips, home, sel, onSelectTrip, onSelectStop, 
   const geoStops = stops
     .map((s, i) => ({ i, s }))
     .filter(({ s }) => typeof s.lon === 'number' && typeof s.lat === 'number')
-    .map(({ i, s }) => ({ index: i, name: s.name, date: s.date, isHome: s.isHome, lon: s.lon, lat: s.lat, photo: s.photo && s.photo.src ? src(s.photo.src) : null }));
+    .map(({ i, s }) => ({ index: i, name: s.name, date: s.date, isHome: s.isHome, lon: s.lon, lat: s.lat, photo: photoSrc(s.photo) }));
   const unplaced = stops.filter((s) => !s.isHome && typeof s.lon !== 'number').map((s) => s.name);
   const homeUnplaced = !!home.home && typeof home.homeLon !== 'number';
   const names = (homeUnplaced ? ['home'] : []).concat(unplaced);

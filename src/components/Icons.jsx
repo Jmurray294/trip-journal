@@ -74,6 +74,10 @@ export const AddPhoto = () => (
   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M3 16l4.5-5 3 3.2L14 9l5 7" stroke="#A4502F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><circle cx="8" cy="7" r="1.6" fill="#A4502F" /></svg>
 );
 
+export const People = ({ color = 'currentColor' }) => (
+  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" aria-hidden="true"><circle cx="7.5" cy="7" r="2.8" /><path d="M2.5 16.5c.6-2.8 2.6-4.3 5-4.3s4.4 1.5 5 4.3" /><circle cx="14" cy="7.8" r="2.2" /><path d="M13.6 12.3c1.9.1 3.3 1.4 3.9 3.6" /></svg>
+);
+
 export const TabTrips = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2.5" /><line x1="4" y1="9.4" x2="20" y2="9.4" /></svg>
 );
