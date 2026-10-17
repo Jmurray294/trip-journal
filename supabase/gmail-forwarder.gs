@@ -11,7 +11,7 @@
  */
 
 const FUNCTION_URL = 'https://hevucbiddgcvbxynstjn.supabase.co/functions/v1/inbound-email';
-const SECRET = '3uopcLCdNvonvkBSqiQzE4s6';
+const SECRET = 'PASTE-INBOUND-SECRET-HERE'; // same value as the INBOUND_SECRET secret in Supabase
 const DONE = 'trip-journal/imported';
 const FAILED = 'trip-journal/failed';
 const MAX_TRIES = 3;
