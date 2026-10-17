@@ -3,6 +3,7 @@ import { kvGet, saveJournal, SCHEMA_V, requestPersistence } from './lib/db.js';
 import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js';
 import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
+import { supabase } from './lib/supabase.js';
 import FamilySheet from './screens/FamilySheet.jsx';
 import { geocode } from './lib/geo.js';
 import { todayLabel } from './lib/parser.js';
@@ -322,20 +323,31 @@ export default function App() {
     showToast((await copyText(text)) ? 'Trip summary copied' : 'Sharing not available');
   };
 
-  const writeSong = (id) => {
+  const writeSong = async (id) => {
     const t = trips.find((x) => x.id === id);
     if (!t) return;
     if ((t.days || []).length < 2) { showToast('Add a couple of memories first'); return; }
     stopSong(); audio.current = null;
     setSongBusy(id);
-    // brief pause so the busy state reads as intentional
-    setTimeout(() => {
-      const s = composeSong(t);
-      updateTrip(id, (x) => ({ ...x, song: s }));
+    const finish = (s) => {
+      // keep any attached audio; new lyrics replace the old ones
+      updateTrip(id, (x) => ({ ...x, song: { ...s, audio: x.song && x.song.audio, audioPath: x.song && x.song.audioPath, audioName: x.song && x.song.audioName, audioDur: x.song && x.song.audioDur } }));
       setSongBusy(null);
       setSong({ playing: false, progress: 0, lyricsOpen: true, audioDur: 0 });
       showToast(s.title + ' is ready');
-    }, 700);
+    };
+    // Signed in and online: Claude writes it on the family server. Otherwise the on-device writer.
+    if (!supabase || !family.session || !navigator.onLine) { setTimeout(() => finish(composeSong(t)), 700); return; }
+    const trip = { title: t.title, place: t.place, dates: t.dates, days: t.days.map((d) => ({ date: d.date, title: d.title, place: d.place, note: d.note })) };
+    const { data, error } = await supabase.functions.invoke('write-song', { body: { trip } });
+    if (error || !data || !Array.isArray(data.lines)) {
+      let msg = 'The songwriter is unavailable';
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* no body */ }
+      setSongBusy(null);
+      showToast(msg);
+      return;
+    }
+    finish({ title: data.title, mood: data.mood, lines: data.lines, duration: Math.max(100, Math.min(240, data.lines.length * 13)) });
   };
 
   const sendToSuno = async (t) => {
