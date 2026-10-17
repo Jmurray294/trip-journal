@@ -1,11 +1,12 @@
 // Supabase Edge Function: turn forwarded booking emails into itinerary entries.
-// Postmark Inbound posts each email here; the address's "+token" part says which family it's for.
+// The Gmail forwarder (supabase/gmail-forwarder.gs) posts each email here; the "+code" in the
+// address it was sent to says which family it is for. (Any inbound service posting the same JSON works.)
 //
 // GENERATED index.ts — edit template.ts, then run `node scripts/build-inbound.mjs`
 // (that inlines src/lib/parser.js so the app and the server parse confirmations the same way).
 //
-// Secrets: INBOUND_SECRET (also in the Postmark webhook URL as ?key=...), ANTHROPIC_API_KEY.
-// Deploy with "Verify JWT" OFF — Postmark can't sign in; the secret key protects it instead.
+// Secrets: INBOUND_SECRET (also in the forwarder, sent as ?key=...), ANTHROPIC_API_KEY.
+// Deploy with "Verify JWT" OFF — the forwarder cannot sign in; the secret key protects it instead.
 
 import Anthropic from "npm:@anthropic-ai/sdk@0.131.0";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -320,7 +321,7 @@ Deno.serve(async (req) => {
     const { data } = await admin.from("households").select("id").eq("inbox_token", h).maybeSingle();
     if (data) { household = data; break; }
   }
-  // Answer 200 for unknown addresses so Postmark doesn't keep retrying junk mail.
+  // Answer 200 for unknown addresses so the forwarder does not keep retrying junk mail.
   if (!household) return ok({ ignored: "unknown address" });
 
   const sender = String(mail.From || "").slice(0, 200);

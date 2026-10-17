@@ -37,7 +37,7 @@ export default function FamilySheet({ family, onClose, toast }) {
     return () => { window.removeEventListener('keydown', onKey); clearInterval(t); };
   }, [onClose]);
 
-  // forwarding address: the Postmark inbound address with this family's private code after a "+"
+  // forwarding address: the family trips Gmail address with this family's private code after a "+"
   const base = import.meta.env.VITE_INBOUND_ADDRESS || '';
   const h = family.household;
   const inbox = base.includes('@') && h && h.inbox_token ? base.replace('@', '+' + h.inbox_token + '@') : null;
