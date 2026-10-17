@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase.js';
 
 function timeAgo(ms) {
   const s = Math.round((Date.now() - ms) / 1000);
@@ -35,6 +36,21 @@ export default function FamilySheet({ family, onClose, toast }) {
     const t = setInterval(() => tick((n) => n + 1), 20000); // keep "synced x min ago" fresh
     return () => { window.removeEventListener('keydown', onKey); clearInterval(t); };
   }, [onClose]);
+
+  // forwarding address: the Postmark inbound address with this family's private code after a "+"
+  const base = import.meta.env.VITE_INBOUND_ADDRESS || '';
+  const h = family.household;
+  const inbox = base.includes('@') && h && h.inbox_token ? base.replace('@', '+' + h.inbox_token + '@') : null;
+  const [imports, setImports] = useState([]);
+  useEffect(() => {
+    if (!inbox || !supabase) return;
+    supabase.from('inbound_emails').select('id, subject, items, trip_title, created_at')
+      .eq('household_id', h.id).order('created_at', { ascending: false }).limit(4)
+      .then(({ data }) => setImports(data || []));
+  }, [inbox, h]);
+  const copyInbox = async () => {
+    try { await navigator.clipboard.writeText(inbox); toast('Address copied'); } catch (e) { toast(inbox); }
+  };
 
   const act = async (fn, okMsg) => {
     setBusy(true);
@@ -113,6 +129,30 @@ export default function FamilySheet({ family, onClose, toast }) {
           <button className="btn-share press" onClick={shareInvite}>Send invite</button>
         </div>
         <div className="sheet-copy" style={{ marginTop: 8 }}>Family members open the app, sign in, choose <strong>Join a family</strong> and enter this code.</div>
+
+        {inbox && (
+          <>
+            <Label top={20}>Forward bookings to</Label>
+            <div className="invite-row">
+              <div className="inbox-address">{inbox}</div>
+              <button className="btn-share press" onClick={copyInbox}>Copy</button>
+            </div>
+            <div className="sheet-copy" style={{ marginTop: 8 }}>Forward flight, hotel, car and tour confirmations here from any email account. They land in the trip whose dates they fall in, or start a new one.</div>
+            {imports.length > 0 && (
+              <div className="imports">
+                {imports.map((m) => (
+                  <div key={m.id} className="import-row">
+                    <span className={'import-dot' + (m.items ? ' ok' : '')} />
+                    <span className="import-text">
+                      <span>{m.items ? `${m.items} added to ${m.trip_title || 'a trip'}` : 'Nothing found'}</span>
+                      <span className="import-sub">{m.subject || '(no subject)'} · {timeAgo(new Date(m.created_at).getTime())}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         <Label top={20}>Members</Label>
         <div className="members">

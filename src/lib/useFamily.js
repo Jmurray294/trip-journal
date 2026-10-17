@@ -27,8 +27,11 @@ export function useFamily({ getTrips, applyTrips, enabled }) {
 
   const loadHousehold = useCallback(async () => {
     if (!uid) { setHousehold(null); return; }
-    const { data, error } = await supabase.from('household_members')
-      .select('household_id, display_name, households(id, name, invite_code)').eq('user_id', uid).order('joined_at').limit(1);
+    const query = (cols) => supabase.from('household_members')
+      .select(`household_id, display_name, households(${cols})`).eq('user_id', uid).order('joined_at').limit(1);
+    let { data, error } = await query('id, name, invite_code, inbox_token');
+    // databases set up before email forwarding have no inbox column yet; sharing still works without it
+    if (error) ({ data, error } = await query('id, name, invite_code'));
     if (error) return;
     const h = data && data[0] && data[0].households;
     setHousehold(h || null);
