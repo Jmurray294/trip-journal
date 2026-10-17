@@ -19,13 +19,23 @@ npm run preview   # serve dist/ (also on the LAN)
 
 Regenerate the app icons with `powershell -File scripts/make-icons.ps1`.
 
-## Installing on a phone
+## Live site
 
-Offline mode and a proper install need HTTPS, so host `dist/` on any static host
-(Netlify, Vercel, Cloudflare Pages, GitHub Pages). Then:
+**https://jmurray294.github.io/trip-journal/** — repo: github.com/Jmurray294/trip-journal (public).
+
+Publish an update with `npm run deploy` (runs the tests, builds, and pushes `dist/` to the
+`gh-pages` branch; GitHub Pages serves it about a minute later). Installed copies pick up the new
+version the next time they're opened.
+
+The build assumes the `/trip-journal/` sub-path. For another host set `BASE_PATH=/` when building.
+
+## Installing
 
 - **iPhone:** open the link in Safari → Share → **Add to Home Screen**.
 - **Android:** open in Chrome → menu → **Install app**.
+- **Windows / Mac:** open in Edge or Chrome → install icon in the address bar.
+
+Each device keeps its own journal (no sync yet).
 
 ## Differences from the prototype
 
