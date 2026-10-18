@@ -12,8 +12,8 @@ BODY='<h2>Your Trip Journal code</h2><p>Enter this code in the app:</p><p><stron
 
 code=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH "$API" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "{
-  \"site_url\": \"https://jmurray294.github.io/trip-journal/\",
-  \"uri_allow_list\": \"https://jmurray294.github.io/trip-journal/**,http://localhost:5173/**,http://localhost:4173/**\",
+  \"site_url\": \"https://jcmurraytrips.com/\",
+  \"uri_allow_list\": \"https://jcmurraytrips.com/**,https://jmurray294.github.io/trip-journal/**,http://localhost:5173/**,http://localhost:4173/**\",
   \"mailer_subjects_confirmation\": \"Your Trip Journal code\",
   \"mailer_templates_confirmation_content\": \"$BODY\",
   \"mailer_subjects_magic_link\": \"Your Trip Journal code\",

@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// GitHub Pages serves the app from /trip-journal/; override with BASE_PATH for other hosts.
-const base = process.env.BASE_PATH || '/trip-journal/';
+// GitHub Pages serves the app at the root of jcmurraytrips.com (public/CNAME); override with BASE_PATH for other hosts.
+const base = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   base,
