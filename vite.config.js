@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // a new version waits for the in-app Update button (src/lib/update.js)
       includeAssets: ['icons/*.png', 'photos/*.jpg'],
       manifest: {
         name: 'Trip Journal',

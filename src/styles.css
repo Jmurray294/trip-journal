@@ -427,6 +427,12 @@ h1 { margin: 0; font-weight: 600; }
 .import-dot.ok { background: #6E8B3D; }
 .import-dot.wait { background: #E2A32B; }
 
+/* ---------- new version ---------- */
+.update-pill { position: absolute; z-index: 90; top: calc(var(--safe-top) + 8px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 6px 0 15px; border: none; border-radius: 999px; background: var(--ink); color: var(--card); font-size: 13.5px; font-weight: 600; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,0.3); animation: fadeIn .3s ease both; }
+.update-pill.press:active { transform: translateX(-50%) scale(0.96); }
+.update-dot { width: 8px; height: 8px; border-radius: 50%; background: #E2A32B; }
+.update-go { background: var(--primary-grad); border-radius: 999px; padding: 8px 14px; }
+
 /* ---------- to sort ---------- */
 .sort-banner { width: 100%; display: flex; align-items: center; gap: 13px; text-align: left; background: var(--card); border: 1.5px solid rgba(226,163,43,0.55); border-radius: 18px; padding: 13px 16px; cursor: pointer; box-shadow: 0 4px 14px rgba(169,102,15,0.12); color: var(--ink); }
 .sort-count { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--song-grad); color: var(--card); font-family: var(--serif); font-size: 17px; font-weight: 700; }

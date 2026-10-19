@@ -5,6 +5,7 @@ import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows } from './lib/inbox.js';
+import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
 import SortSheet from './screens/SortSheet.jsx';
@@ -82,6 +83,9 @@ export default function App() {
   const audioSrc = useRef(null);
   const auto = useRef({ on: false, raf: null, start: null });
   const stopDictationRef = useRef(() => {});
+
+  const [updateReady, setUpdateReady] = useState(false);
+  useEffect(() => onUpdateReady(setUpdateReady), []);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -520,6 +524,12 @@ export default function App() {
         )}
 
         {toast && <div className="toast" role="status">{toast}</div>}
+
+        {updateReady && (
+          <button className="update-pill press" onClick={applyUpdate}>
+            <span className="update-dot" />New version ready<span className="update-go">Update</span>
+          </button>
+        )}
 
         {add && (
           <AddSheet
