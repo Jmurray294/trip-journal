@@ -323,13 +323,38 @@ const READING_SCHEMA = {
 };
 
 type TripBrief = { id: string; title: string; place: string; dates: string; items: string[] };
+type Attachment = { Name?: string; ContentType?: string; Content?: string }; // Content is base64
 
-async function readWithClaude(text: string, subject: string, trips: TripBrief[]): Promise<Reading | null> {
+// PDFs (invoices, e-tickets, cruise confirmations) and photos of bookings, as content blocks Claude reads
+// before the email text. Capped so one email stays well inside a request.
+const MAX_FILES = 6, MAX_BYTES = 20 * 1024 * 1024;
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+function attachmentBlocks(files: Attachment[]) {
+  const blocks: Record<string, unknown>[] = [];
+  const names: string[] = [];
+  let bytes = 0;
+  for (const f of files || []) {
+    const type = String(f.ContentType || "").toLowerCase().split(";")[0].trim();
+    const data = String(f.Content || "").replace(/\s+/g, "");
+    const size = Math.floor(data.length * 3 / 4);
+    if (!data || blocks.length >= MAX_FILES || bytes + size > MAX_BYTES) continue;
+    if (type === "application/pdf" || /\.pdf$/i.test(f.Name || "")) {
+      blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data }, title: String(f.Name || "attachment.pdf").slice(0, 200) });
+    } else if (IMAGE_TYPES.includes(type)) {
+      blocks.push({ type: "image", source: { type: "base64", media_type: type, data } });
+    } else continue;
+    bytes += size; names.push(String(f.Name || type));
+  }
+  return { blocks, names };
+}
+
+async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = []): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
   const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
   const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
   const today = new Date().toISOString().slice(0, 10);
+  const { blocks, names } = attachmentBlocks(files);
   const response = await client.beta.messages.create({
     model: "claude-opus-5-5",
     max_tokens: 16000,
@@ -339,8 +364,9 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[])
       "invoices, payment receipts and reminders. You pull out what was booked and what was paid or is owed, and say which of the family's trips it belongs to.",
     messages: [{
       role: "user",
-      content:
+      content: [...blocks, { type: "text", text:
         `Today is ${today}.\n\n` +
+        (names.length ? `The email's attachments (${names.join(", ")}) come first; they often hold the real details — read them as part of the email.\n\n` : "") +
         "BOOKINGS: list every reservation the email confirms, changes or cancels — flights (each segment separately), " +
         "hotels and rentals, cruises, car rentals, trains, transfers, tours and activities, restaurants, tickets. Titles: flights " +
         "like 'United UA1234 · SEA → SFO', stays use the property name, cruises the line and ship, cars like 'Hertz car rental'. " +
@@ -348,7 +374,9 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[])
         "A changed booking is listed once with its new details and status 'changed'; a cancelled one with status 'cancelled'.\n\n" +
         "COSTS: list money paid, owed or refunded — deposits, final payments, receipts, invoices, balances due (with the due date), refunds. " +
         "A confirmation that shows a price is also a cost (status 'paid' if it was charged, 'due' if it is owed). If part was paid and " +
-        "a balance remains, give two costs. Payment and receipt emails are costs, not bookings, unless they also confirm a reservation.\n\n" +
+        "a balance remains, give two costs. Payment and receipt emails are costs, not bookings, unless they also confirm a reservation. " +
+        "A card authorization that has not been charged yet is 'due', with a note like 'Card authorized'. An itinerary or invoice that " +
+        "lists the trip's sailings, flights or hotels is also a source of bookings.\n\n" +
         "TRIP: these are the family's trips (id, title, place, dates, some items already in each):\n" +
         JSON.stringify(trips) + "\n" +
         "Choose 'existing' with its trip_id only when the email clearly belongs to that trip (same destination, cruise or " +
@@ -358,6 +386,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[])
         "Skip marketing and anything not booked or paid. Infer missing years from today's date. If the email has no bookings " +
         "and no costs, return empty lists.\n\n" +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
+      }],
     }],
     output_config: { effort: "low", format: { type: "json_schema", schema: READING_SCHEMA } },
   } as any);
@@ -476,8 +505,11 @@ Deno.serve(async (req) => {
   const sender = String(mail.From || "").slice(0, 200);
   const subject = String(mail.Subject || "").slice(0, 300);
   const text = String(mail.TextBody || "").trim() || htmlToText(String(mail.HtmlBody || ""));
-  const log = (fields: Record<string, unknown>) =>
-    admin.from("inbound_emails").insert({ household_id: hid, sender, subject, body: text.slice(0, 100000), ...fields });
+  const attached = (Array.isArray(mail.Attachments) ? mail.Attachments : []).map((f: Attachment) => f.Name || f.ContentType).filter(Boolean);
+  const log = (fields: Record<string, unknown>) => admin.from("inbound_emails").insert({
+    household_id: hid, sender, subject, ...fields,
+    body: (attached.length ? `[Attachments: ${attached.join(", ")}]\n\n` : "") + text.slice(0, 100000),
+  });
 
   // ---- the family's trips and what is already in them ----
   const { data: tripRows } = await admin.from("trips").select("id, doc").eq("household_id", hid).eq("deleted", false);
@@ -493,7 +525,8 @@ Deno.serve(async (req) => {
 
   let read: Reading | null = null;
   let reader = "claude";
-  try { read = await readWithClaude(subject + "\n" + text, subject, briefs); } catch (e) {
+  const files = (Array.isArray(mail.Attachments) ? mail.Attachments : []) as Attachment[];
+  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
     console.error("Claude could not read the email:", reader);

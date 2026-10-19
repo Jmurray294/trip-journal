@@ -59,6 +59,7 @@ function scan_(query) {
         HtmlBody: msg.getBody(),
         MailboxHash: code,
         ToFull: [],
+        Attachments: attachments_(msg),
       };
       let status = 0;
       try {
@@ -89,6 +90,22 @@ function pruneSeen_(props) {
   const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
   const all = props.getProperties();
   for (const k in all) if (k.indexOf('seen:') === 0 && Number(all[k]) < cutoff) props.deleteProperty(k);
+}
+
+// PDFs and photos attached to the email (invoices, e-tickets, itineraries), base64 for the function.
+function attachments_(msg) {
+  const out = [];
+  let total = 0;
+  for (const a of msg.getAttachments({ includeInlineImages: false })) {
+    const type = (a.getContentType() || '').toLowerCase();
+    const name = a.getName() || '';
+    if (!(type === 'application/pdf' || /\.pdf$/i.test(name) || /^image\/(jpeg|png|gif|webp)$/.test(type))) continue;
+    const size = a.getSize();
+    if (out.length >= 6 || total + size > 15 * 1024 * 1024) continue;
+    out.push({ Name: name, ContentType: /\.pdf$/i.test(name) ? 'application/pdf' : type, Content: Utilities.base64Encode(a.getBytes()) });
+    total += size;
+  }
+  return out;
 }
 
 // The family code after "+" in whichever of our addresses the message was sent to.
