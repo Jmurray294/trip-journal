@@ -30,7 +30,9 @@ const SONG_SCHEMA = {
   additionalProperties: false,
 };
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+// reads ANTHROPIC_API_KEY; an organization-wide key must also name the workspace (ANTHROPIC_WORKSPACE_ID)
+const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
+const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });

@@ -9,7 +9,8 @@
 // GENERATED index.ts — edit template.ts, then run `node scripts/build-inbound.mjs`
 // (that inlines src/lib/parser.js so the app and the server parse confirmations the same way).
 //
-// Secrets: INBOUND_SECRET (also in the forwarder, sent as ?key=...), ANTHROPIC_API_KEY.
+// Secrets: INBOUND_SECRET (also in the forwarder, sent as ?key=...), ANTHROPIC_API_KEY, and
+// ANTHROPIC_WORKSPACE_ID when that key is organization-wide rather than scoped to one workspace.
 // Deploy with "Verify JWT" OFF — the forwarder cannot sign in; the secret key protects it instead.
 
 import Anthropic from "npm:@anthropic-ai/sdk@0.131.0";
@@ -173,7 +174,9 @@ type TripBrief = { id: string; title: string; place: string; dates: string; item
 
 async function readWithClaude(text: string, subject: string, trips: TripBrief[]): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
-  const client = new Anthropic();
+  // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
+  const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
+  const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
   const today = new Date().toISOString().slice(0, 10);
   const response = await client.beta.messages.create({
     model: "claude-opus-5-5",
