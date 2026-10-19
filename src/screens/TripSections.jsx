@@ -23,8 +23,12 @@ function span(b, fallback) {
   return a || fallback || '';
 }
 
+const UploadButton = ({ onUpload, label = 'Upload' }) => (
+  onUpload ? <button className="btn-soft-pill press" onClick={onUpload}><Plus size={13} w={1.8} /> {label}</button> : null
+);
+
 // ---------- Bookings ----------
-export function Bookings({ trip, inbox, toast }) {
+export function Bookings({ trip, inbox, toast, onUpload }) {
   const list = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind));
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast('Copied ' + text); } catch (e) { toast(text); }
@@ -36,13 +40,16 @@ export function Bookings({ trip, inbox, toast }) {
         <div className="empty-title">No bookings yet</div>
         <div className="empty-sub">
           Forward flight, hotel, cruise, car and tour confirmations{inbox ? <> to <strong>{inbox}</strong></> : ''} and they'll appear here, grouped by type.
+          {onUpload ? ' Or upload a PDF, photo or screenshot.' : ''}
         </div>
+        {onUpload && <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><UploadButton onUpload={onUpload} label="Upload a booking" /></div>}
       </div>
     );
   }
 
   return (
     <div className="stack-16">
+      {onUpload && <div className="timeline-head" style={{ margin: 0 }}><div className="mono-label">{list.length} booked</div><UploadButton onUpload={onUpload} label="Upload a booking" /></div>}
       {groupBy(list, (d) => d.kind || 'Other').map(([kind, items]) => (
         <section key={kind}>
           <div className="mono-label" style={{ margin: '0 2px 9px' }}>{KIND_LABEL[kind] || kind} · {items.length}</div>
@@ -228,7 +235,7 @@ export function Budget({ trip, onAddCost, onDeleteCost }) {
 const when = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const from = (s) => (String(s || '').match(/^"?([^"<]+?)"?\s*</) || [, s])[1];
 
-export function Documents({ trip, household, toast }) {
+export function Documents({ trip, household, toast, onUpload }) {
   const [docs, setDocs] = useState(null);
   const [open, setOpen] = useState(null);
   const hid = household && household.id;
@@ -249,7 +256,8 @@ export function Documents({ trip, household, toast }) {
     return (
       <div className="section-empty">
         <div className="empty-title">No documents yet</div>
-        <div className="empty-sub">Emails you forward for this trip are kept here, with their PDFs.</div>
+        <div className="empty-sub">Emails you forward and files you upload for this trip are kept here, with their PDFs.</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><UploadButton onUpload={onUpload} /></div>
       </div>
     );
   }
@@ -260,6 +268,7 @@ export function Documents({ trip, household, toast }) {
 
   return (
     <div className="stack-9">
+      <div className="timeline-head" style={{ margin: '0 0 4px' }}><div className="mono-label">{docs.length} saved</div><UploadButton onUpload={onUpload} /></div>
       {docs.map((d) => (
         <div key={d.id} className="doc-card">
           <div className="doc-subject">{d.subject || '(no subject)'}</div>

@@ -287,7 +287,28 @@ export default function App() {
 
   const openAddFor = (id, mode = 'memory') => {
     const fallback = (trips.find((t) => !t.planning) || trips[0] || {}).id;
-    setAdd({ mode, tripId: id || fallback });
+    setAdd({ mode, tripId: id || fallback, fromTrip: !!id });
+  };
+
+  // a PDF, photo, screenshot or pasted text, read on the family server like a forwarded email
+  const readUpload = async ({ tripId, text, files, name }) => {
+    const { data, error } = await supabase.functions.invoke('inbound-email', {
+      body: { Subject: name || 'Added in the app', TextBody: text, Attachments: files, TripId: tripId || '' },
+    });
+    if (error || !data) {
+      let msg = 'Could not read that — try again';
+      try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* no body */ }
+      showToast(msg);
+      return false;
+    }
+    family.syncNow();
+    inbox.refresh();
+    if (data.toSort) { showToast("Not sure which trip — it's waiting under To sort"); go({ tab: 'trips', tripId: null }); return true; }
+    if (!data.added) { showToast('No bookings or costs found in that'); return false; }
+    showToast(`${data.added} ${data.added === 1 ? 'item' : 'items'} added to ${data.trip || 'the trip'}`);
+    // a new trip appears once the sync brings it down
+    if (data.tripId) go({ tab: 'trips', tripId: data.tripId });
+    return true;
   };
 
   const saveMemory = ({ tripId, title, place, note, photos }) => {
@@ -474,6 +495,7 @@ export default function App() {
               trip={trip} song={song} songBusy={songBusy === trip.id} audioBusy={audioBusy}
               household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
               onAddCost={(c) => addCost(trip.id, c)}
+              onUpload={() => openAddFor(trip.id, 'import')}
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
               onStory={() => openStory(trip.id)}
@@ -550,6 +572,7 @@ export default function App() {
             onSaveMemory={(m) => { if (saveMemory(m)) setAdd(null); }}
             onSaveTrip={(t) => { if (saveTrip(t)) setAdd(null); }}
             onImport={(id, parsed) => { if (importParsed(id, parsed)) setAdd(null); }}
+            onReadUpload={readUpload} canRead={!!(supabase && family.household)}
             toast={showToast}
           />
         )}

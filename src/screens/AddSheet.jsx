@@ -12,7 +12,30 @@ const KIND_STYLE = {
 
 const Label = ({ children, top = 16 }) => <div className="field-label" style={{ marginTop: top }}>{children}</div>;
 
-export default function AddSheet({ initial, trips, onClose, registerStopDictation, resizePhoto, onSaveMemory, onSaveTrip, onImport, toast }) {
+const MAX_FILES = 6;
+const readAsDataUrl = (file) => new Promise((res, rej) => {
+  const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
+});
+// Photos and screenshots are scaled to 2200px (sharp enough to read, small enough to send); PDFs go as they are.
+async function toUpload(file) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    if (file.size > 15 * 1024 * 1024) throw new Error(file.name + ' is over 15MB');
+    const d = await readAsDataUrl(file);
+    return { Name: file.name, ContentType: 'application/pdf', Content: String(d).split(',')[1] };
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const sc = Math.min(1, 2200 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const d = c.toDataURL('image/jpeg', 0.88);
+    return { Name: file.name.replace(/\.[^.]+$/, '') + '.jpg', ContentType: 'image/jpeg', Content: d.split(',')[1] };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+export default function AddSheet({ initial, trips, onClose, registerStopDictation, resizePhoto, onSaveMemory, onSaveTrip, onImport, onReadUpload, canRead, toast }) {
   const [mode, setMode] = useState(initial.mode);
   const [tripId, setTripId] = useState(initial.tripId);
   const [title, setTitle] = useState('');
@@ -22,6 +45,10 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   const [newTrip, setNewTrip] = useState({ title: '', place: '', dates: '', grad: GRADIENTS[0] });
   const [paste, setPaste] = useState('');
   const [parsed, setParsed] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [reading, setReading] = useState(false);
+  // where an upload goes: the trip it was opened from, else let the reader choose ('')
+  const [uploadTrip, setUploadTrip] = useState(initial.fromTrip ? initial.tripId : '');
   const [listening, setListening] = useState(false);
   const rec = useRef(null);
   const baseNote = useRef('');
@@ -78,6 +105,24 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  const pickFiles = (e) => {
+    const picked = [...(e.target.files || [])]; e.target.value = '';
+    setFiles((f) => [...f, ...picked].slice(0, MAX_FILES));
+  };
+
+  const readUpload = async () => {
+    if (!files.length && !paste.trim()) { toast('Add a file or paste some text first'); return; }
+    setReading(true);
+    try {
+      const attachments = [];
+      for (const f of files) attachments.push(await toUpload(f));
+      const done = await onReadUpload({ tripId: uploadTrip, text: paste.trim(), files: attachments, name: files[0] ? files[0].name : '' });
+      if (done) close();
+    } catch (e) {
+      toast((e && e.message) || 'Could not read that');
+    } finally { setReading(false); }
+  };
 
   const runParse = () => {
     const found = parseConfirmation(paste);
@@ -153,10 +198,45 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
           </>
         )}
 
-        {mode === 'import' && (
+        {mode === 'import' && canRead && (
+          <>
+            <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Add a booking or receipt</div>
+            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>Upload a PDF, a photo or a screenshot — or paste the text. We'll read it and add the bookings and costs, just like a forwarded email.</div>
+
+            <Label top={18}>Files</Label>
+            <div className="upload-list">
+              {files.map((f, i) => (
+                <div key={i} className="upload-file">
+                  <span className="doc-ext">{/\.pdf$/i.test(f.name) || f.type === 'application/pdf' ? 'PDF' : 'IMG'}</span>
+                  <span className="doc-name grow">{f.name}</span>
+                  <button className="thumb-x static" onClick={() => setFiles((x) => x.filter((_, j) => j !== i))} aria-label={'Remove ' + f.name}><span>×</span></button>
+                </div>
+              ))}
+              {files.length < MAX_FILES && (
+                <label className="upload-add press">
+                  <input type="file" accept="application/pdf,image/*" multiple onChange={pickFiles} hidden />
+                  <AddPhoto /> {files.length ? 'Add another' : 'Choose a PDF, photo or screenshot'}
+                </label>
+              )}
+            </div>
+
+            <Label top={18}>Or paste the text</Label>
+            <textarea className="field" style={{ minHeight: 96, fontSize: 14, lineHeight: 1.45 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a confirmation, invoice or receipt…" />
+
+            <Label top={18}>Add to</Label>
+            <Chips items={[{ id: '', label: 'Choose for me' }, ...chips]} active={uploadTrip} onSelect={setUploadTrip} />
+
+            <button className="btn-primary press" style={{ marginTop: 22 }} disabled={reading} onClick={readUpload}>
+              {reading ? <><span className="spin-sm" style={{ width: 16, height: 16 }} /> Reading…</> : 'Read and add'}
+            </button>
+            {reading && <div className="sheet-copy" style={{ textAlign: 'center' }}>This can take up to half a minute.</div>}
+          </>
+        )}
+
+        {mode === 'import' && !canRead && (
           <>
             <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Import a confirmation</div>
-            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>Open the confirmation email, select all and copy, then paste it below. Flights and hotel stays become itinerary entries.</div>
+            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>Open the confirmation email, select all and copy, then paste it below. Flights and hotel stays become itinerary entries. Sign in under Family sharing to also read PDFs, photos and receipts.</div>
             <Label top={18}>Which trip</Label>
             <Chips items={chips} active={tripId} onSelect={setTripId} />
             <Label top={18}>Paste email text</Label>

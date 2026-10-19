@@ -12,6 +12,8 @@
 // Secrets: INBOUND_SECRET (also in the forwarder, sent as ?key=...), ANTHROPIC_API_KEY, and
 // ANTHROPIC_WORKSPACE_ID when that key is organization-wide rather than scoped to one workspace.
 // Deploy with "Verify JWT" OFF — the forwarder cannot sign in; the secret key protects it instead.
+// The app also posts uploads here (PDFs, photos, pasted text) with the member's sign-in token, which
+// this function checks itself; those go to the member's family, and to TripId when one is given.
 
 import Anthropic from "npm:@anthropic-ai/sdk@0.131.0";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -188,8 +190,13 @@ type Cost = {
 type Placement = { decision: "existing" | "new" | "unsure"; tripId: string; title: string; place: string; reason: string };
 type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null };
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 const ok = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const label = (d: Date) => MONTHS[d.getMonth()] + " " + d.getDate();
@@ -503,11 +510,14 @@ async function costRows(hid: string, costs: Cost[]) {
   return out;
 }
 
-// ---- webhook ----
+// ---- webhook (the Gmail forwarder, with ?key=) and uploads from the app (a signed-in family member) ----
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const url = new URL(req.url);
   const secret = Deno.env.get("INBOUND_SECRET");
-  if (!secret || url.searchParams.get("key") !== secret) return ok({ error: "forbidden" }, 403);
+  const fromForwarder = !!secret && url.searchParams.get("key") === secret;
+  const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!fromForwarder && !jwt) return ok({ error: "forbidden" }, 403);
   if (req.method !== "POST") return ok({ error: "POST only" }, 405);
 
   let mail: Record<string, any>;
@@ -515,19 +525,32 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 
-  // which family: the +token on the address it was sent to
-  const hashes = [mail.MailboxHash, ...((mail.ToFull || []) as { MailboxHash?: string }[]).map((t) => t.MailboxHash), ...((mail.CcFull || []) as { MailboxHash?: string }[]).map((t) => t.MailboxHash)]
-    .filter(Boolean).map((h: string) => h.toLowerCase());
   let household: { id: string } | null = null;
-  for (const h of hashes) {
-    const { data } = await admin.from("households").select("id").eq("inbox_token", h).maybeSingle();
-    if (data) { household = data; break; }
+  let uploader = "";
+  if (fromForwarder) {
+    // which family: the +token on the address it was sent to
+    const hashes = [mail.MailboxHash, ...((mail.ToFull || []) as { MailboxHash?: string }[]).map((t) => t.MailboxHash), ...((mail.CcFull || []) as { MailboxHash?: string }[]).map((t) => t.MailboxHash)]
+      .filter(Boolean).map((h: string) => h.toLowerCase());
+    for (const h of hashes) {
+      const { data } = await admin.from("households").select("id").eq("inbox_token", h).maybeSingle();
+      if (data) { household = data; break; }
+    }
+    // Answer 200 for unknown addresses so the forwarder does not keep retrying junk mail.
+    if (!household) return ok({ ignored: "unknown address" });
+  } else {
+    // an upload from the app: the signed-in member's own family
+    const { data: who } = await admin.auth.getUser(jwt);
+    if (!who?.user) return ok({ error: "Sign in to add bookings" }, 401);
+    const { data: m } = await admin.from("household_members").select("household_id").eq("user_id", who.user.id).limit(1).maybeSingle();
+    if (!m) return ok({ error: "Join or start a family journal first" }, 403);
+    household = { id: (m as { household_id: string }).household_id };
+    uploader = "Uploaded by " + (who.user.email || "a family member");
   }
-  // Answer 200 for unknown addresses so the forwarder does not keep retrying junk mail.
-  if (!household) return ok({ ignored: "unknown address" });
   const hid = household.id;
+  // uploads made from inside a trip go to that trip
+  const chosenTrip = fromForwarder ? "" : String(mail.TripId || "");
 
-  const sender = String(mail.From || "").slice(0, 200);
+  const sender = (uploader || String(mail.From || "")).slice(0, 200);
   const subject = String(mail.Subject || "").slice(0, 300);
   const text = String(mail.TextBody || "").trim() || htmlToText(String(mail.HtmlBody || ""));
   const files = (Array.isArray(mail.Attachments) ? mail.Attachments : []) as Attachment[];
@@ -564,10 +587,11 @@ Deno.serve(async (req) => {
   if (!read.bookings.length && !read.costs.length) { await log({ items: 0, status: "nothing found", reader }); return ok({ added: 0 }); }
 
   // ---- which trip ----
+  // 0. uploaded from inside a trip: that trip
   // 1. a confirmation number already filed in a trip settles it
   const confs = new Set([...read.bookings.map((b) => confKey(b.confirmation)), ...read.costs.map((c) => confKey(c.confirmation))].filter((c) => c.length >= 4));
   const confHit = items.find((e) => confs.has(confKey(e.bconf || "")) || confs.has(confKey(e.cconf || "")));
-  let target = confHit ? trips.find((t) => t.id === confHit.trip_id) : undefined;
+  let target = trips.find((t) => t.id === chosenTrip) || (confHit ? trips.find((t) => t.id === confHit.trip_id) : undefined);
   let makeNew = false;
 
   const dated = read.bookings.map((b) => b.date);
@@ -664,5 +688,5 @@ Deno.serve(async (req) => {
   if (eErr) { await log({ items: 0, status: "error: " + eErr.message, reader }); return ok({ error: eErr.message }, 500); }
 
   await log({ items: count, status: "added", reader, trip_title: tripDoc.title, trip_id: tripId });
-  return ok({ added: count, trip: tripDoc.title });
+  return ok({ added: count, trip: tripDoc.title, tripId });
 });
