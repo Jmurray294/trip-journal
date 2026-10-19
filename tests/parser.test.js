@@ -51,6 +51,9 @@ test('migration keeps user trips and refreshes demo trips', () => {
   assert.ok(data.trips[0].days.length > 0);
   assert.equal(migrate({ v: 6, trips: seed() }, 6).changed, false);
   assert.equal(migrate(null, 6).data.trips.length, 4);
+  // deleting every trip must not bring the samples back
+  assert.deepEqual(migrate({ v: 6, trips: [] }, 6).data.trips, []);
+  assert.deepEqual(migrate({ v: 5, trips: [] }, 6).data.trips, []);
 });
 
 test('map stops merge repeated places and start from home', () => {

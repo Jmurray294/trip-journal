@@ -62,8 +62,9 @@ export function normalize(trips) {
 }
 
 // Load-time migration: reseed demo trips when the schema advances, keep user trips (ids starting `u`).
+// Sample trips are only added to a brand-new journal; one the user has emptied stays empty.
 export function migrate(data, version) {
-  if (!data || !Array.isArray(data.trips) || !data.trips.length) {
+  if (!data || !Array.isArray(data.trips)) {
     return { changed: true, data: { v: version, trips: seed(), home: '', homeLon: null, homeLat: null } };
   }
   const stale = (data.v || 0) < version || data.trips.some((t) => DEMO_IDS.includes(t.id) &&
