@@ -12,7 +12,7 @@ const C = {
 };
 
 let landPromise = null;
-function loadLand() {
+export function loadLand() {
   if (!landPromise) {
     landPromise = import('world-atlas/countries-110m.json')
       .then((m) => { const topo = m.default || m; return feature(topo, topo.objects.countries); })

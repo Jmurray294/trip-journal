@@ -40,6 +40,17 @@ async function load(path) {
   } finally { loading.delete(path); }
 }
 
+// Wait for a synced file (photo book export needs every photo, not just the ones on screen).
+export async function ensureMedia(path) {
+  if (!path) return null;
+  for (let i = 0; i < 80 && !urls.has(path); i++) {
+    failedAt.delete(path);
+    await load(path);
+    if (!urls.has(path)) await new Promise((r) => setTimeout(r, 250));
+  }
+  return urls.get(path) || null;
+}
+
 export async function cacheBlob(path, blob) {
   await kvPut('media:' + path, blob);
   if (!urls.has(path)) urls.set(path, URL.createObjectURL(blob));

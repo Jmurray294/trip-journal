@@ -159,6 +159,7 @@ export default function TripDetail(p) {
       </div>
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
+      <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>
 
       {(trip.costs || []).length > 0 && <CostsCard costs={trip.costs} onOpen={() => setTab('budget')} />}
 

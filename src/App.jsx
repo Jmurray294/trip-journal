@@ -17,6 +17,7 @@ import TripDetail from './screens/TripDetail.jsx';
 import MapView from './screens/MapView.jsx';
 import Albums from './screens/Albums.jsx';
 import Story, { StoryPrint } from './screens/Story.jsx';
+import PhotoBook from './screens/PhotoBook.jsx';
 import AddSheet from './screens/AddSheet.jsx';
 import TabBar from './components/TabBar.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -27,12 +28,13 @@ function resizePhoto(file) {
   return new Promise((res) => {
     const img = new Image(); const url = URL.createObjectURL(file);
     img.onload = () => {
-      const sc = Math.min(1, 1400 / Math.max(img.width, img.height));
+      // big enough for a full page of a printed photo book (11in at ~240dpi)
+      const sc = Math.min(1, 2600 / Math.max(img.width, img.height));
       const cw = Math.round(img.width * sc), ch = Math.round(img.height * sc);
       const c = document.createElement('canvas'); c.width = cw; c.height = ch;
       c.getContext('2d').drawImage(img, 0, 0, cw, ch);
       URL.revokeObjectURL(url);
-      try { res(c.toDataURL('image/jpeg', 0.82)); } catch (e) { res(null); }
+      try { res(c.toDataURL('image/jpeg', 0.85)); } catch (e) { res(null); }
     };
     img.onerror = () => { URL.revokeObjectURL(url); res(null); };
     img.src = url;
@@ -56,7 +58,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [trips, setTrips] = useState([]);
   const [home, setHome] = useState({ home: '', homeLon: null, homeLat: null });
-  const [nav, setNav] = useState({ tab: 'trips', tripId: null, storyId: null });
+  const [nav, setNav] = useState({ tab: 'trips', tripId: null, storyId: null, bookId: null });
   const [mapSel, setMapSel] = useState({ tripId: 'tofino', stop: 0 });
   const [albumFilter, setAlbumFilter] = useState('all');
   const [add, setAdd] = useState(null); // { mode, tripId }
@@ -258,7 +260,7 @@ export default function App() {
   const go = (patch) => {
     stopSong(); stopAuto(); stopDictationRef.current();
     setSong((s) => ({ ...s, playing: false, progress: 0, lyricsOpen: false }));
-    setNav((n) => ({ ...n, storyId: null, ...patch }));
+    setNav((n) => ({ ...n, storyId: null, bookId: null, ...patch }));
     resetScroll();
   };
   const openStory = (id) => {
@@ -269,7 +271,7 @@ export default function App() {
 
   // Android back button / browser back: step back through the app instead of leaving it.
   useEffect(() => {
-    const depth = nav.storyId ? 2 : nav.tripId && nav.tab === 'trips' ? 1 : 0;
+    const depth = nav.storyId || nav.bookId ? 2 : nav.tripId && nav.tab === 'trips' ? 1 : 0;
     const cur = (history.state && history.state.tj) || 0;
     if (depth > cur) history.pushState({ tj: depth }, '');
     else if (depth < cur) history.replaceState({ tj: depth }, '');
@@ -277,7 +279,7 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       const n = navRef.current;
-      if (n.storyId) go({ storyId: null });
+      if (n.storyId || n.bookId) go({ storyId: null, bookId: null });
       else if (n.tripId) go({ tripId: null });
     };
     window.addEventListener('popstate', onPop);
@@ -481,7 +483,8 @@ export default function App() {
 
   const trip = trips.find((t) => t.id === nav.tripId);
   const storyTrip = trips.find((t) => t.id === nav.storyId);
-  const screen = storyTrip ? 'story' : nav.tab === 'trips' ? (trip ? 'detail' : 'list') : nav.tab;
+  const bookTrip = trips.find((t) => t.id === nav.bookId);
+  const screen = storyTrip ? 'story' : bookTrip ? 'book' : nav.tab === 'trips' ? (trip ? 'detail' : 'list') : nav.tab;
 
   return (
     <>
@@ -502,6 +505,7 @@ export default function App() {
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
               onStory={() => openStory(trip.id)}
+              onBook={() => go({ bookId: trip.id })}
               onAdd={() => openAddFor(trip.id)}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
@@ -513,6 +517,11 @@ export default function App() {
               onPickAudio={(f) => attachAudio(trip.id, f)}
               onRemoveAudio={() => removeAudio(trip.id)}
             />
+          )}
+          {screen === 'book' && (
+            <PhotoBook trip={bookTrip} family={family} toast={showToast}
+              onClose={() => go({ bookId: null })}
+              onSave={(book) => updateTrip(bookTrip.id, (t) => ({ ...t, book }))} />
           )}
           {screen === 'story' && <Story trip={storyTrip} onClose={closeStory} onPrint={() => setTimeout(() => window.print(), 60)} />}
           {screen === 'map' && (
