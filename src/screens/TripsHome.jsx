@@ -2,8 +2,10 @@ import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
 
 export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort }) {
-  const featured = trips.find((t) => t.planning);
-  const others = trips.filter((t) => t !== featured);
+  // possible trips (ideas from friends and family, not booked) get their own section
+  const possible = trips.filter((t) => t.possible);
+  const featured = trips.find((t) => t.planning && !t.possible);
+  const others = trips.filter((t) => t !== featured && !t.possible);
 
   return (
     <div className="screen pad-tab">
@@ -41,6 +43,24 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
               <div className="featured-title">{featured.title}</div>
               <div className="meta-row"><span>{featured.place}</span><span className="dot-sep">·</span><span>{featured.dates}</span></div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {possible.length > 0 && (
+        <section className="sec" style={{ paddingTop: 24 }}>
+          <div className="sec-label"><span className="tick" style={{ background: '#A9538C' }} />Possible trips</div>
+          <div className="stack-9 possible-list">
+            {possible.map((t) => (
+              <div key={t.id} className="possible-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
+                <div className="possible-swatch" style={coverBg(t)} />
+                <div className="grow">
+                  <div className="possible-title">{t.title}</div>
+                  <div className="possible-sub">{[t.place, t.dates].filter(Boolean).join(' · ')}</div>
+                  {t.companions && <div className="possible-who">with {t.companions}</div>}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

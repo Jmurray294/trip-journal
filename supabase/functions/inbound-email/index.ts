@@ -188,7 +188,8 @@ type Cost = {
   status: string; date: Date | null; confirmation: string; note: string;
 };
 type Placement = { decision: "existing" | "new" | "unsure"; tripId: string; title: string; place: string; reason: string };
-type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null };
+type Idea = { title: string; place: string; dates: string; start: Date | null; end: Date | null; people: string; summary: string; tripId: string };
+type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[] };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -324,12 +325,31 @@ const READING_SCHEMA = {
       required: ["decision", "trip_id", "new_title", "new_place", "reason"],
       additionalProperties: false,
     },
+    ideas: {
+      type: "array",
+      description: "Trips being proposed or discussed but not booked yet",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short trip name, e.g. 'Tuscany with the Smiths'" },
+          place: { type: "string", description: "Destination, or empty" },
+          dates: { type: "string", description: "Dates as known, e.g. 'June 2027', 'Mar 3–10, 2027', or empty" },
+          start_date: { type: "string", description: "YYYY-MM-DD if a start date is known, else empty" },
+          end_date: { type: "string", description: "YYYY-MM-DD if an end date is known, else empty" },
+          people: { type: "string", description: "Who is proposing or going (names or families), comma separated" },
+          summary: { type: "string", description: "One or two lines: what is proposed, rough cost, what they need from us and by when" },
+          trip_id: { type: "string", description: "id of the family's trip this idea is about, if one already exists, else empty" },
+        },
+        required: ["title", "place", "dates", "start_date", "end_date", "people", "summary", "trip_id"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["summary", "destination", "bookings", "costs", "trip"],
+  required: ["summary", "destination", "bookings", "costs", "trip", "ideas"],
   additionalProperties: false,
 };
 
-type TripBrief = { id: string; title: string; place: string; dates: string; items: string[] };
+type TripBrief = { id: string; title: string; place: string; dates: string; possible?: boolean; items: string[] };
 type Attachment = { Name?: string; ContentType?: string; Content?: string }; // Content is base64
 
 // PDFs (invoices, e-tickets, cruise confirmations) and photos of bookings, as content blocks Claude reads
@@ -415,8 +435,12 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "itinerary, overlapping dates, or a confirmation number already in it). Choose 'new' when it is a reservation for travel " +
         "that matches none of them, and name the trip. Choose 'unsure' when it could fit more than one trip, or when it is a " +
         "payment or notice you cannot tie to a trip.\n\n" +
-        "Skip marketing and anything not booked or paid. Infer missing years from today's date. If the email has no bookings " +
-        "and no costs, return empty lists.\n\n" +
+        "IDEAS: list trips that are being proposed, planned or discussed but not booked — invitations, 'want to come with us…', " +
+        "group trip plans, save-the-dates, a friend's itinerary we might join. One per distinct trip. If an idea is about one of the " +
+        "family's trips above (including ones marked possible), give its trip_id so we don't make it twice. Ideas are not bookings: " +
+        "list nothing under BOOKINGS for a trip that is only being proposed.\n\n" +
+        "Skip marketing and travel deals. Infer missing years from today's date. If the email has no bookings, no costs and no " +
+        "trip ideas, return empty lists.\n\n" +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
       }],
     }],
@@ -446,9 +470,13 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
       currency: str(c.currency || "USD", 3).toUpperCase(), status: c.status, date: iso(c.date), confirmation: str(c.confirmation, 40), note: str(c.note, 200),
     });
   }
+  const ideas: Idea[] = (p.ideas || []).filter((i: Record<string, string>) => i.title || i.place).map((i: Record<string, string>) => ({
+    title: str(i.title || i.place, 60), place: str(i.place, 60), dates: str(i.dates, 60), start: iso(i.start_date), end: iso(i.end_date),
+    people: str(i.people, 200), summary: str(i.summary, 400), tripId: str(i.trip_id, 40),
+  }));
   const t = p.trip || {};
   return {
-    summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs,
+    summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs, ideas,
     placement: { decision: t.decision, tripId: str(t.trip_id, 40), title: str(t.new_title, 60), place: str(t.new_place, 60), reason: str(t.reason, 200) },
   };
 }
@@ -460,7 +488,7 @@ function readWithScanner(text: string): Reading {
     provider: "", confirmation: "", place: f.place || "", address: "", travelers: "", note: f.note,
   }));
   const stay = bookings.find((b) => b.kind === "Stay");
-  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null };
+  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null, ideas: [] };
 }
 
 // ---- rows for the entries table ----
@@ -572,7 +600,7 @@ Deno.serve(async (req) => {
     .eq("household_id", hid).eq("deleted", false);
   const items = (itemRows || []) as { id: string; trip_id: string; title: string | null; bconf: string | null; cconf: string | null }[];
   const briefs: TripBrief[] = trips.map((t) => ({
-    id: t.id, title: t.doc.title || "", place: t.doc.place || "", dates: t.doc.dates || "",
+    id: t.id, title: t.doc.title || "", place: t.doc.place || "", dates: t.doc.dates || "", ...(t.doc.possible ? { possible: true } : {}),
     items: items.filter((e) => e.trip_id === t.id).slice(0, 15).map((e) => [e.title, e.bconf || e.cconf].filter(Boolean).join(" · ")),
   }));
 
@@ -584,7 +612,44 @@ Deno.serve(async (req) => {
     console.error("Claude could not read the email:", reader);
   }
   if (!read) { if (reader === "claude") reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
-  if (!read.bookings.length && !read.costs.length) { await log({ items: 0, status: "nothing found", reader }); return ok({ added: 0 }); }
+  // ---- trip ideas: each becomes a possible trip (or a note on the trip it is about) ----
+  const ideaTitles: string[] = [];
+  let ideaTripId = "";
+  for (const idea of read.ideas) {
+    const known = trips.find((x) => x.id === idea.tripId);
+    let tid = known ? known.id : "";
+    if (!known) {
+      tid = "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const start = idea.start, end = idea.end || idea.start;
+      const doc: Record<string, unknown> = {
+        title: idea.title, place: idea.place, dates: start ? rangeLabel(start, end!) : (idea.dates || "Dates to be decided"),
+        grad: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], planning: true, possible: true, statusLabel: "Possible",
+        countdown: start && day(start) >= day(new Date()) ? countdown(start) : undefined,
+        timelineLabel: "Itinerary", members: [], song: null, source: "email", companions: idea.people,
+      };
+      const { error } = await admin.from("trips").upsert({ household_id: hid, id: tid, doc: JSON.parse(JSON.stringify(doc)), deleted: false }, { onConflict: "household_id,id" });
+      if (error) { console.error("could not add possible trip", error.message); continue; }
+      trips.push({ id: tid, doc, range: tripRange(String(doc.dates)) });
+    }
+    // the proposal itself heads that trip's itinerary: who suggested it and what they said
+    const nid = "idea-" + await sha([hid, tid, subject.toLowerCase(), idea.title.toLowerCase()].join("|"));
+    const note = [idea.summary, !idea.start && idea.dates ? "Dates: " + idea.dates : ""].filter(Boolean).join("\n");
+    await admin.from("entries").upsert({
+      household_id: hid, id: nid, trip_id: tid, deleted: false,
+      doc: { id: nid, date: label(new Date()), title: idea.people ? `Idea from ${idea.people}` : "Trip idea", place: idea.place, note, photos: [], pos: (idea.start || new Date()).getTime() - 60000, source: "email-idea" },
+    }, { onConflict: "household_id,id" });
+    ideaTitles.push(known ? String(known.doc.title || "") : idea.title);
+    if (!ideaTripId) ideaTripId = tid;
+  }
+
+  if (!read.bookings.length && !read.costs.length) {
+    if (ideaTitles.length) {
+      await log({ items: ideaTitles.length, status: "added", reader, trip_title: ideaTitles.join(", "), trip_id: ideaTripId });
+      return ok({ added: ideaTitles.length, trip: ideaTitles.join(", "), tripId: ideaTripId, ideas: ideaTitles.length });
+    }
+    await log({ items: 0, status: "nothing found", reader });
+    return ok({ added: 0 });
+  }
 
   // ---- which trip ----
   // 0. uploaded from inside a trip: that trip
@@ -641,11 +706,14 @@ Deno.serve(async (req) => {
   if (target) {
     tripId = target.id; tripDoc = { ...target.doc };
     // trips this inbox started grow to cover new bookings; trips people named keep their dates text
-    if (tripDoc.source === "email" && target.range && first) {
-      const a = new Date(Math.min(target.range[0].getTime(), first.getTime())), b = new Date(Math.max(target.range[1].getTime(), last!.getTime()));
+    if (tripDoc.source === "email" && first) {
+      const a = target.range ? new Date(Math.min(target.range[0].getTime(), first.getTime())) : first;
+      const b = target.range ? new Date(Math.max(target.range[1].getTime(), last!.getTime())) : last!;
       tripDoc.dates = rangeLabel(a, b);
       if (tripDoc.planning) tripDoc.countdown = countdown(a);
     }
+    // a booking for a possible trip means it's happening
+    if (tripDoc.possible && bRows.length) { tripDoc.possible = false; tripDoc.statusLabel = "Planning"; }
   } else {
     tripId = "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     tripDoc = {
@@ -655,7 +723,7 @@ Deno.serve(async (req) => {
     };
   }
   delete tripDoc.id;
-  if (!target || tripDoc.dates !== target.doc.dates) {
+  if (!target || tripDoc.dates !== target.doc.dates || tripDoc.possible !== target.doc.possible) {
     const { error: tErr } = await admin.from("trips").upsert({ household_id: hid, id: tripId, doc: JSON.parse(JSON.stringify(tripDoc)), deleted: false }, { onConflict: "household_id,id" });
     if (tErr) { await log({ items: 0, status: "error: " + tErr.message, reader }); return ok({ error: tErr.message }, 500); }
   }

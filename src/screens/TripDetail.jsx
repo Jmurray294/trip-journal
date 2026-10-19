@@ -134,6 +134,19 @@ export default function TripDetail(p) {
         </div>
       </div>
 
+      {trip.possible && (
+        <div className="possible-banner">
+          <div className="grow">
+            <div className="possible-banner-title">Possible trip{trip.companions ? ' with ' + trip.companions : ''}</div>
+            <div className="possible-banner-sub">Not booked yet. Bookings you forward for it will turn it into a plan.</div>
+          </div>
+          <div className="row-8">
+            <button className="btn-muted press" onClick={p.onDeleteTrip}>Not going</button>
+            <button className="btn-primary small press" onClick={p.onConfirmTrip}>We're going</button>
+          </div>
+        </div>
+      )}
+
       <div className="detail-body">
       <div className="detail-side">
       <div className="stats-card">

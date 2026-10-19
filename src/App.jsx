@@ -496,6 +496,7 @@ export default function App() {
               household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
               onAddCost={(c) => addCost(trip.id, c)}
               onUpload={() => openAddFor(trip.id, 'import')}
+              onConfirmTrip={() => { updateTrip(trip.id, (t) => ({ ...t, possible: false, planning: true, statusLabel: 'Planning' })); showToast("It's on — moved to your trips"); }}
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
               onStory={() => openStory(trip.id)}
