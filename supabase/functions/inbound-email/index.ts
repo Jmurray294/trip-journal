@@ -358,7 +358,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[])
     }],
     output_config: { effort: "low", format: { type: "json_schema", schema: READING_SCHEMA } },
   } as any);
-  if (response.stop_reason !== "end_turn") return null;
+  if (response.stop_reason !== "end_turn") throw new Error("stopped: " + response.stop_reason);
   const raw = response.content.filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("");
   const p = JSON.parse(raw);
   const iso = (s: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "").trim()); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
@@ -490,8 +490,12 @@ Deno.serve(async (req) => {
 
   let read: Reading | null = null;
   let reader = "claude";
-  try { read = await readWithClaude(subject + "\n" + text, subject, briefs); } catch { read = null; }
-  if (!read) { reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
+  try { read = await readWithClaude(subject + "\n" + text, subject, briefs); } catch (e) {
+    read = null;
+    reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
+    console.error("Claude could not read the email:", reader);
+  }
+  if (!read) { if (reader === "claude") reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
   if (!read.bookings.length && !read.costs.length) { await log({ items: 0, status: "nothing found", reader }); return ok({ added: 0 }); }
 
   // ---- which trip ----
@@ -511,12 +515,11 @@ Deno.serve(async (req) => {
     if (p.decision === "existing") target = trips.find((t) => t.id === p.tripId);
     else if (p.decision === "new" && first) makeNew = true;
   } else if (!target && first) {
-    // 3. no Claude: the trip whose dates cover the bookings, else a new one
+    // 3. no Claude: the trip whose dates cover the bookings; otherwise it waits in To sort
     const tol = TOLERANCE_DAYS * 86400000;
     const fits = (t: { range: [Date, Date] | null }, d: Date) => !!t.range && d.getTime() >= t.range[0].getTime() - tol && d.getTime() <= t.range[1].getTime() + tol;
     target = trips.filter((t) => fits(t, first) || fits(t, last!))
       .sort((a, b) => (a.range![1].getTime() - a.range![0].getTime()) - (b.range![1].getTime() - b.range![0].getTime()))[0];
-    if (!target) makeNew = true;
   }
 
   const dest = read.placement?.place || read.destination || read.bookings.find((b) => b.kind === "Stay")?.place || read.bookings[0]?.place || "";
