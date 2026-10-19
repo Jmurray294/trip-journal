@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 // A trip's documents: the forwarded emails filed into it (directly, or from To sort) with their
-// saved PDFs and photos. The same email forwarded more than once is listed once.
+// saved PDFs and photos. The same email forwarded (or re-imported) more than once is listed once.
 
 const COLS = 'id, subject, sender, created_at, body, attachments, message_id';
 
@@ -23,7 +23,8 @@ export async function tripDocuments(householdId, tripId) {
   rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const seen = new Map();
   for (const r of rows) {
-    const key = r.message_id || [r.subject, r.sender, (r.body || '').slice(0, 300)].join('|');
+    // by content rather than Gmail id: the same email forwarded twice is two Gmail messages
+    const key = [r.subject, r.sender, (r.body || '').replace(/^\[Attachments:[^\]]*\]\s*/, '').slice(0, 300)].join('|');
     const had = seen.get(key);
     // newest copy wins, unless an older one is the copy with the saved attachments
     if (!had || (!(had.attachments || []).length && (r.attachments || []).length)) seen.set(key, r);
