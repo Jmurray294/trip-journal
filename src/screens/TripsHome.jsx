@@ -1,7 +1,7 @@
 import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
 
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily }) {
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort }) {
   const featured = trips.find((t) => t.planning);
   const others = trips.filter((t) => t !== featured);
 
@@ -17,6 +17,18 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily }
         <div className="eyebrow">My journal</div>
         <h1 className="title-xl">Journals</h1>
       </header>
+
+      {toSort > 0 && (
+        <section className="sec" style={{ paddingTop: 4, paddingBottom: 8 }}>
+          <button className="sort-banner press-soft" onClick={onSort}>
+            <span className="sort-count">{toSort}</span>
+            <span className="grow">
+              <span className="sort-banner-title">{toSort === 1 ? 'An email to sort' : `${toSort} emails to sort`}</span>
+              <span className="sort-banner-sub">Pick the trip they belong to</span>
+            </span>
+          </button>
+        </section>
+      )}
 
       {featured && (
         <section className="sec" style={{ paddingTop: 8 }}>

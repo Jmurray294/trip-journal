@@ -1,6 +1,37 @@
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
-import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc } from '../lib/derive.js';
+import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
+
+// Payments, deposits and balances due that came in by email, with paid / still-due totals.
+function CostsCard({ costs, onDelete }) {
+  const { totals, nextDue } = costTotals(costs);
+  return (
+    <div className="costs-card">
+      <div className="mono-label">Costs</div>
+      <div className="costs-totals">
+        {totals.map((t) => (
+          <div key={t.currency} className="row-22">
+            <div><div className="stat-num" style={{ color: '#6E8B3D' }}>{money(t.paid, t.currency)}</div><div className="stat-label">paid</div></div>
+            {t.due > 0 && <div><div className="stat-num" style={{ color: '#BE5F28' }}>{money(t.due, t.currency)}</div><div className="stat-label">still due</div></div>}
+          </div>
+        ))}
+      </div>
+      {nextDue && <div className="costs-next">Next payment {money(nextDue.amount, nextDue.currency)} due {dayLabel(nextDue.date)}</div>}
+      <div className="costs-list">
+        {costs.map((c) => (
+          <div key={c.id} className="cost-row">
+            <div className="grow">
+              <div className="cost-title">{c.title}</div>
+              <div className="cost-sub">{[c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
+            </div>
+            <div className={'cost-amt ' + c.status}>{c.status === 'refund' ? '−' : ''}{money(c.amount, c.currency)}</div>
+            <button className="del-btn press" onClick={() => onDelete(c.id)} aria-label="Remove cost"><span><Trash /></span></button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -119,6 +150,8 @@ export default function TripDetail(p) {
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
 
+      {(trip.costs || []).length > 0 && <CostsCard costs={trip.costs} onDelete={p.onDeleteCost} />}
+
       <div className="detail-song">
         <SongCard
           trip={trip} song={p.song} busy={p.songBusy} audioBusy={p.audioBusy}
@@ -143,7 +176,7 @@ export default function TripDetail(p) {
         )}
 
         {trip.days.map((d, idx) => (
-          <div key={idx} className="entry">
+          <div key={idx} className={'entry' + (d.booking && d.booking.status === 'cancelled' ? ' cancelled' : '')}>
             <div className="entry-gutter">
               <div className="entry-num">{d.num}</div>
               <div className="entry-line" />
@@ -151,7 +184,7 @@ export default function TripDetail(p) {
             <div className="entry-body">
               <div className="entry-top">
                 <div style={{ minWidth: 0 }}>
-                  <div className="entry-date">{d.date}</div>
+                  <div className="entry-date">{d.kind && d.kind !== 'Booking' ? d.kind + ' · ' : ''}{d.date}</div>
                   <div className="entry-title">{d.title}</div>
                 </div>
                 <button className="del-btn press" onClick={() => p.onDeleteEntry(idx)} aria-label="Delete memory"><span><Trash /></span></button>

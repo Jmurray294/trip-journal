@@ -44,7 +44,7 @@ export default function FamilySheet({ family, onClose, toast }) {
   const [imports, setImports] = useState([]);
   useEffect(() => {
     if (!inbox || !supabase) return;
-    supabase.from('inbound_emails').select('id, subject, items, trip_title, created_at')
+    supabase.from('inbound_emails').select('id, subject, items, status, trip_title, created_at')
       .eq('household_id', h.id).order('created_at', { ascending: false }).limit(4)
       .then(({ data }) => setImports(data || []));
   }, [inbox, h]);
@@ -137,14 +137,14 @@ export default function FamilySheet({ family, onClose, toast }) {
               <div className="inbox-address">{inbox}</div>
               <button className="btn-share press" onClick={copyInbox}>Copy</button>
             </div>
-            <div className="sheet-copy" style={{ marginTop: 8 }}>Forward flight, hotel, car and tour confirmations here from any email account. They land in the trip whose dates they fall in, or start a new one.</div>
+            <div className="sheet-copy" style={{ marginTop: 8 }}>Forward flight, hotel, cruise, car and tour confirmations, plus payment receipts and invoices, from any email account. They're added to the trip they belong to; if we're not sure which, they wait under <strong>To sort</strong> on the Journals page.</div>
             {imports.length > 0 && (
               <div className="imports">
                 {imports.map((m) => (
                   <div key={m.id} className="import-row">
-                    <span className={'import-dot' + (m.items ? ' ok' : '')} />
+                    <span className={'import-dot' + (m.status === 'to sort' ? ' wait' : m.items ? ' ok' : '')} />
                     <span className="import-text">
-                      <span>{m.items ? `${m.items} added to ${m.trip_title || 'a trip'}` : 'Nothing found'}</span>
+                      <span>{m.status === 'to sort' ? 'Waiting to be sorted' : m.items ? `${m.items} added to ${m.trip_title || 'a trip'}` : 'Nothing found'}</span>
                       <span className="import-sub">{m.subject || '(no subject)'} · {timeAgo(new Date(m.created_at).getTime())}</span>
                     </span>
                   </div>

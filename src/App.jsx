@@ -4,7 +4,10 @@ import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js
 import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
+import { useInbox, fileRows } from './lib/inbox.js';
+import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
+import SortSheet from './screens/SortSheet.jsx';
 import { geocode } from './lib/geo.js';
 import { todayLabel } from './lib/parser.js';
 import { writeSong as composeSong, sunoText } from './lib/song.js';
@@ -106,6 +109,31 @@ export default function App() {
   const [familyOpen, setFamilyOpen] = useState(false);
   const family = useFamily({ getTrips: () => tripsRef.current, applyTrips, enabled: loaded });
   useEffect(() => { if (loaded) family.schedule(); }, [loaded, trips]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---- forwarded emails waiting for someone to pick their trip ----
+  const inbox = useInbox(family.household);
+  const [sortOpen, setSortOpen] = useState(false);
+  const closeSort = useCallback(() => setSortOpen(false), []);
+  const fileInboxItem = async (item, choice) => {
+    let tripId = choice;
+    if (choice === 'new') {
+      const s = item.suggestion || {};
+      const t = {
+        id: newTripId(), title: s.title || item.subject || 'New trip', place: s.place || '', dates: s.dates || todayLabel(),
+        grad: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], planning: !!s.planning,
+        statusLabel: s.planning ? 'Planning' : 'My trip', timelineLabel: 'Itinerary', members: FAMILY, song: null, days: [],
+      };
+      applyTrips((ts) => [t, ...ts]);
+      tripId = t.id;
+    }
+    applyTrips((ts) => fileRows(ts, tripId, item.entries || [], item.costs || []));
+    try { await inbox.close(item.id, 'filed', tripId); } catch (e) { /* the rows are already in the trip */ }
+    const title = (tripsRef.current.find((t) => t.id === tripId) || {}).title;
+    showToast('Added to ' + (title || 'the trip'));
+  };
+  const dismissInboxItem = async (item) => {
+    try { await inbox.close(item.id, 'dismissed'); showToast('Dismissed'); } catch (e) { showToast('Could not dismiss — try again'); }
+  };
 
   // synced photos/audio arrive asynchronously; re-render when one is ready
   const [, setMediaTick] = useState(0);
@@ -304,6 +332,12 @@ export default function App() {
     showToast('Memory removed');
   };
 
+  const deleteCost = (tripId, costId) => {
+    if (!window.confirm('Remove this cost?')) return;
+    updateTrip(tripId, (t) => ({ ...t, costs: (t.costs || []).filter((c) => c.id !== costId) }));
+    showToast('Cost removed');
+  };
+
   const deleteTrip = (id) => {
     if (!window.confirm('Delete this whole trip and all of its memories? This cannot be undone.')) return;
     const rest = trips.filter((t) => t.id !== id);
@@ -421,7 +455,7 @@ export default function App() {
         <div className="scroller" ref={scroller}>
           {screen === 'list' && (
             <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
-              family={family} onFamily={() => setFamilyOpen(true)} />
+              family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -431,6 +465,7 @@ export default function App() {
               onStory={() => openStory(trip.id)}
               onAdd={() => openAddFor(trip.id)}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
+              onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onDeleteTrip={() => deleteTrip(trip.id)}
               onWriteSong={() => writeSong(trip.id)}
               onToggleSong={toggleSong}
@@ -500,6 +535,9 @@ export default function App() {
         )}
 
         {familyOpen && <FamilySheet family={family} onClose={() => setFamilyOpen(false)} toast={showToast} />}
+        {sortOpen && (
+          <SortSheet items={inbox.items} trips={trips} onFile={fileInboxItem} onDismiss={dismissInboxItem} onClose={closeSort} />
+        )}
       </div>
       {storyTrip && <StoryPrint trip={storyTrip} />}
     </>

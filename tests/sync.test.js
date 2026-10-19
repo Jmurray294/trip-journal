@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeRemote, stableStringify, tripDoc, entryDoc } from '../src/lib/sync.js';
+import { mergeRemote, stableStringify, tripDoc, entryDoc, itemDoc } from '../src/lib/sync.js';
 import { normalize, seed } from '../src/lib/seed.js';
+import { fileRows } from '../src/lib/inbox.js';
 
 const none = new Map();
 const S = stableStringify;
@@ -43,6 +44,34 @@ test('remote deletions remove the trip or memory; pending local deletes are resp
   const snap2 = { t: { gone: S({ id: 'gone', title: 'gone', place: 'P' }) }, e: {} };
   out = mergeRemote([], [{ id: 'gone', doc: { title: 'changed' }, deleted: false }], [], snap2, none);
   assert.equal(out.length, 0);
+});
+
+test('cost rows go to trip.costs, not the itinerary, and stay out of the trip doc', () => {
+  const snap = { t: {}, e: {} };
+  const cost = { type: 'cost', title: 'Final payment', amount: 1200, currency: 'USD', status: 'paid', pos: 5 };
+  let out = mergeRemote([trip('t', [day('e1', 1)])], [], [{ id: 'c1', trip_id: 't', doc: { ...cost, id: 'c1' }, deleted: false }], snap, none);
+  assert.deepEqual(out[0].days.map((d) => d.id), ['e1']);
+  assert.deepEqual(out[0].costs.map((c) => c.id), ['c1']);
+  assert.ok(!('costs' in tripDoc(out[0], none)));
+  // a row the server wrote with its id in the doc reads as unchanged here after the pull
+  const snap2 = { t: {}, e: {} };
+  const o2 = mergeRemote([trip('t')], [], [{ id: 'c2', trip_id: 't', doc: { ...cost, id: 'c2' }, deleted: false }], snap2, none);
+  assert.equal(snap2.e.c2[1], S(itemDoc(o2[0].costs[0], none)));
+  // a later remote deletion removes it from costs
+  out = mergeRemote(out, [], [{ id: 'c1', trip_id: 't', doc: {}, deleted: true }], snap, none);
+  assert.equal(out[0].costs.length, 0);
+});
+
+test('filing a to-sort email moves its rows into the chosen trip, keeping photos', () => {
+  const pic = [{ src: 'data:x', label: '' }];
+  const trips = [trip('a', [day('b1', 1, { photos: pic })]), trip('j', [day('m1', 9)])];
+  const out = fileRows(trips, 'j',
+    [{ id: 'b1', doc: { title: 'Cruise', pos: 5, photos: [] } }],
+    [{ id: 'c1', doc: { type: 'cost', title: 'Deposit', amount: 500, currency: 'USD', status: 'paid', pos: 3 } }]);
+  assert.deepEqual(out[0].days, []);
+  assert.deepEqual(out[1].days.map((d) => [d.id, d.num]), [['b1', 1], ['m1', 2]]);
+  assert.deepEqual(out[1].days[0].photos, pic);
+  assert.deepEqual(out[1].costs.map((c) => c.id), ['c1']);
 });
 
 test('uploaded photos are sent as storage paths, pending ones as changed', () => {

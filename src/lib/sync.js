@@ -4,7 +4,9 @@ import { cacheBlob } from './media.js';
 
 // Two-way sync between this device's journal and the family's rows in Supabase.
 //
-// Each trip and each memory is one row. A snapshot remembers the JSON last exchanged with the
+// Each trip and each memory is one row. Costs (payments, deposits, balances due) are rows in the
+// same entries table with `type: 'cost'`; locally they live in `trip.costs`, not the itinerary.
+// A snapshot remembers the JSON last exchanged with the
 // server for every row, so a local change is anything that differs from its snapshot — no edit
 // code has to mark things dirty. Every run pulls first (remote wins unless this device changed
 // the row since the last sync), then pushes local changes, deletions and new photos.
@@ -24,7 +26,7 @@ const isData = (s) => typeof s === 'string' && s.startsWith('data:');
 // Docs as stored on the server. Data-URL photos/audio become storage paths once uploaded;
 // `uploaded` maps a data URL to its path (pending ones stay inline, so they read as changed).
 export function tripDoc(t, uploaded) {
-  const { days, ...doc } = t; // eslint-disable-line no-unused-vars
+  const { days, costs, ...doc } = t; // eslint-disable-line no-unused-vars
   if (doc.song && isData(doc.song.audio)) {
     const p = uploaded.get(doc.song.audio);
     doc.song = { ...doc.song, audio: p ? undefined : doc.song.audio, audioPath: p || doc.song.audioPath };
@@ -41,13 +43,21 @@ export function entryDoc(d, uploaded) {
   return doc;
 }
 
-function sortDays(days) {
+const isCost = (d) => !!d && d.type === 'cost';
+export const itemDoc = (d, uploaded) => {
+  if (!isCost(d)) return entryDoc(d, uploaded);
+  const { num, ...doc } = d; // eslint-disable-line no-unused-vars
+  return doc;
+};
+
+export function sortDays(days) {
   return [...days].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)).map((d, i) => ({ ...d, num: i + 1 }));
 }
+const byPos = (list) => [...list].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
 
 // Apply pulled rows to the local trips. Pure, so it can be tested.
 export function mergeRemote(trips, tRows, eRows, snap, uploaded) {
-  let list = trips.map((t) => ({ ...t, days: [...(t.days || [])] }));
+  let list = trips.map((t) => ({ ...t, days: [...(t.days || [])], ...(t.costs ? { costs: [...t.costs] } : {}) }));
   const localJ = (id) => { const t = list.find((x) => x.id === id); return t ? stableStringify(tripDoc(t, uploaded)) : null; };
   const touched = new Set();
 
@@ -70,26 +80,35 @@ export function mergeRemote(trips, tRows, eRows, snap, uploaded) {
   }
 
   for (const r of eRows) {
-    let trip = null, idx = -1;
-    for (const t of list) { const k = t.days.findIndex((d) => d.id === r.id); if (k >= 0) { trip = t; idx = k; break; } }
-    const j = trip ? stableStringify(entryDoc(trip.days[idx], uploaded)) : null;
+    // where this row lives on this device now: a trip's itinerary (days) or its costs
+    let trip = null, key = 'days', idx = -1;
+    for (const t of list) {
+      for (const k of ['days', 'costs']) {
+        const i = (t[k] || []).findIndex((d) => d.id === r.id);
+        if (i >= 0) { trip = t; key = k; idx = i; break; }
+      }
+      if (trip) break;
+    }
+    const j = trip ? stableStringify(itemDoc(trip[key][idx], uploaded)) : null;
     if (r.id in snap.e && j !== snap.e[r.id][1]) continue;
     if (r.deleted) {
-      if (trip) { trip.days.splice(idx, 1); touched.add(trip.id); }
+      if (trip) { trip[key].splice(idx, 1); touched.add(trip.id); }
       delete snap.e[r.id];
       continue;
     }
     const target = list.find((t) => t.id === r.trip_id);
     if (!target) continue; // trip is gone on this device
-    if (trip && trip !== target) { trip.days.splice(idx, 1); touched.add(trip.id); idx = -1; }
+    const want = isCost(r.doc) ? 'costs' : 'days';
+    if (trip && (trip !== target || key !== want)) { trip[key].splice(idx, 1); touched.add(trip.id); }
+    if (!target[want]) target[want] = [];
     const entry = { ...r.doc, id: r.id };
-    const k = target.days.findIndex((d) => d.id === r.id);
-    if (k >= 0) target.days[k] = entry; else target.days.push(entry);
+    const k = target[want].findIndex((d) => d.id === r.id);
+    if (k >= 0) target[want][k] = entry; else target[want].push(entry);
     touched.add(target.id);
     snap.e[r.id] = [r.trip_id, stableStringify(r.doc)];
   }
 
-  list = list.map((t) => (touched.has(t.id) ? { ...t, days: sortDays(t.days) } : t));
+  list = list.map((t) => (touched.has(t.id) ? { ...t, days: sortDays(t.days), ...(t.costs ? { costs: byPos(t.costs) } : {}) } : t));
   return list;
 }
 
@@ -164,9 +183,9 @@ export function createSync({ getTrips, applyTrips, onStatus }) {
       seenT.add(t.id);
       const doc = tripDoc(t, uploaded); const j = stableStringify(doc);
       if (snap.t[t.id] !== j) tRows.push({ row: { household_id: hid, id: t.id, doc: JSON.parse(j), deleted: false }, j });
-      for (const d of t.days || []) {
+      for (const d of [...(t.days || []), ...(t.costs || [])]) {
         seenE.add(d.id);
-        const ed = entryDoc(d, uploaded); const ej = stableStringify(ed);
+        const ed = itemDoc(d, uploaded); const ej = stableStringify(ed);
         const s = snap.e[d.id];
         if (!s || s[1] !== ej || s[0] !== t.id) eRows.push({ row: { household_id: hid, id: d.id, trip_id: t.id, doc: JSON.parse(ej), deleted: false }, j: ej });
       }

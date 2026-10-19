@@ -25,12 +25,25 @@ function setup() {
 }
 
 function checkMail() {
+  scan_('newer_than:2d');
+}
+
+// Send the last two weeks of +code mail through again, e.g. after the app learns to read more.
+// Items already in a trip are updated, not duplicated. Choose `reimport` in the toolbar and Run it.
+function reimport() {
+  const props = PropertiesService.getScriptProperties();
+  const all = props.getProperties();
+  for (const k in all) if (k.indexOf('seen:') === 0) props.deleteProperty(k);
+  scan_('newer_than:14d');
+}
+
+function scan_(query) {
   const done = label_(DONE), failed = label_(FAILED);
   const props = PropertiesService.getScriptProperties();
   pruneSeen_(props);
   // Not "is:unread": mail you forward to your own +code address arrives already read. Only messages
   // addressed to a +code address are touched; the rest of the inbox is left alone.
-  const threads = GmailApp.search('newer_than:2d', 0, 100);
+  const threads = GmailApp.search(query, 0, 100);
   for (const thread of threads) {
     let handled = false;
     for (const msg of thread.getMessages()) {

@@ -14,6 +14,34 @@ export function accentFor(id) {
 
 export const short = (txt, n) => (txt && txt.length > n ? txt.slice(0, n) + '…' : txt || '');
 
+export function money(amount, currency) {
+  try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || 'USD' }).format(amount || 0); }
+  catch (e) { return (currency || '') + ' ' + Number(amount || 0).toFixed(2); }
+}
+
+// "2027-02-01" → "Feb 1, 2027"
+export function dayLabel(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  if (!m) return '';
+  return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Paid (net of refunds) and still-due totals per currency, plus the next payment due.
+export function costTotals(costs) {
+  const by = {};
+  let nextDue = null;
+  for (const c of costs || []) {
+    const cur = c.currency || 'USD';
+    const t = by[cur] || (by[cur] = { currency: cur, paid: 0, due: 0 });
+    if (c.status === 'due') {
+      t.due += c.amount || 0;
+      if (c.date && (!nextDue || c.date < nextDue.date)) nextDue = c;
+    } else if (c.status === 'refund') t.paid -= c.amount || 0;
+    else t.paid += c.amount || 0;
+  }
+  return { totals: Object.values(by), nextDue };
+}
+
 const STRIPE = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 7px, rgba(0,0,0,0.05) 7px 14px)';
 const SAND = '#D8BE97';
 
