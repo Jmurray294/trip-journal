@@ -236,7 +236,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
         {mode === 'import' && !canRead && (
           <>
             <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Import a confirmation</div>
-            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>Open the confirmation email, select all and copy, then paste it below. Flights and hotel stays become itinerary entries. Sign in under Family sharing to also read PDFs, photos and receipts.</div>
+            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>Open the confirmation email, select all and copy, then paste it below. Flights and hotel stays become itinerary entries. Sign in (the people icon) to also read PDFs, photos and receipts.</div>
             <Label top={18}>Which trip</Label>
             <Chips items={chips} active={tripId} onSelect={setTripId} />
             <Label top={18}>Paste email text</Label>

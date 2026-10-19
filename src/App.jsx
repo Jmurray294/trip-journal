@@ -113,6 +113,8 @@ export default function App() {
   const [familyOpen, setFamilyOpen] = useState(false);
   const family = useFamily({ getTrips: () => tripsRef.current, applyTrips, enabled: loaded });
   useEffect(() => { if (loaded) family.schedule(); }, [loaded, trips]); // eslint-disable-line react-hooks/exhaustive-deps
+  // opened from a "reset your password" email: show the new-password form
+  useEffect(() => { if (family.recovering) setFamilyOpen(true); }, [family.recovering]);
 
   // ---- forwarded emails waiting for someone to pick their trip ----
   const inbox = useInbox(family.household);

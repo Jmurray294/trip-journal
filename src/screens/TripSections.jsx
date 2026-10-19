@@ -249,7 +249,7 @@ export function Documents({ trip, household, toast, onUpload }) {
   }, [hid, trip.id]);
 
   if (!hid) {
-    return <div className="section-empty"><div className="empty-sub">Sign in under Family sharing to see the emails and files saved with this trip.</div></div>;
+    return <div className="section-empty"><div className="empty-sub">Sign in (the people icon) to see the emails and files saved with this trip.</div></div>;
   }
   if (!docs) return <div className="section-empty"><div className="empty-sub">Loading documents…</div></div>;
   if (!docs.length) {

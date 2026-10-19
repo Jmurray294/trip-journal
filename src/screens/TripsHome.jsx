@@ -11,7 +11,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
     <div className="screen pad-tab">
       <header className="page-head wash" style={{ position: 'relative' }}>
         {family.available && (
-          <button className={'family-btn press ' + (family.household ? family.status.state : 'none')} onClick={onFamily} aria-label="Family sharing">
+          <button className={'family-btn press ' + (family.household ? family.status.state : 'none')} onClick={onFamily} aria-label="Account and sharing">
             <People color="#2A2520" />
             {family.household && <span className="family-btn-dot" />}
           </button>

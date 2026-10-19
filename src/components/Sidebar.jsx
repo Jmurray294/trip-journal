@@ -35,9 +35,9 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         <button className="side-family" onClick={onFamily}>
           <People />
           <span className="side-family-text">
-            <span>{family.household ? family.household.name : 'Family sharing'}</span>
+            <span>{family.session ? 'Account & sharing' : 'Sign in'}</span>
             <span className={'side-family-sub ' + family.status.state}>
-              {family.household ? (statusLabel(family.status) || 'Connecting…') : family.session ? 'Set up your family' : 'Sign in to back up & share'}
+              {family.household ? (statusLabel(family.status) || 'Connecting…') : family.session ? 'Start your journal' : 'Back up & share your trips'}
             </span>
           </span>
         </button>
