@@ -184,7 +184,7 @@ const READING_SCHEMA = {
           dates: { type: "string", description: "Dates as known, e.g. 'June 2027', 'Mar 3–10, 2027', or empty" },
           start_date: { type: "string", description: "YYYY-MM-DD if a start date is known, else empty" },
           end_date: { type: "string", description: "YYYY-MM-DD if an end date is known, else empty" },
-          people: { type: "string", description: "Who is proposing or going (names or families), comma separated" },
+          people: { type: "string", description: "Who else is proposing or going (names or families), comma separated — not our own family" },
           summary: { type: "string", description: "One or two lines: what is proposed, rough cost, what they need from us and by when" },
           trip_id: { type: "string", description: "id of the family's trip this idea is about, if one already exists, else empty" },
         },
@@ -248,7 +248,7 @@ async function storeFiles(admin: any, hid: string, files: Attachment[]): Promise
   return out;
 }
 
-async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = []): Promise<Reading | null> {
+async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = ""): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
   const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
@@ -286,7 +286,8 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "IDEAS: list trips that are being proposed, planned or discussed but not booked — invitations, 'want to come with us…', " +
         "group trip plans, save-the-dates, a friend's itinerary we might join. One per distinct trip. If an idea is about one of the " +
         "family's trips above (including ones marked possible), give its trip_id so we don't make it twice. Ideas are not bookings: " +
-        "list nothing under BOOKINGS for a trip that is only being proposed.\n\n" +
+        "list nothing under BOOKINGS for a trip that is only being proposed. " +
+        `People are the friends or relatives involved, not us${family ? ` (we are ${family})` : ""}.\n\n` +
         "Skip marketing and travel deals. Infer missing years from today's date. If the email has no bookings, no costs and no " +
         "trip ideas, return empty lists.\n\n" +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
@@ -454,7 +455,14 @@ Deno.serve(async (req) => {
 
   let read: Reading | null = null;
   let reader = "claude";
-  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files); } catch (e) {
+  // who "we" are, so trip ideas list only the other people involved
+  const [{ data: hh }, { data: members }] = await Promise.all([
+    admin.from("households").select("name").eq("id", hid).maybeSingle(),
+    admin.from("household_members").select("display_name").eq("household_id", hid),
+  ]);
+  const family = [(hh as { name?: string } | null)?.name, ...((members || []) as { display_name: string }[]).map((m) => m.display_name)]
+    .filter(Boolean).join(", ");
+  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files, family); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
     console.error("Claude could not read the email:", reader);
