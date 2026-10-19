@@ -46,3 +46,10 @@ create policy "members sort inbox" on public.inbox_items for update using (publi
 do $$ begin
   alter publication supabase_realtime add table public.inbox_items;
 exception when duplicate_object then null; end $$;
+
+-- a trip's Documents: the saved attachments of each email ([{name, type, path, size}] in the media
+-- bucket), the Gmail message id (the same email forwarded twice shows once), and for sorted emails
+-- the email the item came from
+alter table public.inbound_emails add column if not exists attachments jsonb not null default '[]';
+alter table public.inbound_emails add column if not exists message_id text;
+alter table public.inbox_items add column if not exists email_id bigint references public.inbound_emails on delete set null;

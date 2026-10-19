@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
 
-// Payments, deposits and balances due that came in by email, with paid / still-due totals.
-function CostsCard({ costs, onDelete }) {
+import { Bookings, Budget, Documents } from './TripSections.jsx';
+
+// Paid / still-due totals at a glance; the full list lives in the Budget tab.
+function CostsCard({ costs, onOpen }) {
   const { totals, nextDue } = costTotals(costs);
   return (
-    <div className="costs-card">
+    <button className="costs-card press-soft" onClick={onOpen}>
       <div className="mono-label">Costs</div>
       <div className="costs-totals">
         {totals.map((t) => (
@@ -17,21 +20,12 @@ function CostsCard({ costs, onDelete }) {
         ))}
       </div>
       {nextDue && <div className="costs-next">Next payment {money(nextDue.amount, nextDue.currency)} due {dayLabel(nextDue.date)}</div>}
-      <div className="costs-list">
-        {costs.map((c) => (
-          <div key={c.id} className="cost-row">
-            <div className="grow">
-              <div className="cost-title">{c.title}</div>
-              <div className="cost-sub">{[c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
-            </div>
-            <div className={'cost-amt ' + c.status}>{c.status === 'refund' ? '−' : ''}{money(c.amount, c.currency)}</div>
-            <button className="del-btn press" onClick={() => onDelete(c.id)} aria-label="Remove cost"><span><Trash /></span></button>
-          </div>
-        ))}
-      </div>
-    </div>
+      <div className="costs-more">See budget →</div>
+    </button>
   );
 }
+
+const TABS = [['itinerary', 'Itinerary'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -124,6 +118,9 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 
 export default function TripDetail(p) {
   const { trip } = p;
+  const [tab, setTab] = useState('itinerary');
+  const bookingCount = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind)).length;
+  const counts = { itinerary: trip.days.length, bookings: bookingCount, budget: (trip.costs || []).length };
   return (
     <div className="screen pad-tab">
       <div className="hero detail-hero">
@@ -150,7 +147,7 @@ export default function TripDetail(p) {
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
 
-      {(trip.costs || []).length > 0 && <CostsCard costs={trip.costs} onDelete={p.onDeleteCost} />}
+      {(trip.costs || []).length > 0 && <CostsCard costs={trip.costs} onOpen={() => setTab('budget')} />}
 
       <div className="detail-song">
         <SongCard
@@ -162,6 +159,19 @@ export default function TripDetail(p) {
       </div>
 
       <div className="detail-main">
+        <div className="trip-tabs" role="tablist" aria-label="Trip sections">
+          {TABS.map(([k, label]) => (
+            <button key={k} role="tab" aria-selected={tab === k} className={'trip-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>
+              {label}{counts[k] ? <span className="trip-tab-n">{counts[k]}</span> : null}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'bookings' && <Bookings trip={trip} inbox={p.inbox} toast={p.toast} />}
+        {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} />}
+        {tab === 'documents' && <Documents trip={trip} household={p.household} toast={p.toast} />}
+
+        {tab === 'itinerary' && <>
         <div className="timeline-head">
           <div className="mono-label">{trip.timelineLabel}</div>
           <button className="btn-soft-pill press" onClick={p.onAdd}><Plus size={13} w={1.8} /> Add memory</button>
@@ -204,8 +214,9 @@ export default function TripDetail(p) {
             </div>
           </div>
         ))}
+        </>}
 
-        <button className="btn-delete-trip press" onClick={p.onDeleteTrip}><Trash color="#A4502F" /> Delete this trip</button>
+        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#A4502F" /> Delete this trip</button>
       </div>
       </div>
     </div>

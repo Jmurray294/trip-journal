@@ -4,7 +4,7 @@ import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js
 import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
-import { useInbox, fileRows } from './lib/inbox.js';
+import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
@@ -336,6 +336,13 @@ export default function App() {
     showToast('Memory removed');
   };
 
+  const addCost = (tripId, c) => {
+    const pos = c.date ? new Date(c.date + 'T12:00:00').getTime() : Date.now();
+    const cost = { id: 'cost-' + newEntryId(), type: 'cost', ...c, confirmation: '', note: '', source: 'manual', pos };
+    updateTrip(tripId, (t) => ({ ...t, costs: [...(t.costs || []), cost].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)) }));
+    showToast('Cost added');
+  };
+
   const deleteCost = (tripId, costId) => {
     if (!window.confirm('Remove this cost?')) return;
     updateTrip(tripId, (t) => ({ ...t, costs: (t.costs || []).filter((c) => c.id !== costId) }));
@@ -463,7 +470,10 @@ export default function App() {
           )}
           {screen === 'detail' && (
             <TripDetail
+              key={trip.id}
               trip={trip} song={song} songBusy={songBusy === trip.id} audioBusy={audioBusy}
+              household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
+              onAddCost={(c) => addCost(trip.id, c)}
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
               onStory={() => openStory(trip.id)}

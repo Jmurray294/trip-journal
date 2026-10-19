@@ -197,3 +197,7 @@ create policy "members sort inbox" on public.inbox_items for update using (publi
 do $$ begin
   alter publication supabase_realtime add table public.inbox_items;
 exception when duplicate_object then null; end $$;
+
+alter table public.inbound_emails add column if not exists attachments jsonb not null default '[]';
+alter table public.inbound_emails add column if not exists message_id text;
+alter table public.inbox_items add column if not exists email_id bigint references public.inbound_emails on delete set null;

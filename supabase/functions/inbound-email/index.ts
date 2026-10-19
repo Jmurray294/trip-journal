@@ -348,6 +348,31 @@ function attachmentBlocks(files: Attachment[]) {
   return { blocks, names };
 }
 
+type StoredFile = { name: string; type: string; path: string; size: number };
+
+// Save attachments in the family's private media bucket (<household>/email/...), keyed by content so
+// the same PDF forwarded twice is stored once.
+async function storeFiles(admin: any, hid: string, files: Attachment[]): Promise<StoredFile[]> {
+  const out: StoredFile[] = [];
+  for (const f of files || []) {
+    const type = String(f.ContentType || "").toLowerCase().split(";")[0].trim();
+    const isPdf = type === "application/pdf" || /\.pdf$/i.test(f.Name || "");
+    if (!isPdf && !IMAGE_TYPES.includes(type)) continue;
+    const data = String(f.Content || "").replace(/\s+/g, "");
+    if (!data || data.length > 28_000_000) continue;
+    try {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      const ext = isPdf ? "pdf" : type.split("/")[1].replace("jpeg", "jpg");
+      const path = `${hid}/email/${await sha(data.length + "|" + data.slice(0, 400000))}.${ext}`;
+      const mime = isPdf ? "application/pdf" : type;
+      const { error } = await admin.storage.from("media").upload(path, bytes, { contentType: mime, upsert: true });
+      if (error) { console.error("could not store attachment", f.Name, error.message); continue; }
+      out.push({ name: String(f.Name || "attachment." + ext).slice(0, 200), type: mime, path, size: bytes.length });
+    } catch (e) { console.error("could not store attachment", f.Name, String(e)); }
+  }
+  return out;
+}
+
 async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = []): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
@@ -505,11 +530,16 @@ Deno.serve(async (req) => {
   const sender = String(mail.From || "").slice(0, 200);
   const subject = String(mail.Subject || "").slice(0, 300);
   const text = String(mail.TextBody || "").trim() || htmlToText(String(mail.HtmlBody || ""));
-  const attached = (Array.isArray(mail.Attachments) ? mail.Attachments : []).map((f: Attachment) => f.Name || f.ContentType).filter(Boolean);
-  const log = (fields: Record<string, unknown>) => admin.from("inbound_emails").insert({
-    household_id: hid, sender, subject, ...fields,
-    body: (attached.length ? `[Attachments: ${attached.join(", ")}]\n\n` : "") + text.slice(0, 100000),
-  });
+  const files = (Array.isArray(mail.Attachments) ? mail.Attachments : []) as Attachment[];
+  // keep the PDFs and photos so the trip's Documents can open them later
+  const stored = await storeFiles(admin, hid, files);
+  const log = async (fields: Record<string, unknown>) => {
+    const { data } = await admin.from("inbound_emails").insert({
+      household_id: hid, sender, subject, ...fields, body: text.slice(0, 100000), attachments: stored,
+      message_id: String(mail.MessageId || "").slice(0, 200) || null,
+    }).select("id").single();
+    return (data as { id: number } | null)?.id ?? null;
+  };
 
   // ---- the family's trips and what is already in them ----
   const { data: tripRows } = await admin.from("trips").select("id, doc").eq("household_id", hid).eq("deleted", false);
@@ -525,7 +555,6 @@ Deno.serve(async (req) => {
 
   let read: Reading | null = null;
   let reader = "claude";
-  const files = (Array.isArray(mail.Attachments) ? mail.Attachments : []) as Attachment[];
   try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
@@ -570,11 +599,14 @@ Deno.serve(async (req) => {
       title: read.placement?.title || (dest ? `Trip to ${dest}` : ""), place: dest,
       dates: first ? rangeLabel(first, last!) : "", planning: first ? day(first) >= day(new Date()) : true,
     };
+    const emailId = await log({ items: count, status: "to sort", reader });
     const { error } = await admin.from("inbox_items").insert({
-      household_id: hid, subject, sender, summary: read.summary || subject, suggestion, entries: bRows, costs: cRows, status: "open",
+      household_id: hid, subject, sender, summary: read.summary || subject, suggestion, entries: bRows, costs: cRows, status: "open", email_id: emailId,
     });
-    if (error) { await log({ items: 0, status: "error: " + error.message, reader }); return ok({ error: error.message }, 500); }
-    await log({ items: count, status: "to sort", reader });
+    if (error) {
+      if (emailId) await admin.from("inbound_emails").update({ status: "error: " + error.message }).eq("id", emailId);
+      return ok({ error: error.message }, 500);
+    }
     return ok({ toSort: count });
   }
 

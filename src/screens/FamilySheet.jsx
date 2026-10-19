@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { forwardingAddress } from '../lib/inbox.js';
 
 function timeAgo(ms) {
   const s = Math.round((Date.now() - ms) / 1000);
@@ -37,10 +38,8 @@ export default function FamilySheet({ family, onClose, toast }) {
     return () => { window.removeEventListener('keydown', onKey); clearInterval(t); };
   }, [onClose]);
 
-  // forwarding address: the family trips Gmail address with this family's private code after a "+"
-  const base = import.meta.env.VITE_INBOUND_ADDRESS || '';
   const h = family.household;
-  const inbox = base.includes('@') && h && h.inbox_token ? base.replace('@', '+' + h.inbox_token + '@') : null;
+  const inbox = forwardingAddress(h);
   const [imports, setImports] = useState([]);
   useEffect(() => {
     if (!inbox || !supabase) return;

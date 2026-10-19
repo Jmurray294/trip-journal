@@ -5,6 +5,12 @@ import { sortDays } from './sync.js';
 // The family's "To sort" list: forwarded emails the reader could not confidently place in a trip.
 // Each item carries its itinerary rows and cost rows ready to file ({ id, doc } like the entries table).
 
+// The family's forwarding address: the trips Gmail address with the family's private code after a "+".
+export function forwardingAddress(household) {
+  const base = (import.meta.env || {}).VITE_INBOUND_ADDRESS || '';
+  return base.includes('@') && household && household.inbox_token ? base.replace('@', '+' + household.inbox_token + '@') : null;
+}
+
 // Put an item's rows into one trip (pure, so it can be tested). Rows already somewhere else —
 // the same booking forwarded twice — move here; photos already added to a booking are kept.
 export function fileRows(trips, tripId, entries, costs) {

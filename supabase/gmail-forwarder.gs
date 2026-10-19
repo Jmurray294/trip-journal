@@ -59,6 +59,7 @@ function scan_(query) {
         HtmlBody: msg.getBody(),
         MailboxHash: code,
         ToFull: [],
+        MessageId: msg.getId(),
         Attachments: attachments_(msg),
       };
       let status = 0;
