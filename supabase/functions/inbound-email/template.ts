@@ -452,8 +452,23 @@ Deno.serve(async (req) => {
     if (tErr) { await log({ items: 0, status: "error: " + tErr.message, reader }); return ok({ error: tErr.message }, 500); }
   }
 
+  // A card authorization ("due") and the charge that follows ("paid") are the same money: once the
+  // payment is in, the authorization goes, whichever email arrived first.
+  const { data: oldCostRows } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", tripId)
+    .eq("deleted", false).eq("doc->>type", "cost");
+  const oldCosts = (oldCostRows || []) as { id: string; doc: Record<string, any> }[];
+  const sameMoney = (a: Record<string, any>, b: Record<string, any>) =>
+    Math.abs(Number(a.amount) - Number(b.amount)) < 0.01 && String(a.currency) === String(b.currency);
+  const paid = [...oldCosts.map((r) => r.doc), ...cRows.map((r) => r.doc)].filter((d) => d.status === "paid");
+  // only costs marked as card authorizations — equal installments still due are real
+  const isAuthorization = (d: Record<string, any>) => d.status === "due" &&
+    /authori[sz]/i.test(`${d.title} ${d.note}`) && paid.some((p) => sameMoney(p, d));
+  const keptCosts = cRows.filter((r) => !isAuthorization(r.doc));
+  const settled = oldCosts.filter((r) => isAuthorization(r.doc)).map((r) => r.id);
+  if (settled.length) await admin.from("entries").update({ deleted: true }).eq("household_id", hid).in("id", settled);
+
   // same item forwarded again → same row id, so it is updated rather than duplicated; keep photos people added
-  const all = [...bRows, ...cRows];
+  const all = [...bRows, ...keptCosts];
   const { data: existing } = await admin.from("entries").select("id, photos:doc->photos").eq("household_id", hid).in("id", all.map((r) => r.id));
   const photos = new Map((existing || []).map((r: { id: string; photos: unknown }) => [r.id, r.photos]));
   const rows = all.map((r) => {
@@ -461,7 +476,7 @@ Deno.serve(async (req) => {
     if (!doc.type && Array.isArray(photos.get(r.id))) doc.photos = photos.get(r.id);
     return { household_id: hid, id: r.id, trip_id: tripId, deleted: false, doc };
   });
-  const { error: eErr } = await admin.from("entries").upsert(rows, { onConflict: "household_id,id" });
+  const { error: eErr } = rows.length ? await admin.from("entries").upsert(rows, { onConflict: "household_id,id" }) : { error: null };
   if (eErr) { await log({ items: 0, status: "error: " + eErr.message, reader }); return ok({ error: eErr.message }, 500); }
 
   await log({ items: count, status: "added", reader, trip_title: tripDoc.title, trip_id: tripId });
