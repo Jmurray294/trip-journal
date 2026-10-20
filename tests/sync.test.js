@@ -62,6 +62,16 @@ test('cost rows go to trip.costs, not the itinerary, and stay out of the trip do
   assert.equal(out[0].costs.length, 0);
 });
 
+test('pulling an edited trip row keeps the trip\'s costs', () => {
+  const cost = { type: 'cost', title: 'Hotel', amount: 500, currency: 'USD', status: 'paid', id: 'c1' };
+  const t0 = trip('t', [day('e1', 1)], { costs: [cost] });
+  const snap = { t: { t: S(tripDoc(t0, none)) }, e: { c1: ['t', S(itemDoc(cost, none))] } };
+  const out = mergeRemote([t0], [{ id: 't', doc: { title: 'Renamed', place: 'P' }, deleted: false }], [], snap, none);
+  assert.equal(out[0].title, 'Renamed');
+  assert.deepEqual(out[0].costs.map((c) => c.id), ['c1']);
+  assert.equal(out[0].days.length, 1);
+});
+
 test('filing a to-sort email moves its rows into the chosen trip, keeping photos', () => {
   const pic = [{ src: 'data:x', label: '' }];
   const trips = [trip('a', [day('b1', 1, { photos: pic })]), trip('j', [day('m1', 9)])];

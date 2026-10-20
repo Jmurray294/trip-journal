@@ -70,7 +70,8 @@ export function mergeRemote(trips, tRows, eRows, snap, uploaded) {
       continue;
     }
     const i = list.findIndex((t) => t.id === r.id);
-    const next = { ...r.doc, id: r.id, days: i >= 0 ? list[i].days : [] };
+    // the trip row carries neither its itinerary nor its costs: keep this device's copies of both
+    const next = { ...r.doc, id: r.id, days: i >= 0 ? list[i].days : [], ...(i >= 0 && list[i].costs ? { costs: list[i].costs } : {}) };
     if (i >= 0) list[i] = next;
     else {
       const at = next.planning ? 0 : list.findIndex((t) => !t.planning);
