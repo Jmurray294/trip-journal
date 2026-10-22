@@ -248,7 +248,7 @@ async function storeFiles(admin: any, hid: string, files: Attachment[]): Promise
   return out;
 }
 
-async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = ""): Promise<Reading | null> {
+async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = "", watched = false): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
   const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
@@ -290,6 +290,8 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         `People are the friends or relatives involved, not us${family ? ` (we are ${family})` : ""}.\n\n` +
         "Skip marketing and travel deals. Infer missing years from today's date. If the email has no bookings, no costs and no " +
         "trip ideas, return empty lists.\n\n" +
+        (watched ? "This email was picked up automatically from a family member's own inbox, not forwarded on purpose. Unless it is " +
+          "about the family's own travel (a reservation, a change, a payment, or a trip being planned with us), return empty lists.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
       }],
     }],
@@ -426,20 +428,13 @@ Deno.serve(async (req) => {
   const hid = household.id;
   // uploads made from inside a trip go to that trip
   const chosenTrip = fromForwarder ? "" : String(mail.TripId || "");
+  // picked up from someone's own inbox by the Gmail watcher rather than forwarded on purpose
+  const watched = fromForwarder && mail.Watched === true;
 
   const sender = (uploader || String(mail.From || "")).slice(0, 200);
   const subject = String(mail.Subject || "").slice(0, 300);
   const text = String(mail.TextBody || "").trim() || htmlToText(String(mail.HtmlBody || ""));
   const files = (Array.isArray(mail.Attachments) ? mail.Attachments : []) as Attachment[];
-  // keep the PDFs and photos so the trip's Documents can open them later
-  const stored = await storeFiles(admin, hid, files);
-  const log = async (fields: Record<string, unknown>) => {
-    const { data } = await admin.from("inbound_emails").insert({
-      household_id: hid, sender, subject, ...fields, body: text.slice(0, 100000), attachments: stored,
-      message_id: String(mail.MessageId || "").slice(0, 200) || null,
-    }).select("id").single();
-    return (data as { id: number } | null)?.id ?? null;
-  };
 
   // ---- the family's trips and what is already in them ----
   const { data: tripRows } = await admin.from("trips").select("id, doc").eq("household_id", hid).eq("deleted", false);
@@ -462,12 +457,26 @@ Deno.serve(async (req) => {
   ]);
   const family = [(hh as { name?: string } | null)?.name, ...((members || []) as { display_name: string }[]).map((m) => m.display_name)]
     .filter(Boolean).join(", ");
-  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files, family); } catch (e) {
+  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files, family, watched); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
     console.error("Claude could not read the email:", reader);
   }
+  // the scanner would find "bookings" in ordinary mail; the watcher tries again on a later run
+  if (!read && watched) return ok({ error: "could not read the email, try later" }, 503);
   if (!read) { if (reader === "claude") reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
+  // personal mail that isn't travel: keep nothing, not even a log line
+  if (watched && !read.bookings.length && !read.costs.length && !read.ideas.length) return ok({ ignored: "not travel" });
+
+  // keep the PDFs and photos so the trip's Documents can open them later
+  const stored = await storeFiles(admin, hid, files);
+  const log = async (fields: Record<string, unknown>) => {
+    const { data } = await admin.from("inbound_emails").insert({
+      household_id: hid, sender, subject, ...fields, body: text.slice(0, 100000), attachments: stored,
+      message_id: String(mail.MessageId || "").slice(0, 200) || null,
+    }).select("id").single();
+    return (data as { id: number } | null)?.id ?? null;
+  };
   // ---- trip ideas: each becomes a possible trip (or a note on the trip it is about) ----
   const ideaTitles: string[] = [];
   let ideaTripId = "";
