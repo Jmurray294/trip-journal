@@ -290,7 +290,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         `People are the friends or relatives involved, not us${family ? ` (we are ${family})` : ""}.\n\n` +
         "Skip marketing and travel deals. Infer missing years from today's date. If the email has no bookings, no costs and no " +
         "trip ideas, return empty lists.\n\n" +
-        (watched ? "This email was picked up automatically from a family member's own inbox, not forwarded on purpose. Unless it is " +
+        (watched ? "This email arrived at the family's trips address directly rather than being forwarded on purpose, so it may not be travel. Unless it is " +
           "about the family's own travel (a reservation, a change, a payment, or a trip being planned with us), return empty lists.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
       }],
@@ -428,7 +428,7 @@ Deno.serve(async (req) => {
   const hid = household.id;
   // uploads made from inside a trip go to that trip
   const chosenTrip = fromForwarder ? "" : String(mail.TripId || "");
-  // picked up from someone's own inbox by the Gmail watcher rather than forwarded on purpose
+  // sent to the plain trips address (bookings made with it) rather than forwarded to the +code address on purpose
   const watched = fromForwarder && mail.Watched === true;
 
   const sender = (uploader || String(mail.From || "")).slice(0, 200);
