@@ -86,6 +86,10 @@ export const TabMap = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 21s7-6.4 7-11a7 7 0 10-14 0c0 4.6 7 11 7 11z" strokeLinejoin="round" /><circle cx="12" cy="10" r="2.4" /></svg>
 );
 
+export const TabTravelers = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2" /><circle cx="12" cy="10.5" r="3.2" /><line x1="8.5" y1="16.5" x2="15.5" y2="16.5" /></svg>
+);
+
 export const TabAlbums = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.6" /><rect x="13" y="4" width="7" height="7" rx="1.6" /><rect x="4" y="13" width="7" height="7" rx="1.6" /><rect x="13" y="13" width="7" height="7" rx="1.6" /></svg>
 );

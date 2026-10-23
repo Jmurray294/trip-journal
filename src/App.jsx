@@ -6,6 +6,8 @@ import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
+import { useTravelers } from './lib/travelers.js';
+import Travelers from './screens/Travelers.jsx';
 import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
@@ -143,6 +145,8 @@ export default function App() {
   };
   // ---- someday: saved inspiration, grouped by place ----
   const someday = useSomeday(family.household);
+  // ---- travelers: documents, loyalty programs, preferences ----
+  const travelers = useTravelers(family.household);
   const planPlace = async (g) => {
     const t = {
       id: newTripId(), title: g.place === 'Anywhere' ? 'Someday trip' : g.place, place: g.place === 'Anywhere' ? '' : g.place,
@@ -548,6 +552,7 @@ export default function App() {
               key={trip.id}
               trip={trip} song={song} songBusy={songBusy === trip.id} audioBusy={audioBusy}
               household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
+              travelers={travelers.list} home={home} onTravelers={() => go({ tab: 'travelers', tripId: null })}
               onAddCost={(c) => addCost(trip.id, c)}
               onUpload={() => openAddFor(trip.id, 'import')}
               onConfirmTrip={() => { updateTrip(trip.id, (t) => ({ ...t, possible: false, planning: true, statusLabel: 'Planning' })); showToast("It's on — moved to your trips"); }}
@@ -585,6 +590,11 @@ export default function App() {
           {screen === 'albums' && (
             <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} />
           )}
+          {screen === 'travelers' && (
+            <Travelers list={travelers.list} signedIn={!!(supabase && family.household)} toast={showToast}
+              onSave={travelers.save} onAdd={travelers.add} onRemove={travelers.remove}
+              onAddScan={travelers.addScan} onRemoveScan={travelers.removeScan} />
+          )}
         </div>
 
         <Sidebar
@@ -592,6 +602,7 @@ export default function App() {
           onTrips={() => go({ tab: 'trips', tripId: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
+          onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
           onNewTrip={() => openAddFor(null, 'trip')}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
@@ -604,6 +615,7 @@ export default function App() {
           onTrips={() => go({ tab: 'trips', tripId: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
+          onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
         />
 

@@ -3,6 +3,7 @@ import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, R
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
 import { stageLabel } from '../lib/stages.js';
+import TripAlerts from '../components/TripAlerts.jsx';
 
 import { Bookings, Budget, Documents } from './TripSections.jsx';
 
@@ -134,6 +135,8 @@ export default function TripDetail(p) {
           <div className="meta-row" style={{ marginTop: 8 }}><span>{trip.place}</span><span className="dot-sep">·</span><span>{trip.dates}</span></div>
         </div>
       </div>
+
+      <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />
 
       {trip.possible && (
         <div className="possible-banner">
