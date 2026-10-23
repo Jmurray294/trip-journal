@@ -22,6 +22,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 /*__LOYALTY__*/
 
+/*__PHOTOS__*/
+
 const TOLERANCE_DAYS = 3;
 const GRADIENTS = [
   "linear-gradient(150deg,#5E7E78,#324F4A)", "linear-gradient(150deg,#C56B43,#8C3A22)",
@@ -486,6 +488,70 @@ async function costRows(hid: string, costs: Cost[]) {
   return out;
 }
 
+// ---- photos from the family's iPhone Shortcut (?key=…&family=<inbox code>) ----
+// GET  &check&date=YYYY-MM-DD → { trip: "<title>" } when a trip is on that day (a day either side for
+//      travel days), else { trip: "" } — the Shortcut sends nothing on ordinary days.
+// POST &photo  { image: base64 JPEG, taken: "YYYY-MM-DD HH:MM:SS", lat?, lon? } → filed into that day's
+//      photos memory by placePhotos, as the app's Add photos does; the same shot twice is skipped.
+async function photoDrop(req: Request, url: URL) {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const code = String(url.searchParams.get("family") || "").toLowerCase();
+  const { data: hh } = await admin.from("households").select("id").eq("inbox_token", code).maybeSingle();
+  if (!hh) return ok({ error: "unknown family code" }, 404);
+  const hid = (hh as { id: string }).id;
+  const { data: tripRows } = await admin.from("trips").select("id, doc").eq("household_id", hid).eq("deleted", false);
+  const DAY = 86400000;
+  // the trip on a day: the shortest one whose dates cover it, give or take a day
+  const tripOn = (d: Date) => {
+    const x = day(d).getTime();
+    let best: { r: { id: string; doc: Record<string, any> }; len: number } | null = null;
+    for (const r of (tripRows || []) as { id: string; doc: Record<string, any> }[]) {
+      if (r.doc.possible) continue;
+      const range = tripRange(r.doc.dates);
+      if (!range || x < day(range[0]).getTime() - DAY || x > day(range[1]).getTime() + DAY) continue;
+      const len = range[1].getTime() - range[0].getTime();
+      if (!best || len < best.len) best = { r, len };
+    }
+    return best ? best.r : null;
+  };
+
+  if (req.method === "GET") {
+    const t = tripOn(parsePhotoTime(url.searchParams.get("date") || "") || new Date());
+    return ok({ trip: t ? String(t.doc.title || "Trip") : "" });
+  }
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return ok({ error: "bad json" }, 400); }
+  const taken = parsePhotoTime(String(body.taken || ""));
+  if (!taken) return ok({ error: "no date taken" }, 400);
+  const trip = tripOn(taken);
+  if (!trip) return ok({ skipped: "no trip that day" });
+  const data = String(body.image || "").replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
+  if (!data || data.length > 28_000_000) return ok({ error: "no image, or too big" }, 400);
+
+  // the trip's memories as the app holds them; the photo joins its day and place
+  const { data: rows } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", trip.id).eq("deleted", false);
+  const days = ((rows || []) as { id: string; doc: Record<string, any> }[]).filter((r) => r.doc.type !== "cost").map((r) => ({ ...r.doc, id: r.id }));
+  const before = new Map(days.map((d) => [d.id, JSON.stringify(d.photos || [])]));
+  const lat = Number(body.lat), lon = Number(body.lon);
+  const gps = isFinite(lat) && isFinite(lon) && (lat || lon) ? { lat, lon } : {};
+  const key = photoKey(taken, "");
+  const path = `${hid}/photos/${await sha(key + "|" + data.length + "|" + data.slice(0, 2000))}.jpg`;
+  const placed = placePhotos({ ...trip.doc, id: trip.id, days }, [{ key, taken, ...gps, path }], () => "photos-" + crypto.randomUUID().slice(0, 13));
+  if (!placed.added) return ok({ skipped: "already added" });
+
+  const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  const { error: upErr } = await admin.storage.from("media").upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+  if (upErr) return ok({ error: "could not store the photo: " + upErr.message }, 500);
+  const changed = (placed.trip.days as Record<string, any>[]).filter((d) => before.get(d.id) !== JSON.stringify(d.photos || []));
+  const { error } = await admin.from("entries").upsert(changed.map((d) => {
+    const { num, ...doc } = d; // eslint-disable-line no-unused-vars
+    return { household_id: hid, id: d.id, trip_id: trip.id, deleted: false, doc };
+  }), { onConflict: "household_id,id" });
+  if (error) return ok({ error: error.message }, 500);
+  return ok({ added: 1, trip: String(trip.doc.title || "") });
+}
+
 // ---- webhook (the Gmail forwarder, with ?key=) and uploads from the app (a signed-in family member) ----
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -494,6 +560,11 @@ Deno.serve(async (req) => {
   const fromForwarder = !!secret && url.searchParams.get("key") === secret;
   const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!fromForwarder && !jwt) return ok({ error: "forbidden" }, 403);
+  // the family's iPhone Shortcut: is there a trip today (GET &check), and each of its photos (POST &photo)
+  if (url.searchParams.has("check") || url.searchParams.has("photo")) {
+    if (!fromForwarder) return ok({ error: "forbidden" }, 403);
+    return await photoDrop(req, url);
+  }
   if (req.method !== "POST") return ok({ error: "POST only" }, 405);
 
   let mail: Record<string, any>;

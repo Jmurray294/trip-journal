@@ -6,6 +6,8 @@ import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
+import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
+import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
 import Travelers from './screens/Travelers.jsx';
 import Welcome from './screens/Welcome.jsx';
@@ -415,6 +417,31 @@ export default function App() {
     return true;
   };
 
+  // many photos at once, filed by when and where each was taken (photos.js)
+  const importPhotos = async (tripId, fileList) => {
+    const files = [...fileList].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|heic|heif|png)$/i.test(f.name)).slice(0, 150);
+    if (!files.length) return;
+    if (fileList.length > 150) showToast('Adding the first 150 photos — add the rest in another batch');
+    else showToast(`Reading ${files.length} ${files.length === 1 ? 'photo' : 'photos'}…`);
+    const items = [];
+    for (const f of files) {
+      // date and place come from the original file; the resized copy has no EXIF
+      let meta = null;
+      try { meta = parseExif(await f.slice(0, 256 * 1024).arrayBuffer()); } catch (e) { /* unreadable */ }
+      const taken = parsePhotoTime(meta && meta.taken);
+      const src = await resizePhoto(f);
+      if (!src) continue;
+      items.push({ key: photoKey(taken, f.name + '|' + f.size), taken, lat: meta && meta.lat, lon: meta && meta.lon, src });
+    }
+    const trip = tripsRef.current.find((t) => t.id === tripId);
+    if (!trip) return;
+    const r = placePhotos(trip, items, newEntryId, new Date());
+    if (!r.added) { showToast(items.length ? 'Those photos are already in this trip' : 'Could not read those photos'); return; }
+    updateTrip(tripId, (t) => ({ ...t, days: sortDays(placePhotos(t, items, newEntryId, new Date()).trip.days) }));
+    const undated = items.filter((i) => !i.taken).length;
+    showToast(`Added ${r.added} ${r.added === 1 ? 'photo' : 'photos'}` + (undated ? ` — ${undated} had no date and went on today` : ''));
+  };
+
   const saveTrip = ({ title, place, dates, grad }) => {
     if (!title.trim()) { showToast('Give your trip a name'); return false; }
     const trip = { id: newTripId(), title: title.trim(), place: place.trim(), dates: dates.trim() || todayLabel(), grad, planning: false, statusLabel: 'My trip', timelineLabel: 'Timeline', members: FAMILY, song: null, days: [] };
@@ -604,6 +631,7 @@ export default function App() {
               onStory={() => openStory(trip.id)}
               onBook={() => go({ bookId: trip.id })}
               onAdd={() => openAddFor(trip.id)}
+              onAddPhotos={(files) => importPhotos(trip.id, files)}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onDeleteTrip={() => deleteTrip(trip.id)}

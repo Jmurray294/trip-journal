@@ -218,6 +218,148 @@ function bookingProgram(provider, title) {
 const last4 = (n) => String(n || '').replace(/[^A-Za-z0-9]/g, '').slice(-4).toUpperCase();
 
 
+// ---- inlined from src/lib/photos.js ----
+// Photos filed into a trip by when and where they were taken: one "photos" memory per day and place
+// in the trip's timeline, next to the bookings and memories of that day. Used by the app's Add photos
+// and by the inbound-email function for the iPhone Shortcut (inlined by scripts/build-inbound.mjs),
+// so keep it plain JavaScript with no imports.
+
+const PHOTO_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayLabel_ = (d) => PHOTO_MONTHS[d.getMonth()] + ' ' + d.getDate();
+const NEAR_KM = 25;
+
+function kmBetween(a, b) {
+  const R = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * R, dLon = (b[0] - a[0]) * R;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * R) * Math.cos(b[1] * R) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+// "2026:10:31 14:22:05" (EXIF) or "2026-10-31 14:22:05" / "2026-10-31T14:22" → a local Date
+function parsePhotoTime(s) {
+  const m = /^(\d{4})[:-](\d{2})[:-](\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(s || '').trim());
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 12), +(m[5] || 0), +(m[6] || 0));
+  return isNaN(d) ? null : d;
+}
+
+// When and where a JPEG was taken, from its EXIF block: { taken: 'YYYY-MM-DD HH:MM:SS' | null, lat, lon }
+function parseExif(buf) {
+  try {
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xFFD8) return null;
+    let off = 2;
+    while (off + 10 < v.byteLength) {
+      const marker = v.getUint16(off);
+      if ((marker & 0xFF00) !== 0xFF00) return null;
+      if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) return readTiff(v, off + 10);
+      if (marker === 0xFFDA) return null; // image data starts: no EXIF
+      off += 2 + v.getUint16(off + 2);
+    }
+  } catch (e) { /* not a JPEG we can read */ }
+  return null;
+}
+
+function readTiff(v, t) {
+  const le = v.getUint16(t) === 0x4949;
+  const u16 = (o) => v.getUint16(t + o, le);
+  const u32 = (o) => v.getUint32(t + o, le);
+  const ifd = (o) => {
+    const tags = {};
+    const n = u16(o);
+    for (let i = 0; i < n; i++) { const e = o + 2 + i * 12; tags[u16(e)] = { count: u32(e + 4), at: e + 8 }; }
+    return tags;
+  };
+  const ascii = (tag) => {
+    const o = tag.count > 4 ? u32(tag.at) : tag.at;
+    let s = '';
+    for (let i = 0; i < tag.count; i++) { const c = v.getUint8(t + o + i); if (!c) break; s += String.fromCharCode(c); }
+    return s;
+  };
+  const dms = (tag) => {
+    const o = u32(tag.at);
+    const r = (i) => u32(o + i * 8) / (u32(o + i * 8 + 4) || 1);
+    return r(0) + r(1) / 60 + r(2) / 3600;
+  };
+  const ifd0 = ifd(u32(4));
+  let taken = null, lat = null, lon = null;
+  if (ifd0[0x8769]) {
+    const ex = ifd(u32(ifd0[0x8769].at));
+    const tag = ex[0x9003] || ex[0x9004];
+    if (tag) taken = ascii(tag);
+  }
+  if (!taken && ifd0[0x0132]) taken = ascii(ifd0[0x0132]);
+  if (ifd0[0x8825]) {
+    const g = ifd(u32(ifd0[0x8825].at));
+    if (g[2] && g[4]) {
+      lat = dms(g[2]); lon = dms(g[4]);
+      if (g[1] && ascii(g[1]) === 'S') lat = -lat;
+      if (g[3] && ascii(g[3]) === 'W') lon = -lon;
+      if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) lat = lon = null;
+    }
+  }
+  return { taken: taken && /^\d{4}:\d{2}:\d{2}/.test(taken) ? taken : null, lat, lon };
+}
+
+// A photo's identity across imports (the app and the Shortcut send different copies of the same
+// shot): the second it was taken, else whatever the caller gives.
+const photoKey = (taken, fallback) => (taken ? 't' + taken.getTime() / 1000 : 'f' + fallback);
+
+// File photos into one trip. items: [{ key, taken: Date | null, lat, lon, ...photo fields (src or path) }]
+// Each photo joins the "photos" memory for its day and place (made if needed): the place is the
+// nearest stop in the trip within 25 km when the photo has GPS, else that day's place, else the
+// trip's. Photos already in the trip (same key) are skipped.
+// Returns { trip, added, created } — `trip` is a new object; `newId()` names new memories.
+function placePhotos(trip, items, newId, fallbackDay = new Date()) {
+  const days = (trip.days || []).map((d) => ({ ...d, photos: [...(d.photos || [])] }));
+  const have = new Set();
+  for (const d of days) for (const p of d.photos) if (p.key) have.add(p.key);
+  let added = 0, created = 0;
+  const sorted = [...items].sort((a, b) => (a.taken ? a.taken.getTime() : 0) - (b.taken ? b.taken.getTime() : 0));
+  for (const it of sorted) {
+    if (it.key && have.has(it.key)) continue;
+    const when = it.taken || fallbackDay;
+    const label = dayLabel_(when);
+    const gps = typeof it.lat === 'number' && typeof it.lon === 'number' ? [it.lon, it.lat] : null;
+    // where: the nearest stop with coordinates, else the place of that day's memories, else the trip's
+    let place = '', at = null;
+    if (gps) {
+      let best = null;
+      for (const d of days) {
+        if (typeof d.lon !== 'number' || typeof d.lat !== 'number' || !d.place) continue;
+        const km = kmBetween(gps, [d.lon, d.lat]);
+        if (km <= NEAR_KM && (!best || km < best.km)) best = { km, d };
+      }
+      if (best) { place = best.d.place; at = [best.d.lon, best.d.lat]; }
+    }
+    if (!place) {
+      const same = days.filter((d) => d.date === label && d.place && d.source !== 'photos');
+      place = same.length ? same[same.length - 1].place : '';
+    }
+    if (!place && !gps) place = trip.place || '';
+    // the photos memory for this day and place, or for this day near these coordinates
+    let target = days.find((d) => d.source === 'photos' && d.date === label && (place
+      ? d.place === place
+      : gps && typeof d.lon === 'number' && kmBetween(gps, [d.lon, d.lat]) <= NEAR_KM));
+    if (!target) {
+      const c = at || gps;
+      target = {
+        id: newId(), date: label, title: place ? `Photos in ${place}` : 'Photos', place: place || trip.place || '',
+        note: '', photos: [], pos: when.getTime(), source: 'photos',
+        ...(c ? { lon: c[0], lat: c[1] } : {}),
+      };
+      days.push(target);
+      created++;
+    }
+    const { key, taken, lat, lon, ...photo } = it; // eslint-disable-line no-unused-vars
+    target.photos.push({ label: '', ...photo, key, ...(it.taken ? { taken: it.taken.getTime() } : {}) });
+    if (it.key) have.add(it.key);
+    added++;
+  }
+  return { trip: { ...trip, days }, added, created };
+}
+
+
 const TOLERANCE_DAYS = 3;
 const GRADIENTS = [
   "linear-gradient(150deg,#5E7E78,#324F4A)", "linear-gradient(150deg,#C56B43,#8C3A22)",
@@ -682,6 +824,70 @@ async function costRows(hid: string, costs: Cost[]) {
   return out;
 }
 
+// ---- photos from the family's iPhone Shortcut (?key=…&family=<inbox code>) ----
+// GET  &check&date=YYYY-MM-DD → { trip: "<title>" } when a trip is on that day (a day either side for
+//      travel days), else { trip: "" } — the Shortcut sends nothing on ordinary days.
+// POST &photo  { image: base64 JPEG, taken: "YYYY-MM-DD HH:MM:SS", lat?, lon? } → filed into that day's
+//      photos memory by placePhotos, as the app's Add photos does; the same shot twice is skipped.
+async function photoDrop(req: Request, url: URL) {
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const code = String(url.searchParams.get("family") || "").toLowerCase();
+  const { data: hh } = await admin.from("households").select("id").eq("inbox_token", code).maybeSingle();
+  if (!hh) return ok({ error: "unknown family code" }, 404);
+  const hid = (hh as { id: string }).id;
+  const { data: tripRows } = await admin.from("trips").select("id, doc").eq("household_id", hid).eq("deleted", false);
+  const DAY = 86400000;
+  // the trip on a day: the shortest one whose dates cover it, give or take a day
+  const tripOn = (d: Date) => {
+    const x = day(d).getTime();
+    let best: { r: { id: string; doc: Record<string, any> }; len: number } | null = null;
+    for (const r of (tripRows || []) as { id: string; doc: Record<string, any> }[]) {
+      if (r.doc.possible) continue;
+      const range = tripRange(r.doc.dates);
+      if (!range || x < day(range[0]).getTime() - DAY || x > day(range[1]).getTime() + DAY) continue;
+      const len = range[1].getTime() - range[0].getTime();
+      if (!best || len < best.len) best = { r, len };
+    }
+    return best ? best.r : null;
+  };
+
+  if (req.method === "GET") {
+    const t = tripOn(parsePhotoTime(url.searchParams.get("date") || "") || new Date());
+    return ok({ trip: t ? String(t.doc.title || "Trip") : "" });
+  }
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return ok({ error: "bad json" }, 400); }
+  const taken = parsePhotoTime(String(body.taken || ""));
+  if (!taken) return ok({ error: "no date taken" }, 400);
+  const trip = tripOn(taken);
+  if (!trip) return ok({ skipped: "no trip that day" });
+  const data = String(body.image || "").replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
+  if (!data || data.length > 28_000_000) return ok({ error: "no image, or too big" }, 400);
+
+  // the trip's memories as the app holds them; the photo joins its day and place
+  const { data: rows } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", trip.id).eq("deleted", false);
+  const days = ((rows || []) as { id: string; doc: Record<string, any> }[]).filter((r) => r.doc.type !== "cost").map((r) => ({ ...r.doc, id: r.id }));
+  const before = new Map(days.map((d) => [d.id, JSON.stringify(d.photos || [])]));
+  const lat = Number(body.lat), lon = Number(body.lon);
+  const gps = isFinite(lat) && isFinite(lon) && (lat || lon) ? { lat, lon } : {};
+  const key = photoKey(taken, "");
+  const path = `${hid}/photos/${await sha(key + "|" + data.length + "|" + data.slice(0, 2000))}.jpg`;
+  const placed = placePhotos({ ...trip.doc, id: trip.id, days }, [{ key, taken, ...gps, path }], () => "photos-" + crypto.randomUUID().slice(0, 13));
+  if (!placed.added) return ok({ skipped: "already added" });
+
+  const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  const { error: upErr } = await admin.storage.from("media").upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+  if (upErr) return ok({ error: "could not store the photo: " + upErr.message }, 500);
+  const changed = (placed.trip.days as Record<string, any>[]).filter((d) => before.get(d.id) !== JSON.stringify(d.photos || []));
+  const { error } = await admin.from("entries").upsert(changed.map((d) => {
+    const { num, ...doc } = d; // eslint-disable-line no-unused-vars
+    return { household_id: hid, id: d.id, trip_id: trip.id, deleted: false, doc };
+  }), { onConflict: "household_id,id" });
+  if (error) return ok({ error: error.message }, 500);
+  return ok({ added: 1, trip: String(trip.doc.title || "") });
+}
+
 // ---- webhook (the Gmail forwarder, with ?key=) and uploads from the app (a signed-in family member) ----
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -690,6 +896,11 @@ Deno.serve(async (req) => {
   const fromForwarder = !!secret && url.searchParams.get("key") === secret;
   const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!fromForwarder && !jwt) return ok({ error: "forbidden" }, 403);
+  // the family's iPhone Shortcut: is there a trip today (GET &check), and each of its photos (POST &photo)
+  if (url.searchParams.has("check") || url.searchParams.has("photo")) {
+    if (!fromForwarder) return ok({ error: "forbidden" }, 403);
+    return await photoDrop(req, url);
+  }
   if (req.method !== "POST") return ok({ error: "POST only" }, 405);
 
   let mail: Record<string, any>;

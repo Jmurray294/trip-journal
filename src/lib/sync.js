@@ -37,7 +37,8 @@ export function tripDoc(t, uploaded) {
 export function entryDoc(d, uploaded) {
   const { num, ...doc } = d; // eslint-disable-line no-unused-vars
   doc.photos = (d.photos || []).map((p) => {
-    if (isData(p.src) && uploaded.has(p.src)) return { label: p.label || '', path: uploaded.get(p.src) };
+    // keep what else the photo carries (when it was taken, its import key)
+    if (isData(p.src) && uploaded.has(p.src)) { const { src, ...rest } = p; return { ...rest, label: p.label || '', path: uploaded.get(p.src) }; } // eslint-disable-line no-unused-vars
     return p;
   });
   return doc;

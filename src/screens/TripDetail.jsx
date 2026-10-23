@@ -192,7 +192,14 @@ export default function TripDetail(p) {
         {tab === 'itinerary' && <>
         <div className="timeline-head">
           <div className="mono-label">{trip.timelineLabel}</div>
-          <button className="btn-soft-pill press" onClick={p.onAdd}><Plus size={13} w={1.8} /> Add memory</button>
+          <div className="row-8">
+            {/* many photos at once: each goes to its day and place by when and where it was taken */}
+            <label className="btn-soft-pill press" title="Select a day's or a trip's photos — they're sorted by date and place">
+              <input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.target.files; if (f && f.length) p.onAddPhotos([...f]); e.target.value = ''; }} />
+              <Plus size={13} w={1.8} /> Add photos
+            </label>
+            <button className="btn-soft-pill press" onClick={p.onAdd}><Plus size={13} w={1.8} /> Add memory</button>
+          </div>
         </div>
 
         {trip.days.length === 0 && (
