@@ -23,7 +23,8 @@ export function loadLand() {
 
 // `route`: join the stops in order (one trip); off for the all-trips map. A stop's `color` and
 // `hollow` style its pin there.
-export default function TripMap({ stops, activeIndex, onSelect, route = true, empty }) {
+// `spokes`: faint great-circle lines from the home pin out to every other pin (all-trips map).
+export default function TripMap({ stops, activeIndex, onSelect, route = true, spokes = false, empty }) {
   const hostRef = useRef(null);
   const [land, setLand] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -70,6 +71,16 @@ export default function TripMap({ stops, activeIndex, onSelect, route = true, em
     const activeId = activeIds.includes(activeIndex) ? activeIndex : null;
 
     const segs = [];
+    const hub = spokes && pts.find((p) => p.isHome);
+    if (hub) {
+      pts.forEach((p, i) => {
+        if (p === hub) return;
+        const on = p.index === activeIndex;
+        const d = path({ type: 'LineString', coordinates: [[hub.lon, hub.lat], [p.lon, p.lat]] });
+        if (d) segs.push(<path key={'s' + i} d={d} fill="none" stroke={on ? C.route : p.color || C.route} strokeWidth={on ? 2 : 1.2}
+          strokeDasharray="4 4" strokeLinecap="round" strokeOpacity={on ? 0.9 : p.hollow ? 0.25 : 0.4} />);
+      });
+    }
     for (let i = 1; route && i < pts.length; i++) {
       const a = [pts[i - 1].lon, pts[i - 1].lat], b = [pts[i].lon, pts[i].lat];
       const flight = haversineKm(a, b) > 400;

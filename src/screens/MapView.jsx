@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import TripMap from '../components/TripMap.jsx';
 import Chips from '../components/Chips.jsx';
 import { House, Pencil } from '../components/Icons.jsx';
-import { buildStops, tripPoint, geocode } from '../lib/geo.js';
+import { buildStops, tripPoint, geocode, haversineKm, miles } from '../lib/geo.js';
 import { photoBg, photoSrc, short, coverBg } from '../lib/derive.js';
 import { groupTrips, countdown } from '../lib/stages.js';
 
@@ -54,10 +54,14 @@ function AllTrips({ trips, home, someday, active, onSelect, onOpenTrip, onSomeda
     const c = spots[s.place.toLowerCase()];
     if (c) marks.push({ kind: 'someday', s, lon: c[0], lat: c[1] });
   }
+  // distance from home, as the crow flies
+  const hasHome = typeof home.homeLon === 'number' && typeof home.homeLat === 'number';
+  const away = (m) => (hasHome ? miles(haversineKm([home.homeLon, home.homeLat], [m.lon, m.lat])) : '');
   const pins = marks.map((m, i) => ({
     index: i, lon: m.lon, lat: m.lat, color: KINDS[m.kind].color, hollow: m.kind === 'someday',
-    name: m.t ? m.t.title : m.s.place, date: m.t ? m.t.dates : `${m.s.items.length} saved`,
+    name: m.t ? m.t.title : m.s.place, date: [m.t ? m.t.dates : `${m.s.items.length} saved`, away(m)].filter(Boolean).join(' · '),
   }));
+  if (hasHome) pins.push({ index: -1, lon: home.homeLon, lat: home.homeLat, isHome: true, name: 'Home', date: short(home.home, 28) });
   const counts = Object.fromEntries(Object.keys(KINDS).map((k) => [k, marks.filter((m) => m.kind === k).length]));
 
   useEffect(() => {
@@ -68,7 +72,7 @@ function AllTrips({ trips, home, someday, active, onSelect, onOpenTrip, onSomeda
   return (
     <>
       <div className="map-box">
-        <TripMap stops={pins} activeIndex={active} onSelect={onSelect} route={false}
+        <TripMap stops={pins} activeIndex={active} onSelect={onSelect} route={false} spokes
           empty={['No trips on the map yet', 'Trips appear here once their place is found — give each trip a place.']} />
       </div>
       <div className="map-legend">
@@ -90,12 +94,14 @@ function AllTrips({ trips, home, someday, active, onSelect, onOpenTrip, onSomeda
               const sub = m.t
                 ? [m.kind === 'upcoming' ? countdown(m.t) : '', m.t.dates].filter(Boolean).join(' · ')
                 : `${m.s.items.length} ${m.s.items.length === 1 ? 'idea' : 'ideas'} saved`;
+              const dist = away(m);
               return (
                 <div key={i} className={'stop-card' + (on ? ' active' : '')} onClick={() => onSelect(i)} role="button" tabIndex={0}>
                   <div className="stop-photo"><div className="fill" style={m.t ? coverBg(m.t) : photoBg({ tone: '#B9C7A0' })} /></div>
                   <div className="stop-day" style={{ color: k.color }}>{k.label}</div>
                   <div className="stop-name">{m.t ? m.t.title : m.s.place}</div>
                   <div className="stop-sub">{sub}</div>
+                  {dist && <div className="stop-count">{dist} from home</div>}
                   {on && (
                     <button className="btn-soft-pill press" style={{ marginTop: 10, minHeight: 36 }}
                       onClick={(e) => { e.stopPropagation(); if (m.t) onOpenTrip(m.t.id); else onSomeday(m.s.place); }}>

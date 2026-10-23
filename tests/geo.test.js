@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { placeQueries, tripPoint } from '../src/lib/geo.js';
+import { placeQueries, tripPoint, miles, haversineKm } from '../src/lib/geo.js';
+
+test('distances read in miles, rounded past 100', () => {
+  assert.equal(miles(50), '31 mi');
+  // Lewisville, TX to Tokyo (DFW–NRT is about 6,400 mi)
+  assert.equal(miles(haversineKm([-96.99, 33.05], [139.69, 35.69])), '6,440 mi');
+});
 
 test('a loose trip place is also looked up by its first part', () => {
   assert.deepEqual(placeQueries('Japan & Seoul'), ['Japan & Seoul', 'Japan']);

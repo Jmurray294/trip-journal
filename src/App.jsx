@@ -147,6 +147,37 @@ export default function App() {
   const someday = useSomeday(family.household);
   // ---- travelers: documents, loyalty programs, preferences ----
   const travelers = useTravelers(family.household);
+
+  // ---- home base, shared with the family (households.home) so every device has it ----
+  const hid = family.household && family.household.id;
+  // what the server holds ('' until it has been read, so nothing is pushed over a home we haven't seen)
+  const homeSynced = useRef('');
+  const pushHome = (h) => {
+    const s = { home: h.home, lon: h.homeLon, lat: h.homeLat };
+    const key = JSON.stringify(s);
+    if (key === homeSynced.current) return;
+    homeSynced.current = key;
+    supabase.from('households').update({ home: s }).eq('id', hid).then(() => {});
+  };
+  useEffect(() => {
+    homeSynced.current = '';
+    if (!supabase || !hid || !loaded) return;
+    supabase.from('households').select('home').eq('id', hid).maybeSingle().then(({ data, error }) => {
+      if (error || !data) return; // column not added yet, or offline
+      const s = data.home;
+      const local = homeRef.current;
+      if (s && s.home) {
+        homeSynced.current = JSON.stringify(s);
+        if (s.home !== local.home || s.lon !== local.homeLon) setHome({ home: s.home, homeLon: s.lon ?? null, homeLat: s.lat ?? null });
+      } else {
+        homeSynced.current = 'none';
+        if (local.home) pushHome(local); // this device knew home before it was shared
+      }
+    });
+  }, [hid, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (supabase && hid && homeSynced.current) pushHome(home);
+  }, [hid, home]); // eslint-disable-line react-hooks/exhaustive-deps
   const planPlace = async (g) => {
     const t = {
       id: newTripId(), title: g.place === 'Anywhere' ? 'Someday trip' : g.place, place: g.place === 'Anywhere' ? '' : g.place,

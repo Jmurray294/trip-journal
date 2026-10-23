@@ -29,6 +29,12 @@ export function haversineKm(a, b) {
   return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+// "6,420 mi", rounded to the nearest 10 past 100
+export function miles(km) {
+  const mi = km * 0.621371;
+  return (mi < 100 ? Math.round(mi) : Math.round(mi / 10) * 10).toLocaleString('en-US') + ' mi';
+}
+
 // What to look up for a trip's place: the whole name, then its first part ("Japan & Seoul" → "Japan",
 // "Banff & Jasper" → "Banff"), which the geocoder finds when the whole name is too loose.
 export function placeQueries(place) {
