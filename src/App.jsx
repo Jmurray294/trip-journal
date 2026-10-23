@@ -8,6 +8,7 @@ import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
 import { useTravelers } from './lib/travelers.js';
 import Travelers from './screens/Travelers.jsx';
+import Welcome from './screens/Welcome.jsx';
 import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
@@ -566,6 +567,12 @@ export default function App() {
         <div className="loading"><div className="spinner" /><div>Loading your journal…</div></div>
       </div>
     );
+  }
+
+  // not signed in: the cover page. A saved session (including offline) goes straight to the journal.
+  if (family.available && !family.session) {
+    if (!family.checked) return <div className="app"><div className="loading"><div className="spinner" /></div></div>;
+    return <Welcome family={family} />;
   }
 
   const trip = trips.find((t) => t.id === nav.tripId);

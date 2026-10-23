@@ -7,6 +7,7 @@ import { createSync } from './sync.js';
 // Sync only starts once the local journal has loaded (`enabled`), so a pull never races the load.
 export function useFamily({ getTrips, applyTrips, enabled }) {
   const [session, setSession] = useState(null);
+  const [checked, setChecked] = useState(false); // the saved session has been read (no cover-page flash)
   const [recovering, setRecovering] = useState(false); // arrived from a "reset your password" email
   const [household, setHousehold] = useState(null);
   const [members, setMembers] = useState([]);
@@ -16,7 +17,7 @@ export function useFamily({ getTrips, applyTrips, enabled }) {
 
   useEffect(() => {
     if (!supabase) return undefined;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setChecked(true); }).catch(() => setChecked(true));
     const { data } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       if (event === 'PASSWORD_RECOVERY') setRecovering(true);
@@ -127,7 +128,7 @@ export function useFamily({ getTrips, applyTrips, enabled }) {
   };
 
   return {
-    available: !!supabase,
+    available: !!supabase, checked,
     session, email: session && session.user && session.user.email, uid, recovering,
     household, members, invites, status, isOwner: !!(household && uid && household.created_by === uid),
     signIn, signUp, sendReset, setPassword, invite, cancelInvite, removeMember,

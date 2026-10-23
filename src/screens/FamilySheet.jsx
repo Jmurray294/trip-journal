@@ -79,7 +79,7 @@ export default function FamilySheet({ family, onClose, toast }) {
 
   // tell the person: the site, and to create an account with the email it was shared with
   const tellThem = async (to) => {
-    const text = `I've shared our trip journal with you.\n\n1. Open ${SITE()}\n2. Tap the people icon, then "Create account"\n3. Use this email: ${to}\n\nYou'll see our trips as soon as you're in.`;
+    const text = `I've shared our trip journal with you.\n\n1. Open ${SITE()}\n2. Choose "Create an account"\n3. Use this email: ${to}\n\nYou'll see our trips as soon as you're in.`;
     if (navigator.share) { try { await navigator.share({ title: 'Trip Journal', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(text); toast('Invite message copied — paste it in a text or email'); } catch (e) { toast('Send them: ' + SITE()); }
   };
