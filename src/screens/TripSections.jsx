@@ -235,7 +235,24 @@ export function Budget({ trip, onAddCost, onDeleteCost }) {
 const when = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const from = (s) => (String(s || '').match(/^"?([^"<]+?)"?\s*</) || [, s])[1];
 
-export function Documents({ trip, household, toast, onUpload }) {
+// where to send this trip's emails, kept in view however many documents there are
+function InboxNote({ inbox, toast }) {
+  if (!inbox) return null;
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(inbox); toast('Address copied'); } catch (e) { toast(inbox); }
+  };
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="mono-label" style={{ margin: '0 2px 8px' }}>Send trip emails to</div>
+      <div className="invite-row">
+        <div className="inbox-address">{inbox}</div>
+        <button className="btn-share press" onClick={copy}>Copy</button>
+      </div>
+    </div>
+  );
+}
+
+export function Documents({ trip, household, inbox, toast, onUpload }) {
   const [docs, setDocs] = useState(null);
   const [open, setOpen] = useState(null);
   const hid = household && household.id;
@@ -254,10 +271,13 @@ export function Documents({ trip, household, toast, onUpload }) {
   if (!docs) return <div className="section-empty"><div className="empty-sub">Loading documents…</div></div>;
   if (!docs.length) {
     return (
-      <div className="section-empty">
-        <div className="empty-title">No documents yet</div>
-        <div className="empty-sub">Emails you forward and files you upload for this trip are kept here, with their PDFs.</div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><UploadButton onUpload={onUpload} /></div>
+      <div>
+        <InboxNote inbox={inbox} toast={toast} />
+        <div className="section-empty">
+          <div className="empty-title">No documents yet</div>
+          <div className="empty-sub">Emails you send to that address and files you upload for this trip are kept here, with their PDFs.</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><UploadButton onUpload={onUpload} /></div>
+        </div>
       </div>
     );
   }
@@ -268,6 +288,7 @@ export function Documents({ trip, household, toast, onUpload }) {
 
   return (
     <div className="stack-9">
+      <InboxNote inbox={inbox} toast={toast} />
       <div className="timeline-head" style={{ margin: '0 0 4px' }}><div className="mono-label">{docs.length} saved</div><UploadButton onUpload={onUpload} /></div>
       {docs.map((d) => (
         <div key={d.id} className="doc-card">

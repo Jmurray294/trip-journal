@@ -183,7 +183,7 @@ export default function TripDetail(p) {
 
         {tab === 'bookings' && <Bookings trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} />}
-        {tab === 'documents' && <Documents trip={trip} household={p.household} toast={p.toast} onUpload={p.onUpload} />}
+        {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'itinerary' && <>
         <div className="timeline-head">

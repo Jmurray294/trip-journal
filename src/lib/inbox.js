@@ -5,10 +5,12 @@ import { sortDays } from './sync.js';
 // The family's "To sort" list: forwarded emails the reader could not confidently place in a trip.
 // Each item carries its itinerary rows and cost rows ready to file ({ id, doc } like the entries table).
 
-// The family's forwarding address: the trips Gmail address with the family's private code after a "+".
+// The family's trips address. The trips Gmail is the family's own and its forwarder reads mail sent to
+// the plain address (FAMILY_CODE in gmail-forwarder.gs), so that is the one to give out; the
+// "+code" form still works for mail already sent there.
 export function forwardingAddress(household) {
   const base = (import.meta.env || {}).VITE_INBOUND_ADDRESS || '';
-  return base.includes('@') && household && household.inbox_token ? base.replace('@', '+' + household.inbox_token + '@') : null;
+  return base.includes('@') && household && household.inbox_token ? base : null;
 }
 
 // Put an item's rows into one trip (pure, so it can be tested). Rows already somewhere else —
