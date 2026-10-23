@@ -10,7 +10,7 @@ import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
 import SortSheet from './screens/SortSheet.jsx';
-import { geocode } from './lib/geo.js';
+import { geocode, placeQueries } from './lib/geo.js';
 import { todayLabel } from './lib/parser.js';
 import { writeSong as composeSong, sunoText } from './lib/song.js';
 import TripsHome from './screens/TripsHome.jsx';
@@ -60,7 +60,8 @@ export default function App() {
   const [trips, setTrips] = useState([]);
   const [home, setHome] = useState({ home: '', homeLon: null, homeLat: null });
   const [nav, setNav] = useState({ tab: 'trips', tripId: null, storyId: null, bookId: null });
-  const [mapSel, setMapSel] = useState({ tripId: 'tofino', stop: 0 });
+  // 'all': every trip on one map; a trip id: that trip's route
+  const [mapSel, setMapSel] = useState({ tripId: 'all', stop: 0 });
   const [albumFilter, setAlbumFilter] = useState('all');
   const [add, setAdd] = useState(null); // { mode, tripId }
   const [song, setSong] = useState({ playing: false, progress: 0, lyricsOpen: false, audioDur: 0 });
@@ -180,6 +181,18 @@ export default function App() {
     locating.current = true;
     try {
       for (const t of tripsRef.current) {
+        // the trip's own place, for its pin on the all-trips map (looked up again if the place changes)
+        const where = (t.place || '').trim();
+        if (where && t.geoPlace !== where) {
+          let c = null;
+          for (const q of placeQueries(where)) {
+            c = await geocode(q);
+            await new Promise((r) => setTimeout(r, 1100));
+            if (c) break;
+          }
+          applyTrips((ts) => ts.map((x) => (x.id === t.id && (x.place || '').trim() === where
+            ? { ...x, geoPlace: where, lon: c ? c[0] : undefined, lat: c ? c[1] : undefined } : x)));
+        }
         for (let i = 0; i < (t.days || []).length; i++) {
           const d = t.days[i];
           const place = (d.place || '').trim();
@@ -412,7 +425,7 @@ export default function App() {
     applyTrips(rest);
     // a trip planned from Someday that isn't happening: its ideas go back on the board
     if ((trips.find((t) => t.id === id) || {}).source === 'someday') someday.reopen(id);
-    if (mapSel.tripId === id) setMapSel({ tripId: (rest[0] && rest[0].id) || '', stop: 0 });
+    if (mapSel.tripId === id) setMapSel({ tripId: 'all', stop: 0 });
     go({ tab: 'trips', tripId: null });
     showToast('Trip deleted');
   };
@@ -563,6 +576,7 @@ export default function App() {
           {screen === 'map' && (
             <MapView
               trips={trips} home={home} sel={mapSel}
+              someday={family.household ? someday.groups : []} onSomeday={showSomeday}
               onSelectTrip={(id) => setMapSel({ tripId: id, stop: 0 })}
               onSelectStop={(i) => setMapSel((m) => ({ ...m, stop: i }))}
               onSaveHome={saveHome}

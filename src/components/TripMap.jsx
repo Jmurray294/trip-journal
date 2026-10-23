@@ -21,7 +21,9 @@ export function loadLand() {
   return landPromise;
 }
 
-export default function TripMap({ stops, activeIndex, onSelect }) {
+// `route`: join the stops in order (one trip); off for the all-trips map. A stop's `color` and
+// `hollow` style its pin there.
+export default function TripMap({ stops, activeIndex, onSelect, route = true, empty }) {
   const hostRef = useRef(null);
   const [land, setLand] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -47,7 +49,7 @@ export default function TripMap({ stops, activeIndex, onSelect }) {
   let note = null;
   if (failed) note = ['Map needs one download', 'Open this once with a signal and the world map is saved for offline use.'];
   else if (!land) note = ['Loading map…', ''];
-  else if (!pts.length) note = ['No places pinned yet', 'Add a memory with a place and it will appear here.'];
+  else if (!pts.length) note = empty || ['No places pinned yet', 'Add a memory with a place and it will appear here.'];
 
   let body = null;
   if (!note && w && h) {
@@ -68,7 +70,7 @@ export default function TripMap({ stops, activeIndex, onSelect }) {
     const activeId = activeIds.includes(activeIndex) ? activeIndex : null;
 
     const segs = [];
-    for (let i = 1; i < pts.length; i++) {
+    for (let i = 1; route && i < pts.length; i++) {
       const a = [pts[i - 1].lon, pts[i - 1].lat], b = [pts[i].lon, pts[i].lat];
       const flight = haversineKm(a, b) > 400;
       const d = path({ type: 'LineString', coordinates: [a, b] });
@@ -98,11 +100,18 @@ export default function TripMap({ stops, activeIndex, onSelect }) {
           <circle r={r + 2.5} fill={active ? C.accent : C.cream} />
           <image href={s.photo} x={-r} y={-r} width={r * 2} height={r * 2} clipPath={`url(#clip${i})`} preserveAspectRatio="xMidYMid slice" />
         </>);
+      } else if (s.hollow) {
+        const r = active ? 9 : 6.5;
+        inner = (<>
+          <circle r={r + 2.5} fill={C.cream} fillOpacity={0.85} />
+          <circle r={r} fill={C.cream} stroke={active ? C.accent : s.color || C.pin} strokeWidth={2.6} />
+        </>);
       } else {
         const r = active ? 9 : 6;
         inner = (<>
-          <circle r={r + 2.5} fill={C.cream} />
-          <circle r={r} fill={active ? C.accent : C.pin} />
+          {/* coloured pins (all-trips map) show the selection as a ring; plain ones fill with the accent */}
+          <circle r={r + 2.5} fill={active && s.color ? C.accent : C.cream} />
+          <circle r={r} fill={s.color || (active ? C.accent : C.pin)} />
         </>);
       }
       const g = (

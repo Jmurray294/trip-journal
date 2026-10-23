@@ -29,6 +29,26 @@ export function haversineKm(a, b) {
   return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+// What to look up for a trip's place: the whole name, then its first part ("Japan & Seoul" → "Japan",
+// "Banff & Jasper" → "Banff"), which the geocoder finds when the whole name is too loose.
+export function placeQueries(place) {
+  const q = String(place || '').trim();
+  if (!q) return [];
+  const first = q.split(/\s*(?:&|,|\+|\/|\band\b|\bwith\b)\s*/i)[0].trim();
+  return first && first !== q ? [q, first] : [q];
+}
+
+// Where a trip pins on the all-trips map: its own place, looked up (trip.lon/lat); else the stop
+// farthest from home, since a trip's first stop is often the airport at home.
+export function tripPoint(trip, home) {
+  if (typeof trip.lon === 'number' && typeof trip.lat === 'number') return [trip.lon, trip.lat];
+  const pts = (trip.days || []).filter((d) => typeof d.lon === 'number' && typeof d.lat === 'number').map((d) => [d.lon, d.lat]);
+  if (!pts.length) return null;
+  if (typeof home.homeLon !== 'number' || typeof home.homeLat !== 'number') return pts[Math.floor(pts.length / 2)];
+  const h = [home.homeLon, home.homeLat];
+  return pts.reduce((a, p) => (haversineKm(h, p) > haversineKm(h, a) ? p : a));
+}
+
 // Index 0 is always Home; then one stop per distinct place in day order.
 // A repeated place extends that stop's day range and merges its photos.
 export function buildStops(trip, home) {
