@@ -693,3 +693,5 @@ select.field { -webkit-appearance: auto; appearance: auto; }
 @media (min-width: 900px) {
   .bell-btn { right: var(--gutter); top: 40px; }
 }
+.order-segs { display: inline-flex; gap: 4px; padding: 3px; margin: -4px 0 16px; border-radius: 999px; background: rgba(42,37,32,0.06); }
+.order-segs .seg { flex: none; min-height: 32px; padding: 0 13px; border-radius: 999px; font-size: 12.5px; }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
-import { stageLabel } from '../lib/stages.js';
+import { stageLabel, tripStage } from '../lib/stages.js';
 import TripAlerts from '../components/TripAlerts.jsx';
 
 import { Bookings, Budget, Documents } from './TripSections.jsx';
@@ -132,6 +132,11 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 export default function TripDetail(p) {
   const { trip } = p;
   const [tab, setTab] = useState('itinerary');
+  // while planning, what just came in matters most; a finished trip reads as its story, day by day
+  const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
+  const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);
+  const shown = trip.days.map((d, idx) => ({ d, idx })); // idx: its place in trip.days, for delete
+  if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const bookingCount = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind)).length;
   const counts = { itinerary: trip.days.length, bookings: bookingCount, budget: (trip.costs || []).length };
   return (
@@ -221,10 +226,17 @@ export default function TripDetail(p) {
           </div>
         )}
 
-        {trip.days.map((d, idx) => (
-          <div key={idx} className={'entry' + (d.booking && d.booking.status === 'cancelled' ? ' cancelled' : '')}>
+        {trip.days.length > 1 && (
+          <div className="order-segs">
+            <button className={'seg' + (order === 'newest' ? ' active' : '')} onClick={() => setOrder('newest')}>Newest first</button>
+            <button className={'seg' + (order === 'trip' ? ' active' : '')} onClick={() => setOrder('trip')}>Trip order</button>
+          </div>
+        )}
+
+        {shown.map(({ d, idx }, i) => (
+          <div key={d.id || idx} className={'entry' + (d.booking && d.booking.status === 'cancelled' ? ' cancelled' : '')}>
             <div className="entry-gutter">
-              <div className="entry-num">{d.num}</div>
+              <div className="entry-num">{i + 1}</div>
               <div className="entry-line" />
             </div>
             <div className="entry-body">
