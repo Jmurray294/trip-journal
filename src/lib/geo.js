@@ -35,13 +35,15 @@ export function miles(km) {
   return (mi < 100 ? Math.round(mi) : Math.round(mi / 10) * 10).toLocaleString('en-US') + ' mi';
 }
 
-// What to look up for a trip's place: the whole name, then its first part ("Japan & Seoul" → "Japan",
-// "Banff & Jasper" → "Banff"), which the geocoder finds when the whole name is too loose.
+// What to look up for a trip's place: its first part ("Japan & Seoul" → "Japan", "Scotland with
+// Barbara" → "Scotland"), since the geocoder matches the whole phrase on its last word (Seoul), then
+// the whole name. Bump GEO_V when this changes so trips already placed are looked up again.
+export const GEO_V = 2;
 export function placeQueries(place) {
   const q = String(place || '').trim();
   if (!q) return [];
   const first = q.split(/\s*(?:&|,|\+|\/|\band\b|\bwith\b)\s*/i)[0].trim();
-  return first && first !== q ? [q, first] : [q];
+  return first && first !== q ? [first, q] : [q];
 }
 
 // Where a trip pins on the all-trips map: its own place, looked up (trip.lon/lat); else the stop

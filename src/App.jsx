@@ -12,7 +12,7 @@ import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
 import SortSheet from './screens/SortSheet.jsx';
-import { geocode, placeQueries } from './lib/geo.js';
+import { geocode, placeQueries, GEO_V } from './lib/geo.js';
 import { todayLabel } from './lib/parser.js';
 import { writeSong as composeSong, sunoText } from './lib/song.js';
 import TripsHome from './screens/TripsHome.jsx';
@@ -218,7 +218,7 @@ export default function App() {
       for (const t of tripsRef.current) {
         // the trip's own place, for its pin on the all-trips map (looked up again if the place changes)
         const where = (t.place || '').trim();
-        if (where && t.geoPlace !== where) {
+        if (where && (t.geoPlace !== where || t.geoV !== GEO_V)) {
           let c = null;
           for (const q of placeQueries(where)) {
             c = await geocode(q);
@@ -226,7 +226,7 @@ export default function App() {
             if (c) break;
           }
           applyTrips((ts) => ts.map((x) => (x.id === t.id && (x.place || '').trim() === where
-            ? { ...x, geoPlace: where, lon: c ? c[0] : undefined, lat: c ? c[1] : undefined } : x)));
+            ? { ...x, geoPlace: where, geoV: GEO_V, lon: c ? c[0] : undefined, lat: c ? c[1] : undefined } : x)));
         }
         for (let i = 0; i < (t.days || []).length; i++) {
           const d = t.days[i];

@@ -8,9 +8,9 @@ test('distances read in miles, rounded past 100', () => {
   assert.equal(miles(haversineKm([-96.99, 33.05], [139.69, 35.69])), '6,440 mi');
 });
 
-test('a loose trip place is also looked up by its first part', () => {
-  assert.deepEqual(placeQueries('Japan & Seoul'), ['Japan & Seoul', 'Japan']);
-  assert.deepEqual(placeQueries('Scotland with Barbara'), ['Scotland with Barbara', 'Scotland']);
+test('a loose trip place is looked up by its first part first', () => {
+  assert.deepEqual(placeQueries('Japan & Seoul'), ['Japan', 'Japan & Seoul']);
+  assert.deepEqual(placeQueries('Scotland with Barbara'), ['Scotland', 'Scotland with Barbara']);
   assert.deepEqual(placeQueries('Italy'), ['Italy']);
   assert.deepEqual(placeQueries(''), []);
 });
