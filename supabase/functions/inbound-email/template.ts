@@ -20,6 +20,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 /*__PARSER__*/
 
+/*__LOYALTY__*/
+
 const TOLERANCE_DAYS = 3;
 const GRADIENTS = [
   "linear-gradient(150deg,#5E7E78,#324F4A)", "linear-gradient(150deg,#C56B43,#8C3A22)",
@@ -29,7 +31,7 @@ const GRADIENTS = [
 
 type Booking = {
   kind: string; status: string; date: Date; endDate: Date | null; time: string; title: string;
-  provider: string; confirmation: string; place: string; address: string; travelers: string; note: string;
+  provider: string; confirmation: string; place: string; address: string; travelers: string; loyalty: string; note: string;
 };
 type Cost = {
   category: string; title: string; vendor: string; amount: number; currency: string;
@@ -38,7 +40,8 @@ type Cost = {
 type Placement = { decision: "existing" | "new" | "unsure"; tripId: string; title: string; place: string; reason: string };
 type Idea = { title: string; place: string; dates: string; start: Date | null; end: Date | null; people: string; summary: string; tripId: string };
 type Saved = { title: string; place: string; spot: string; note: string; url: string };
-type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[]; someday: Saved[] };
+type Account = { program: string; number: string; traveler: string; status: string; balance: number | null; asOf: string };
+type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[]; someday: Saved[]; loyalty: Account[] };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -139,9 +142,10 @@ const READING_SCHEMA = {
           place: { type: "string", description: "City or place name, short" },
           address: { type: "string", description: "Street address or terminal/port, or empty" },
           travelers: { type: "string", description: "Names on the booking, comma separated, or empty" },
+          loyalty: { type: "string", description: "Frequent flyer / hotel / rental loyalty numbers shown on this reservation, as printed (may be masked), comma separated, or empty" },
           note: { type: "string" },
         },
-        required: ["kind", "status", "date", "end_date", "time", "title", "provider", "confirmation", "place", "address", "travelers", "note"],
+        required: ["kind", "status", "date", "end_date", "time", "title", "provider", "confirmation", "place", "address", "travelers", "loyalty", "note"],
         additionalProperties: false,
       },
     },
@@ -211,8 +215,25 @@ const READING_SCHEMA = {
         additionalProperties: false,
       },
     },
+    loyalty: {
+      type: "array",
+      description: "The family's own loyalty accounts this email reports on: statements, balances, status changes",
+      items: {
+        type: "object",
+        properties: {
+          program: { type: "string", description: "e.g. 'AAdvantage', 'Marriott Bonvoy'" },
+          number: { type: "string", description: "Member number as printed (may be masked like ****1234), or empty" },
+          traveler: { type: "string", description: "Which of the family's travelers the account belongs to, by their name in the list given, or empty" },
+          status: { type: "string", description: "Status tier, e.g. 'Gold', 'Platinum Elite', or empty" },
+          balance: { type: "number", description: "Points or miles balance, or -1 if not shown" },
+          as_of: { type: "string", description: "Statement or balance date YYYY-MM-DD, or empty" },
+        },
+        required: ["program", "number", "traveler", "status", "balance", "as_of"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["summary", "destination", "bookings", "costs", "trip", "ideas", "someday"],
+  required: ["summary", "destination", "bookings", "costs", "trip", "ideas", "someday", "loyalty"],
   additionalProperties: false,
 };
 
@@ -304,7 +325,7 @@ async function linkPreviews(text: string): Promise<Preview[]> {
   return out;
 }
 
-async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = "", watched = false, saving = false): Promise<Reading | null> {
+async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = "", watched = false, saving = false, people = ""): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
   const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
@@ -348,10 +369,15 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "link, a screenshot, a friend's recommendation, a note like 'we should go here' — that aren't part of a trip being planned " +
         "(those are IDEAS) or booked. One per distinct place or thing; group them by country (or US state / Canadian province) " +
         "in place, with the town, area or venue in spot.\n\n" +
+        "LOYALTY: for statements, balance updates and status emails about the family's own airline, hotel, rental and cruise " +
+        "accounts (not offers or promotions), list each account: program, member number as printed, status tier and points or miles " +
+        `balance.${people ? ` Say whose account it is from these travelers: ${people}.` : ""} For bookings, put any loyalty numbers ` +
+        "shown on the reservation in that booking's loyalty field.\n\n" +
         "Skip marketing and travel deals: newsletters and promotions are not inspiration unless someone forwarded one with a note. " +
         "Infer missing years from today's date. If the email has no bookings, no costs, no trip ideas and nothing for someday, return empty lists.\n\n" +
         (watched ? "This email arrived at the family's trips address directly rather than being forwarded on purpose, so it may not be travel. Unless it is " +
-          "about the family's own travel (a reservation, a change, a payment, a trip being planned with us, or a place one of us wants to go), return empty lists.\n\n" : "") +
+          "about the family's own travel (a reservation, a change, a payment, a trip being planned with us, a place one of us wants to go, " +
+          "or one of our loyalty accounts), return empty lists.\n\n" : "") +
         (saving ? "Someone in the family saved this in the app as inspiration for a trip someday: list it under SOMEDAY, and nothing " +
           "else unless it is plainly a booking or a receipt.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
@@ -371,7 +397,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
     bookings.push({
       kind: b.kind, status: b.status, date, endDate: iso(b.end_date), time: str(b.time, 20), title: str(b.title, 140),
       provider: str(b.provider, 80), confirmation: str(b.confirmation, 40), place: str(b.place, 80), address: str(b.address, 160),
-      travelers: str(b.travelers, 200), note: str(b.note, 200),
+      travelers: str(b.travelers, 200), loyalty: str(b.loyalty, 200), note: str(b.note, 200),
     });
   }
   const costs: Cost[] = [];
@@ -394,6 +420,11 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
   const t = p.trip || {};
   return {
     summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs, ideas, someday,
+    loyalty: (p.loyalty || []).filter((a: Record<string, unknown>) => a.program).map((a: Record<string, unknown>) => ({
+      program: str(a.program, 60), number: str(a.number, 40), traveler: str(a.traveler, 60), status: str(a.status, 40),
+      balance: typeof a.balance === "number" && a.balance >= 0 ? Math.round(a.balance) : null,
+      asOf: /^\d{4}-\d{2}-\d{2}$/.test(String(a.as_of || "")) ? String(a.as_of) : "",
+    })),
     placement: { decision: t.decision, tripId: str(t.trip_id, 40), title: str(t.new_title, 60), place: str(t.new_place, 60), reason: str(t.reason, 200) },
   };
 }
@@ -402,10 +433,10 @@ function readWithScanner(text: string): Reading {
   const found = parseConfirmation(text);
   const bookings: Booking[] = found.filter((f: { sortDate: Date | null }) => f.sortDate).map((f: { kind: string; sortDate: Date; title: string; place: string; note: string }) => ({
     kind: f.kind === "Booking" ? "Other" : f.kind, status: "confirmed", date: f.sortDate, endDate: null, time: "", title: f.title,
-    provider: "", confirmation: "", place: f.place || "", address: "", travelers: "", note: f.note,
+    provider: "", confirmation: "", place: f.place || "", address: "", travelers: "", loyalty: "", note: f.note,
   }));
   const stay = bookings.find((b) => b.kind === "Stay");
-  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null, ideas: [], someday: [] };
+  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null, ideas: [], someday: [], loyalty: [] };
 }
 
 // ---- rows for the entries table ----
@@ -431,7 +462,7 @@ async function bookingRows(hid: string, bookings: Booking[], fallbackPlace: stri
         pos: b.date.getTime() + minutesOf(b.time) * 60000, kind: b.kind, source: "email",
         booking: {
           status: b.status, provider: b.provider, confirmation: b.confirmation, start: isoDay(b.date), end: isoDay(b.endDate),
-          time: b.time, address: b.address, travelers: b.travelers,
+          time: b.time, address: b.address, travelers: b.travelers, loyalty: b.loyalty,
         },
       },
     });
@@ -528,7 +559,15 @@ Deno.serve(async (req) => {
   const previewText = previews.map((p) => `\n\nLINK PREVIEW ${p.url}\n${p.title}\n${p.description}`).join("");
   // saved from the app's "Save idea": inspiration for the Someday board
   const saving = !fromForwarder && mail.Someday === true;
-  try { read = await readWithClaude(subject + "\n" + text + previewText, subject, briefs, files, family, watched, saving); } catch (e) {
+  // the family's travelers and their programs (last 4 of each number only), so statements reach the right card
+  const { data: travelerRows } = await admin.from("travelers").select("id, name, doc").eq("household_id", hid);
+  const travelers = (travelerRows || []) as { id: string; name: string; doc: Record<string, any> }[];
+  const people = travelers.map((t) => {
+    const progs = ((t.doc || {}).loyalty || []).map((l: Record<string, string>) => [l.program, l.number && "…" + last4(l.number)].filter(Boolean).join(" "));
+    const pp = ((t.doc || {}).passport || {}).name;
+    return `${t.name}${pp ? ` (${pp})` : ""}${progs.length ? `: ${progs.join(", ")}` : ""}`;
+  }).join("; ");
+  try { read = await readWithClaude(subject + "\n" + text + previewText, subject, briefs, files, family, watched, saving, people); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
     console.error("Claude could not read the email:", reader);
@@ -537,7 +576,7 @@ Deno.serve(async (req) => {
   if (!read && watched) return ok({ error: "could not read the email, try later" }, 503);
   if (!read) { if (reader === "claude") reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
   // personal mail that isn't travel: keep nothing, not even a log line
-  if (watched && !read.bookings.length && !read.costs.length && !read.ideas.length && !read.someday.length) return ok({ ignored: "not travel" });
+  if (watched && !read.bookings.length && !read.costs.length && !read.ideas.length && !read.someday.length && !read.loyalty.length) return ok({ ignored: "not travel" });
 
   // keep the PDFs and photos so the trip's Documents can open them later
   const stored = await storeFiles(admin, hid, files);
@@ -596,11 +635,40 @@ Deno.serve(async (req) => {
     else savedNames.push(...read.someday.map((s) => s.spot || s.title || s.place));
   }
 
+  // ---- loyalty: statement balances and status onto the right traveler's card ----
+  const accounts: string[] = [];
+  for (const a of read.loyalty) {
+    const key = programKey(a.program);
+    const l4 = last4(a.number);
+    // whose: the traveler Claude named, else the one already holding this program's number
+    const owner = travelers.find((t) => t.name && a.traveler && t.name.toLowerCase() === a.traveler.toLowerCase().split(/\s+/)[0]) ||
+      travelers.find((t) => ((t.doc || {}).loyalty || []).some((l: Record<string, string>) => programKey(l.program) === key && l4 && last4(l.number) === l4));
+    if (!owner) continue;
+    const doc = { ...(owner.doc || {}) };
+    const list = [...(doc.loyalty || [])] as Record<string, string>[];
+    let i = list.findIndex((l) => programKey(l.program) === key && (!l4 || !l.number || last4(l.number) === l4));
+    if (i < 0) { list.push({ program: a.program, number: a.number }); i = list.length - 1; }
+    const masked = /[*•x]{2,}/i.test(a.number);
+    list[i] = {
+      ...list[i],
+      ...(a.number && !masked ? { number: a.number } : {}),
+      ...(a.status ? { status: a.status } : {}),
+      ...(a.balance != null ? { balance: a.balance.toLocaleString("en-US") } : {}),
+      ...(a.asOf ? { asOf: a.asOf } : {}),
+    };
+    doc.loyalty = list;
+    owner.doc = doc;
+    const { error } = await admin.from("travelers").update({ doc, updated_at: new Date().toISOString() }).eq("id", owner.id);
+    if (error) console.error("could not update loyalty", error.message);
+    else accounts.push(`${owner.name} ${list[i].program}`);
+  }
+
   if (!read.bookings.length && !read.costs.length) {
-    if (ideaTitles.length || savedNames.length) {
-      const names = [...ideaTitles, ...(savedNames.length ? ["Someday"] : [])].join(", ");
-      await log({ items: ideaTitles.length + savedNames.length, status: "added", reader, trip_title: names, trip_id: ideaTripId });
-      return ok({ added: ideaTitles.length + savedNames.length, trip: ideaTitles.join(", "), tripId: ideaTripId, ideas: ideaTitles.length, someday: savedNames });
+    if (ideaTitles.length || savedNames.length || accounts.length) {
+      const names = [...ideaTitles, ...(savedNames.length ? ["Someday"] : []), ...accounts].join(", ");
+      const n = ideaTitles.length + savedNames.length + accounts.length;
+      await log({ items: n, status: "added", reader, trip_title: names, trip_id: ideaTripId });
+      return ok({ added: n, trip: ideaTitles.join(", "), tripId: ideaTripId, ideas: ideaTitles.length, someday: savedNames, loyalty: accounts });
     }
     await log({ items: 0, status: "nothing found", reader });
     return ok({ added: 0 });

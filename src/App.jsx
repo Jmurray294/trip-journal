@@ -356,6 +356,11 @@ export default function App() {
       return true;
     }
     if (idea) { showToast("Couldn't find a place in that — add a few words about it"); return false; }
+    if (data.loyalty && data.loyalty.length && !data.tripId) {
+      travelers.refresh();
+      showToast('Updated ' + data.loyalty.join(', '));
+      return true;
+    }
     if (data.toSort) { showToast("Not sure which trip — it's waiting under To sort"); go({ tab: 'trips', tripId: null }); return true; }
     if (!data.added) { showToast('No bookings or costs found in that'); return false; }
     showToast(`${data.added} ${data.added === 1 ? 'item' : 'items'} added to ${data.trip || 'the trip'}`);

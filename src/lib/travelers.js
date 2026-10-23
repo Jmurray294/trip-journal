@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { kvGet, kvPut } from './db.js';
 import { tripSpan } from './stages.js';
+import { bookingProgram, programKey, last4 } from './loyalty.js';
 
 // Travelers (supabase/travelers.sql): one row per person, details in `doc`:
 //   passport  { name, number, country, issued, expires, scans: [{ path, name, type }] }
 //   ktn       { program, number, expires }          Global Entry / TSA PreCheck / NEXUS
 //   dob, redress
 //   license   { state, expires }
-//   loyalty   [{ program, number, status, balance }]
+//   loyalty   [{ program, number, status, balance, asOf }]   balance and asOf also come from statements
 //   prefs     { airport, seat, cabin, meal, room, airlines, hotels, notes }
 //   emergency { insurance, contacts, medical }
 // Dates are YYYY-MM-DD. A copy is kept on the device so the numbers are there at the airport offline.
@@ -39,6 +40,35 @@ export function tripDocAlerts(trip, travelers, international, today = new Date()
     if (ktn.number && kexp && kexp < start) out.push({ level: 'warn', text: `${who}'s ${ktn.program || 'Global Entry'} expires ${monthYear(ktn.expires)}, before this trip — renew it.` });
     const lexp = iso(doc.license && doc.license.expires);
     if (hasCar && lexp && lexp < end) out.push({ level: 'warn', text: `${who}'s driver's license expires ${monthYear(doc.license.expires)} — you have a car rental on this trip.` });
+  }
+  return out;
+}
+
+// Upcoming bookings that don't show a traveler's number for that program, e.g. no AAdvantage # on an
+// American flight. Only bookings read since loyalty numbers were recorded (booking.loyalty is a
+// string) are checked; when a booking names its travelers, only those people are.
+export function loyaltyAlerts(trip, travelers, today = new Date()) {
+  const out = [];
+  const day0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  for (const d of trip.days || []) {
+    const b = d.booking;
+    if (!b || b.status === 'cancelled' || typeof b.loyalty !== 'string') continue;
+    const start = iso(b.start);
+    if (!start || start < day0) continue;
+    const prog = bookingProgram(b.provider, d.title);
+    if (!prog) continue;
+    const shown = new Set(b.loyalty.split(/[,;]/).map(last4).filter(Boolean));
+    const names = String(b.travelers || '').toLowerCase();
+    const missing = travelers.filter((t) => {
+      const acct = ((t.doc || {}).loyalty || []).find((l) => l.number && programKey(l.program) === prog.key);
+      if (!acct || shown.has(last4(acct.number))) return false;
+      const first = String(t.name || '').toLowerCase().split(/\s+/)[0];
+      const pp = String(((t.doc || {}).passport || {}).name || '').toLowerCase().split(/\s+/)[0];
+      return !names || (first && names.includes(first)) || (pp && names.includes(pp));
+    });
+    if (missing.length) {
+      out.push({ level: 'warn', text: `No ${prog.name} # for ${missing.map((t) => t.name).join(' or ')} on ${d.title} — add it before you go.` });
+    }
   }
   return out;
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { geoContains } from 'd3-geo';
 import { loadLand } from './TripMap.jsx';
 import { tripPoint } from '../lib/geo.js';
-import { tripDocAlerts } from '../lib/travelers.js';
+import { tripDocAlerts, loyaltyAlerts } from '../lib/travelers.js';
 
 const USA = '840'; // ISO numeric id in the bundled world map
 
@@ -24,11 +24,12 @@ function useInternational(trip, home) {
   return intl;
 }
 
-// Passport, Global Entry and license problems for an upcoming trip, shown under its header.
+// Passport, Global Entry and license problems, and loyalty numbers missing from bookings, for an
+// upcoming trip, shown under its header.
 export default function TripAlerts({ trip, travelers, home, onOpen }) {
   const intl = useInternational(trip, home);
   if (trip.possible || !travelers.length) return null;
-  const alerts = tripDocAlerts(trip, travelers, intl);
+  const alerts = [...tripDocAlerts(trip, travelers, intl), ...loyaltyAlerts(trip, travelers)];
   if (!alerts.length) return null;
   return (
     <div className="trip-alerts">

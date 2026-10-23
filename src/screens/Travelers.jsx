@@ -100,7 +100,7 @@ function PersonCard({ t, onEdit, onAddScan, onRemoveScan, toast }) {
       <Section title="Loyalty programs" has={loyalty.length > 0} empty="No programs yet — add AAdvantage, Bonvoy and the rest under Edit.">
         {loyalty.map((l, i) => (
           <Row key={i} label={l.program || 'Program'} value={l.number}
-            note={l.status || l.balance ? { level: 'info', text: [l.status, l.balance && l.balance + ' pts'].filter(Boolean).join(' · ') } : null} {...r} />
+            note={l.status || l.balance ? { level: 'info', text: [l.status, l.balance && l.balance + ' pts', l.asOf && 'as of ' + monthYear(l.asOf)].filter(Boolean).join(' · ') } : null} {...r} />
         ))}
       </Section>
 
@@ -228,8 +228,51 @@ function EditSheet({ t, onSave, onRemove, onClose, toast }) {
   );
 }
 
+// Everything a booking form asks for, for everyone, on one screen with copy buttons.
+function BookingSheet({ list, onClose, toast }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const r = { toast, shown: true };
+  return (
+    <div className="sheet-root">
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet" role="dialog" aria-modal="true">
+        <div className="grab" />
+        <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Booking sheet</div>
+        <div className="sheet-copy" style={{ marginTop: 4 }}>What booking forms ask for. Tap Copy to paste it in.</div>
+        <div className="tv-sheet">
+          {list.map((t) => {
+            const d = t.doc || {};
+            const pp = d.passport || {}, ktn = d.ktn || {}, pr = d.prefs || {};
+            return (
+              <div key={t.id} className="tv-sheet-person">
+                <div className="tv-name" style={{ fontSize: 20 }}>{t.name}</div>
+                <Row label="Name on passport" value={pp.name} {...r} />
+                <Row label="Date of birth" value={d.dob ? day(d.dob) : ''} copy={d.dob} {...r} />
+                <Row label="Passport no." value={pp.number} secret {...r} />
+                <Row label="Passport expires" value={day(pp.expires)} copy={pp.expires} {...r} />
+                <Row label="Passport country" value={pp.country} {...r} />
+                <Row label={ktn.program || 'Known traveler no.'} value={ktn.number} secret {...r} />
+                <Row label="Redress no." value={d.redress} secret {...r} />
+                {(d.loyalty || []).filter((l) => l.number).map((l, i) => <Row key={i} label={l.program || 'Program'} value={l.number} {...r} />)}
+                <Row label="Seat · cabin" value={[pr.seat, pr.cabin].filter(Boolean).join(' · ')} copy={false} {...r} />
+                <Row label="Meals & diet" value={pr.meal} copy={false} {...r} />
+              </div>
+            );
+          })}
+        </div>
+        <button className="btn-primary press" style={{ marginTop: 20 }} onClick={onClose}>Done</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Travelers({ list, signedIn, onSave, onAdd, onRemove, onAddScan, onRemoveScan, toast }) {
   const [editing, setEditing] = useState(null);
+  const [sheet, setSheet] = useState(false);
   const person = list.find((t) => t.id === editing);
   const add = async () => {
     const name = window.prompt('Name');
@@ -246,6 +289,12 @@ export default function Travelers({ list, signedIn, onSave, onAdd, onRemove, onA
         <section className="sec"><div className="someday-empty">Sign in (the people icon on the Trips page) to keep your travel documents and programs here.</div></section>
       ) : (
         <section className="sec" style={{ paddingTop: 8 }}>
+          {list.length > 0 && (
+            <div className="tv-actions">
+              <button className="btn-soft-pill press" onClick={() => setSheet(true)}>Booking sheet</button>
+              <span className="tv-tip">Forward program statements to the trips address and balances update here.</span>
+            </div>
+          )}
           <div className="tv-grid">
             {list.map((t) => (
               <PersonCard key={t.id} t={t} onEdit={() => setEditing(t.id)} onAddScan={onAddScan} onRemoveScan={onRemoveScan} toast={toast} />
@@ -254,6 +303,7 @@ export default function Travelers({ list, signedIn, onSave, onAdd, onRemove, onA
           <button className="new-trip press" style={{ marginTop: 16 }} onClick={add}><Plus /> Add a traveler</button>
         </section>
       )}
+      {sheet && <BookingSheet list={list} onClose={() => setSheet(false)} toast={toast} />}
       {person && <EditSheet t={person} onSave={onSave} onRemove={onRemove} onClose={() => setEditing(null)} toast={toast} />}
     </div>
   );
