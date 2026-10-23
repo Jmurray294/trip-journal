@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash } from '../components/Icons.jsx';
 import { money, dayLabel, costTotals } from '../lib/derive.js';
 import { tripDocuments, openFile } from '../lib/docs.js';
+import { tripIdeas } from '../lib/someday.js';
+import { Idea } from './SomedayBoard.jsx';
 
 // The trip page's Bookings, Budget and Documents tabs (the Itinerary tab is the timeline in TripDetail).
 
@@ -254,6 +256,7 @@ function InboxNote({ inbox, toast }) {
 
 export function Documents({ trip, household, inbox, toast, onUpload }) {
   const [docs, setDocs] = useState(null);
+  const [ideas, setIdeas] = useState([]);
   const [open, setOpen] = useState(null);
   const hid = household && household.id;
 
@@ -262,8 +265,19 @@ export function Documents({ trip, household, inbox, toast, onUpload }) {
     let live = true;
     setDocs(null);
     tripDocuments(hid, trip.id).then((d) => { if (live) setDocs(d); }).catch(() => { if (live) setDocs([]); });
+    tripIdeas(hid, trip.id).then((d) => { if (live) setIdeas(d); }).catch(() => {});
     return () => { live = false; };
   }, [hid, trip.id]);
+
+  // the Someday ideas this trip was planned from
+  const saved = ideas.length > 0 && (
+    <div style={{ marginBottom: 18 }}>
+      <div className="mono-label" style={{ margin: '0 2px 9px' }}>Saved ideas · {ideas.length}</div>
+      <div className="someday-place" style={{ paddingBottom: 14 }}>
+        <div className="stack-9">{ideas.map((it) => <Idea key={it.id} it={it} />)}</div>
+      </div>
+    </div>
+  );
 
   if (!hid) {
     return <div className="section-empty"><div className="empty-sub">Sign in (the people icon) to see the emails and files saved with this trip.</div></div>;
@@ -273,6 +287,7 @@ export function Documents({ trip, household, inbox, toast, onUpload }) {
     return (
       <div>
         <InboxNote inbox={inbox} toast={toast} />
+        {saved}
         <div className="section-empty">
           <div className="empty-title">No documents yet</div>
           <div className="empty-sub">Emails you send to that address and files you upload for this trip are kept here, with their PDFs.</div>
@@ -289,6 +304,7 @@ export function Documents({ trip, household, inbox, toast, onUpload }) {
   return (
     <div className="stack-9">
       <InboxNote inbox={inbox} toast={toast} />
+      {saved}
       <div className="timeline-head" style={{ margin: '0 0 4px' }}><div className="mono-label">{docs.length} saved</div><UploadButton onUpload={onUpload} /></div>
       {docs.map((d) => (
         <div key={d.id} className="doc-card">

@@ -112,12 +112,12 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   };
 
   const readUpload = async () => {
-    if (!files.length && !paste.trim()) { toast('Add a file or paste some text first'); return; }
+    if (!files.length && !paste.trim()) { toast(mode === 'idea' ? 'Add a link, a note or a screenshot first' : 'Add a file or paste some text first'); return; }
     setReading(true);
     try {
       const attachments = [];
       for (const f of files) attachments.push(await toUpload(f));
-      const done = await onReadUpload({ tripId: uploadTrip, text: paste.trim(), files: attachments, name: files[0] ? files[0].name : '' });
+      const done = await onReadUpload({ tripId: uploadTrip, text: paste.trim(), files: attachments, name: files[0] ? files[0].name : '', idea: mode === 'idea' });
       if (done) close();
     } catch (e) {
       toast((e && e.message) || 'Could not read that');
@@ -137,7 +137,39 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
       <div className="sheet-backdrop" onClick={close} />
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grab" />
-        <div className="segs">{seg('memory', 'Memory')}{seg('trip', 'New trip')}{seg('import', 'Import')}</div>
+        <div className="segs">{seg('memory', 'Memory')}{seg('trip', 'New trip')}{seg('import', 'Import')}{canRead && seg('idea', 'Idea')}</div>
+
+        {mode === 'idea' && canRead && (
+          <>
+            <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Save an idea for someday</div>
+            <div style={{ fontSize: 13.5, color: '#7A7060', marginTop: 4, lineHeight: 1.45 }}>A place, a hotel, a restaurant, something to do — paste a link, write a note or add a screenshot. It goes on the Someday board under its country or state.</div>
+
+            <Label top={18}>Link or note</Label>
+            <textarea className="field" style={{ minHeight: 96, fontSize: 14, lineHeight: 1.45 }} value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="e.g. https://… or 'Bill says the Dolomites in September are unreal'" />
+
+            <Label top={18}>Screenshot or photo</Label>
+            <div className="upload-list">
+              {files.map((f, i) => (
+                <div key={i} className="upload-file">
+                  <span className="doc-ext">{/\.pdf$/i.test(f.name) || f.type === 'application/pdf' ? 'PDF' : 'IMG'}</span>
+                  <span className="doc-name grow">{f.name}</span>
+                  <button className="thumb-x static" onClick={() => setFiles((x) => x.filter((_, j) => j !== i))} aria-label={'Remove ' + f.name}><span>×</span></button>
+                </div>
+              ))}
+              {files.length < MAX_FILES && (
+                <label className="upload-add press">
+                  <input type="file" accept="image/*,application/pdf" multiple onChange={pickFiles} hidden />
+                  <AddPhoto /> {files.length ? 'Add another' : 'Choose a screenshot or photo'}
+                </label>
+              )}
+            </div>
+
+            <button className="btn-primary press" style={{ marginTop: 22 }} disabled={reading} onClick={readUpload}>
+              {reading ? <><span className="spin-sm" style={{ width: 16, height: 16 }} /> Saving…</> : 'Save to Someday'}
+            </button>
+            {reading && <div className="sheet-copy" style={{ textAlign: 'center' }}>This can take up to half a minute.</div>}
+          </>
+        )}
 
         {mode === 'memory' && (
           <>

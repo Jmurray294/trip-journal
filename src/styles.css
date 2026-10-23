@@ -574,3 +574,20 @@ select.field { -webkit-appearance: auto; appearance: auto; }
 .entry.cancelled .entry-title { text-decoration: line-through; opacity: .6; }
 .import-text { display: flex; flex-direction: column; min-width: 0; font-size: 13.5px; font-weight: 600; }
 .import-sub { font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Someday: saved inspiration grouped by place */
+.someday-grid { display: flex; flex-direction: column; gap: 14px; }
+.someday-place { background: var(--card); border-radius: 18px; padding: 14px 14px 10px; box-shadow: 0 4px 14px rgba(42,37,32,0.07); border: 1.5px dashed rgba(110,139,61,0.35); }
+.someday-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.someday-name { font-family: var(--serif); font-size: 20px; font-weight: 600; line-height: 1.15; }
+.someday-count { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.someday-idea { display: flex; align-items: flex-start; gap: 11px; }
+.someday-thumb { width: 52px; height: 52px; border-radius: 11px; flex-shrink: 0; background-size: cover; background-position: center; background-color: #E9DFCB; }
+.someday-thumb.empty { background-image: repeating-linear-gradient(135deg, rgba(110,139,61,0.10) 0 7px, rgba(110,139,61,0.04) 7px 14px); }
+.someday-title { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+.someday-note { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.someday-link { display: inline-block; font-size: 12.5px; font-weight: 600; color: #5E7A31; margin-top: 3px; text-decoration: none; }
+.someday-empty { background: var(--card); border: 1.5px dashed rgba(110,139,61,0.4); border-radius: 18px; padding: 18px 18px; font-size: 13.5px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+@media (min-width: 900px) {
+  .someday-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; align-items: start; }
+}

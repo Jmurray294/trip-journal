@@ -4,7 +4,7 @@ import { statusLabel } from '../screens/FamilySheet.jsx';
 import { groupTrips, STAGES } from '../lib/stages.js';
 
 // Desktop navigation (≥900px wide); the tab bar takes over on phones.
-export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onAdd, onNewTrip, onOpenTrip, family, onFamily }) {
+export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onAdd, onNewTrip, onOpenTrip, someday = [], onSomeday, family, onFamily }) {
   const cls = (t) => 'side-nav' + (tab === t ? ' active' : '');
   const groups = groupTrips(trips);
   return (
@@ -38,6 +38,21 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
       <div className="side-trips">
         <button className="side-trip side-new" onClick={onNewTrip}><Plus size={12} w={1.8} /> New trip</button>
       </div>
+
+      {someday.length > 0 && (
+        <div className="side-stage">
+          <div className="side-label">Someday <span className="side-count">{someday.reduce((n, g) => n + g.items.length, 0)}</span></div>
+          <div className="side-trips">
+            {someday.map((g) => (
+              <button key={g.place} className="side-trip" onClick={() => onSomeday(g.place)} title={g.place}>
+                <span className="accent-dot" style={{ background: '#6E8B3D' }} />
+                <span className="side-trip-name">{short(g.place, 18)}</span>
+                <span className="side-count" style={{ marginLeft: 'auto' }}>{g.items.length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {family.available && (
         <button className="side-family" onClick={onFamily}>

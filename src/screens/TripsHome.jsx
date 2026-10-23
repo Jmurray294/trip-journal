@@ -1,6 +1,7 @@
 import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
 import { groupTrips, countdown } from '../lib/stages.js';
+import SomedayBoard from './SomedayBoard.jsx';
 
 function TripCard({ t, onOpen, upcoming }) {
   const accent = accentFor(t.id);
@@ -24,7 +25,7 @@ function TripCard({ t, onOpen, upcoming }) {
   );
 }
 
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort }) {
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea }) {
   // upcoming (soonest first), possible (ideas from friends and family, not booked) and past trips
   const { upcoming, possible, past } = groupTrips(trips);
   const [featured, ...later] = upcoming;
@@ -96,6 +97,8 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
           </div>
         </section>
       )}
+
+      {someday && <SomedayBoard groups={someday} address={address} onSave={onSaveIdea} onPlan={onPlanPlace} onRemove={onRemoveIdea} />}
 
       {past.length > 0 && (
         <section className="sec" style={{ paddingTop: 28 }}>

@@ -5,6 +5,7 @@ import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
+import { useSomeday } from './lib/someday.js';
 import { onUpdateReady, applyUpdate } from './lib/update.js';
 import { GRADIENTS } from './lib/derive.js';
 import FamilySheet from './screens/FamilySheet.jsx';
@@ -139,6 +140,28 @@ export default function App() {
     const title = (tripsRef.current.find((t) => t.id === tripId) || {}).title;
     showToast('Added to ' + (title || 'the trip'));
   };
+  // ---- someday: saved inspiration, grouped by place ----
+  const someday = useSomeday(family.household);
+  const planPlace = async (g) => {
+    const t = {
+      id: newTripId(), title: g.place === 'Anywhere' ? 'Someday trip' : g.place, place: g.place === 'Anywhere' ? '' : g.place,
+      dates: 'Dates to be decided', grad: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], planning: false, possible: true,
+      statusLabel: 'Possible', timelineLabel: 'Itinerary', members: FAMILY, song: null, days: [], source: 'someday',
+    };
+    applyTrips((ts) => [t, ...ts]);
+    go({ tab: 'trips', tripId: t.id });
+    showToast(`${t.title} is a possible trip — its ideas are under Documents`);
+    try { await someday.plan(g.items.map((x) => x.id), t.id); } catch (e) { showToast('Could not move the ideas — try again'); }
+  };
+  const removeIdea = async (it) => {
+    try { await someday.remove(it.id); showToast('Removed ' + it.title); } catch (e) { showToast('Could not remove — try again'); }
+  };
+  const showSomeday = (place) => {
+    go({ tab: 'trips', tripId: null });
+    const id = place ? 'someday-' + place.toLowerCase().replace(/\W+/g, '-') : 'someday';
+    setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300);
+  };
+
   const dismissInboxItem = async (item) => {
     try { await inbox.close(item.id, 'dismissed'); showToast('Dismissed'); } catch (e) { showToast('Could not dismiss — try again'); }
   };
@@ -294,10 +317,11 @@ export default function App() {
     setAdd({ mode, tripId: id || fallback, fromTrip: !!id });
   };
 
-  // a PDF, photo, screenshot or pasted text, read on the family server like a forwarded email
-  const readUpload = async ({ tripId, text, files, name }) => {
+  // a PDF, photo, screenshot or pasted text, read on the family server like a forwarded email;
+  // with `idea`, saved as inspiration for the Someday board
+  const readUpload = async ({ tripId, text, files, name, idea }) => {
     const { data, error } = await supabase.functions.invoke('inbound-email', {
-      body: { Subject: name || 'Added in the app', TextBody: text, Attachments: files, TripId: tripId || '' },
+      body: { Subject: name || (idea ? 'Saved idea' : 'Added in the app'), TextBody: text, Attachments: files, TripId: idea ? '' : tripId || '', Someday: !!idea },
     });
     if (error || !data) {
       let msg = 'Could not read that — try again';
@@ -307,6 +331,14 @@ export default function App() {
     }
     family.syncNow();
     inbox.refresh();
+    if (data.someday && data.someday.length) {
+      someday.refresh();
+      showToast('Saved to Someday: ' + data.someday.join(', '));
+      go({ tab: 'trips', tripId: null });
+      setTimeout(() => { const el = document.getElementById('someday'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 300);
+      return true;
+    }
+    if (idea) { showToast("Couldn't find a place in that — add a few words about it"); return false; }
     if (data.toSort) { showToast("Not sure which trip — it's waiting under To sort"); go({ tab: 'trips', tripId: null }); return true; }
     if (!data.added) { showToast('No bookings or costs found in that'); return false; }
     showToast(`${data.added} ${data.added === 1 ? 'item' : 'items'} added to ${data.trip || 'the trip'}`);
@@ -378,6 +410,8 @@ export default function App() {
     if (!window.confirm('Delete this whole trip and all of its memories? This cannot be undone.')) return;
     const rest = trips.filter((t) => t.id !== id);
     applyTrips(rest);
+    // a trip planned from Someday that isn't happening: its ideas go back on the board
+    if ((trips.find((t) => t.id === id) || {}).source === 'someday') someday.reopen(id);
     if (mapSel.tripId === id) setMapSel({ tripId: (rest[0] && rest[0].id) || '', stop: 0 });
     go({ tab: 'trips', tripId: null });
     showToast('Trip deleted');
@@ -492,7 +526,9 @@ export default function App() {
         <div className="scroller" ref={scroller}>
           {screen === 'list' && (
             <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
-              family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)} />
+              family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)}
+              someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
+              onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -545,6 +581,7 @@ export default function App() {
           onAdd={() => openAddFor(nav.tripId)}
           onNewTrip={() => openAddFor(null, 'trip')}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
+          someday={family.household ? someday.groups : []} onSomeday={showSomeday}
           family={family} onFamily={() => setFamilyOpen(true)}
         />
 

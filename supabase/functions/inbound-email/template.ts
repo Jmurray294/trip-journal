@@ -37,7 +37,8 @@ type Cost = {
 };
 type Placement = { decision: "existing" | "new" | "unsure"; tripId: string; title: string; place: string; reason: string };
 type Idea = { title: string; place: string; dates: string; start: Date | null; end: Date | null; people: string; summary: string; tripId: string };
-type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[] };
+type Saved = { title: string; place: string; spot: string; note: string; url: string };
+type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[]; someday: Saved[] };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -194,8 +195,24 @@ const READING_SCHEMA = {
         additionalProperties: false,
       },
     },
+    someday: {
+      type: "array",
+      description: "Places and things saved as inspiration for a trip one day, not tied to a trip being planned",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "What it is, short, e.g. 'Positano cliffside hotels', 'Northern lights in Tromsø', 'Noma'" },
+          place: { type: "string", description: "Where, for grouping: the country, or the US state or Canadian province, e.g. 'Italy', 'Alaska'" },
+          spot: { type: "string", description: "The particular town, area or venue within it, e.g. 'Amalfi Coast', or empty" },
+          note: { type: "string", description: "One or two lines: why it's worth going, best season, who recommended it, rough cost" },
+          url: { type: "string", description: "The link it came from, or empty" },
+        },
+        required: ["title", "place", "spot", "note", "url"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["summary", "destination", "bookings", "costs", "trip", "ideas"],
+  required: ["summary", "destination", "bookings", "costs", "trip", "ideas", "someday"],
   additionalProperties: false,
 };
 
@@ -250,7 +267,44 @@ async function storeFiles(admin: any, hid: string, files: Attachment[]): Promise
   return out;
 }
 
-async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = "", watched = false): Promise<Reading | null> {
+// A link shared on its own ("look at this place") says little. Read each page's title, description
+// and preview image so Claude knows what it is and the Someday card has a picture.
+type Preview = { url: string; title: string; description: string; image: string };
+const entities = (s: string) => s.replace(/&amp;/g, "&").replace(/&#39;|&#x27;|&rsquo;/g, "'").replace(/&quot;/g, '"')
+  .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").trim();
+async function linkPreviews(text: string): Promise<Preview[]> {
+  const urls = [...new Set(String(text).match(/https?:\/\/[^\s<>"')\]]+/g) || [])].slice(0, 2);
+  const out: Preview[] = [];
+  for (const url of urls) {
+    try {
+      // public web pages only, not addresses inside the server's own network
+      const host = new URL(url).hostname;
+      if (host === "localhost" || /^[\d.]+$|^\[|:/.test(host) || /\.(local|internal)$/.test(host)) continue;
+      const res = await fetch(url, {
+        headers: { "user-agent": "Mozilla/5.0 (compatible; TripJournal/1.0)", accept: "text/html" },
+        redirect: "follow", signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok || !/html/i.test(res.headers.get("content-type") || "")) continue;
+      const html = (await res.text()).slice(0, 400000);
+      const meta = (k: string) => {
+        const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${k}["'][^>]*content=["']([^"']*)["']`, "i")) ||
+          html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${k}["']`, "i"));
+        return m ? entities(m[1]) : "";
+      };
+      let image = meta("og:image") || meta("twitter:image");
+      try { image = image ? new URL(image, res.url).href : ""; } catch { image = ""; }
+      out.push({
+        url,
+        title: (meta("og:title") || entities((html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || "")).slice(0, 200),
+        description: (meta("og:description") || meta("description")).slice(0, 500),
+        image: image.startsWith("https://") ? image.slice(0, 1000) : "",
+      });
+    } catch { /* slow or unreachable: Claude still sees the link itself */ }
+  }
+  return out;
+}
+
+async function readWithClaude(text: string, subject: string, trips: TripBrief[], files: Attachment[] = [], family = "", watched = false, saving = false): Promise<Reading | null> {
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return null;
   // an organization-wide API key must name the workspace to use (ANTHROPIC_WORKSPACE_ID secret)
   const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
@@ -290,10 +344,16 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "family's trips above (including ones marked possible), give its trip_id so we don't make it twice. Ideas are not bookings: " +
         "list nothing under BOOKINGS for a trip that is only being proposed. " +
         `People are the friends or relatives involved, not us${family ? ` (we are ${family})` : ""}.\n\n` +
-        "Skip marketing and travel deals. Infer missing years from today's date. If the email has no bookings, no costs and no " +
-        "trip ideas, return empty lists.\n\n" +
+        "SOMEDAY: list places and things someone in the family saved as inspiration for a trip one day — a shared article or " +
+        "link, a screenshot, a friend's recommendation, a note like 'we should go here' — that aren't part of a trip being planned " +
+        "(those are IDEAS) or booked. One per distinct place or thing; group them by country (or US state / Canadian province) " +
+        "in place, with the town, area or venue in spot.\n\n" +
+        "Skip marketing and travel deals: newsletters and promotions are not inspiration unless someone forwarded one with a note. " +
+        "Infer missing years from today's date. If the email has no bookings, no costs, no trip ideas and nothing for someday, return empty lists.\n\n" +
         (watched ? "This email arrived at the family's trips address directly rather than being forwarded on purpose, so it may not be travel. Unless it is " +
-          "about the family's own travel (a reservation, a change, a payment, or a trip being planned with us), return empty lists.\n\n" : "") +
+          "about the family's own travel (a reservation, a change, a payment, a trip being planned with us, or a place one of us wants to go), return empty lists.\n\n" : "") +
+        (saving ? "Someone in the family saved this in the app as inspiration for a trip someday: list it under SOMEDAY, and nothing " +
+          "else unless it is plainly a booking or a receipt.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
       }],
     }],
@@ -327,9 +387,13 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
     title: str(i.title || i.place, 60), place: str(i.place, 60), dates: str(i.dates, 60), start: iso(i.start_date), end: iso(i.end_date),
     people: str(i.people, 200), summary: str(i.summary, 400), tripId: str(i.trip_id, 40),
   }));
+  const someday: Saved[] = (p.someday || []).filter((s: Record<string, string>) => s.title || s.spot || s.place).map((s: Record<string, string>) => ({
+    title: str(s.title || s.spot || s.place, 120), place: str(s.place, 60), spot: str(s.spot, 80), note: str(s.note, 400),
+    url: /^https?:\/\//.test(s.url || "") ? str(s.url, 1000) : "",
+  }));
   const t = p.trip || {};
   return {
-    summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs, ideas,
+    summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs, ideas, someday,
     placement: { decision: t.decision, tripId: str(t.trip_id, 40), title: str(t.new_title, 60), place: str(t.new_place, 60), reason: str(t.reason, 200) },
   };
 }
@@ -341,7 +405,7 @@ function readWithScanner(text: string): Reading {
     provider: "", confirmation: "", place: f.place || "", address: "", travelers: "", note: f.note,
   }));
   const stay = bookings.find((b) => b.kind === "Stay");
-  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null, ideas: [] };
+  return { summary: "", destination: stay ? stay.place : "", bookings, costs: [], placement: null, ideas: [], someday: [] };
 }
 
 // ---- rows for the entries table ----
@@ -459,7 +523,12 @@ Deno.serve(async (req) => {
   ]);
   const family = [(hh as { name?: string } | null)?.name, ...((members || []) as { display_name: string }[]).map((m) => m.display_name)]
     .filter(Boolean).join(", ");
-  try { read = await readWithClaude(subject + "\n" + text, subject, briefs, files, family, watched); } catch (e) {
+  // a short email or note with a link in it: read the linked page too
+  const previews = text.length < 3000 ? await linkPreviews(text) : [];
+  const previewText = previews.map((p) => `\n\nLINK PREVIEW ${p.url}\n${p.title}\n${p.description}`).join("");
+  // saved from the app's "Save idea": inspiration for the Someday board
+  const saving = !fromForwarder && mail.Someday === true;
+  try { read = await readWithClaude(subject + "\n" + text + previewText, subject, briefs, files, family, watched, saving); } catch (e) {
     read = null;
     reader = "scanner: " + String((e as Error)?.message || e).slice(0, 300);
     console.error("Claude could not read the email:", reader);
@@ -468,7 +537,7 @@ Deno.serve(async (req) => {
   if (!read && watched) return ok({ error: "could not read the email, try later" }, 503);
   if (!read) { if (reader === "claude") reader = "scanner"; read = readWithScanner(subject + "\n" + text); }
   // personal mail that isn't travel: keep nothing, not even a log line
-  if (watched && !read.bookings.length && !read.costs.length && !read.ideas.length) return ok({ ignored: "not travel" });
+  if (watched && !read.bookings.length && !read.costs.length && !read.ideas.length && !read.someday.length) return ok({ ignored: "not travel" });
 
   // keep the PDFs and photos so the trip's Documents can open them later
   const stored = await storeFiles(admin, hid, files);
@@ -509,10 +578,29 @@ Deno.serve(async (req) => {
     if (!ideaTripId) ideaTripId = tid;
   }
 
+  // ---- someday: inspiration for a trip one day, grouped by place on the Trips page ----
+  const savedNames: string[] = [];
+  if (read.someday.length) {
+    const photo = stored.find((f) => f.type.startsWith("image/"));
+    const { data: have } = await admin.from("someday").select("title, place").eq("household_id", hid).neq("status", "removed");
+    const key = (s: { title: string; place: string }) => (s.place + "|" + s.title).toLowerCase();
+    const known = new Set(((have || []) as { title: string; place: string }[]).map(key));
+    const rows = read.someday.filter((s) => !known.has(key(s))).map((s) => ({
+      household_id: hid, place: s.place, spot: s.spot, title: s.title, note: s.note, url: s.url || null,
+      image_url: (previews.find((p) => p.url === s.url) || (previews.length === 1 ? previews[0] : null))?.image || null,
+      image_path: photo ? photo.path : null, source: fromForwarder ? "email" : "app", sender,
+    }));
+    const { error } = rows.length ? await admin.from("someday").insert(rows) : { error: null };
+    if (error) console.error("could not save to someday", error.message);
+    // already saved before counts as saved, so a second share of the same link doesn't read as a failure
+    else savedNames.push(...read.someday.map((s) => s.spot || s.title || s.place));
+  }
+
   if (!read.bookings.length && !read.costs.length) {
-    if (ideaTitles.length) {
-      await log({ items: ideaTitles.length, status: "added", reader, trip_title: ideaTitles.join(", "), trip_id: ideaTripId });
-      return ok({ added: ideaTitles.length, trip: ideaTitles.join(", "), tripId: ideaTripId, ideas: ideaTitles.length });
+    if (ideaTitles.length || savedNames.length) {
+      const names = [...ideaTitles, ...(savedNames.length ? ["Someday"] : [])].join(", ");
+      await log({ items: ideaTitles.length + savedNames.length, status: "added", reader, trip_title: names, trip_id: ideaTripId });
+      return ok({ added: ideaTitles.length + savedNames.length, trip: ideaTitles.join(", "), tripId: ideaTripId, ideas: ideaTitles.length, someday: savedNames });
     }
     await log({ items: 0, status: "nothing found", reader });
     return ok({ added: 0 });
