@@ -27,6 +27,17 @@ function CostsCard({ costs, onOpen }) {
   );
 }
 
+// " · added Oct 22" when an item went into the journal on a different day from the one it's about
+// (with the year when it isn't this one)
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function addedNote(d) {
+  if (typeof d.added !== 'number') return '';
+  const a = new Date(d.added);
+  const l = MON[a.getMonth()] + ' ' + a.getDate();
+  if (l === d.date) return '';
+  return ' · added ' + l + (a.getFullYear() !== new Date().getFullYear() ? ', ' + a.getFullYear() : '');
+}
+
 const TABS = [['itinerary', 'Itinerary'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
@@ -219,7 +230,7 @@ export default function TripDetail(p) {
             <div className="entry-body">
               <div className="entry-top">
                 <div style={{ minWidth: 0 }}>
-                  <div className="entry-date">{d.kind && d.kind !== 'Booking' ? d.kind + ' · ' : ''}{d.date}</div>
+                  <div className="entry-date">{d.kind && d.kind !== 'Booking' ? d.kind + ' · ' : ''}{d.date}{addedNote(d)}</div>
                   <div className="entry-title">{d.title}</div>
                 </div>
                 <button className="del-btn press" onClick={() => p.onDeleteEntry(idx)} aria-label="Delete memory"><span><Trash /></span></button>

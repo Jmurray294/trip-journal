@@ -9,6 +9,8 @@ import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
 import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
+import { useActivity } from './lib/activity.js';
+import { BellPanel } from './components/Bell.jsx';
 import Travelers from './screens/Travelers.jsx';
 import Welcome from './screens/Welcome.jsx';
 import { onUpdateReady, applyUpdate } from './lib/update.js';
@@ -150,6 +152,9 @@ export default function App() {
   const someday = useSomeday(family.household);
   // ---- travelers: documents, loyalty programs, preferences ----
   const travelers = useTravelers(family.household);
+  // ---- the bell: what's new from the trips address and the Shortcut ----
+  const activity = useActivity(family.household);
+  const [bellOpen, setBellOpen] = useState(false);
 
   // ---- home base, shared with the family (households.home) so every device has it ----
   const hid = family.household && family.household.id;
@@ -410,7 +415,7 @@ export default function App() {
     const where = (place || trip.place || '').trim();
     const id = newEntryId();
     updateTrip(tripId, (t) => ({
-      ...t, days: [...t.days, { id, pos: Date.now(), num: t.days.length + 1, date: todayLabel(), title: title || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
+      ...t, days: [...t.days, { id, pos: Date.now(), added: Date.now(), num: t.days.length + 1, date: todayLabel(), title: title || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
     }));
     showToast('Memory saved to journal');
     if (where) geocode(where).then((c) => { if (c) setDayCoords(tripId, id, where, c); });
@@ -459,7 +464,7 @@ export default function App() {
     if (!trips.some((t) => t.id === tripId)) { showToast('Pick a trip first'); return false; }
     updateTrip(tripId, (t) => {
       const base = Date.now();
-      const days = [...t.days, ...parsed.map((p, i) => ({ id: newEntryId(), pos: base + i, date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [] }))];
+      const days = [...t.days, ...parsed.map((p, i) => ({ id: newEntryId(), pos: base + i, added: base, date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [] }))];
       return { ...t, days: days.map((d, i) => ({ ...d, num: i + 1 })) };
     });
     go({ tab: 'trips', tripId });
@@ -476,7 +481,7 @@ export default function App() {
 
   const addCost = (tripId, c) => {
     const pos = c.date ? new Date(c.date + 'T12:00:00').getTime() : Date.now();
-    const cost = { id: 'cost-' + newEntryId(), type: 'cost', ...c, confirmation: '', note: '', source: 'manual', pos };
+    const cost = { id: 'cost-' + newEntryId(), type: 'cost', ...c, confirmation: '', note: '', source: 'manual', pos, added: Date.now() };
     updateTrip(tripId, (t) => ({ ...t, costs: [...(t.costs || []), cost].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)) }));
     showToast('Cost added');
   };
@@ -615,7 +620,8 @@ export default function App() {
             <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
               family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)}
               someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
-              onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea} />
+              onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea}
+              unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -678,6 +684,7 @@ export default function App() {
           onNewTrip={() => openAddFor(null, 'trip')}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
           someday={family.household ? someday.groups : []} onSomeday={showSomeday}
+          unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
           family={family} onFamily={() => setFamilyOpen(true)}
         />
 
@@ -723,6 +730,10 @@ export default function App() {
           />
         )}
 
+        {bellOpen && (
+          <BellPanel activity={activity} onClose={() => setBellOpen(false)}
+            onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)} />
+        )}
         {familyOpen && <FamilySheet family={family} onClose={() => setFamilyOpen(false)} toast={showToast} />}
         {sortOpen && (
           <SortSheet items={inbox.items} trips={trips} onFile={fileInboxItem} onDismiss={dismissInboxItem} onClose={closeSort} />

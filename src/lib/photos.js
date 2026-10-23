@@ -124,7 +124,7 @@ export function placePhotos(trip, items, newId, fallbackDay = new Date()) {
       const c = at || gps;
       target = {
         id: newId(), date: label, title: place ? `Photos in ${place}` : 'Photos', place: place || trip.place || '',
-        note: '', photos: [], pos: when.getTime(), source: 'photos',
+        note: '', photos: [], pos: when.getTime(), added: Date.now(), source: 'photos',
         ...(c ? { lon: c[0], lat: c[1] } : {}),
       };
       days.push(target);

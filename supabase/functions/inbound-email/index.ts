@@ -345,7 +345,7 @@ function placePhotos(trip, items, newId, fallbackDay = new Date()) {
       const c = at || gps;
       target = {
         id: newId(), date: label, title: place ? `Photos in ${place}` : 'Photos', place: place || trip.place || '',
-        note: '', photos: [], pos: when.getTime(), source: 'photos',
+        note: '', photos: [], pos: when.getTime(), added: Date.now(), source: 'photos',
         ...(c ? { lon: c[0], lat: c[1] } : {}),
       };
       days.push(target);
@@ -797,7 +797,7 @@ async function bookingRows(hid: string, bookings: Booking[], fallbackPlace: stri
       id,
       doc: {
         id, date: label(b.date), title: b.title, place: b.place || fallbackPlace || "", note, photos: [],
-        pos: b.date.getTime() + minutesOf(b.time) * 60000, kind: b.kind, source: "email",
+        pos: b.date.getTime() + minutesOf(b.time) * 60000, added: Date.now(), kind: b.kind, source: "email",
         booking: {
           status: b.status, provider: b.provider, confirmation: b.confirmation, start: isoDay(b.date), end: isoDay(b.endDate),
           time: b.time, address: b.address, travelers: b.travelers, loyalty: b.loyalty,
@@ -817,7 +817,7 @@ async function costRows(hid: string, costs: Cost[]) {
       doc: {
         id, type: "cost", category: c.category, title: c.title, vendor: c.vendor, amount: c.amount, currency: c.currency,
         status: c.status, date: isoDay(c.date), confirmation: c.confirmation, note: c.note, source: "email",
-        pos: (c.date || new Date()).getTime(),
+        pos: (c.date || new Date()).getTime(), added: Date.now(),
       },
     });
   }
@@ -885,6 +885,17 @@ async function photoDrop(req: Request, url: URL) {
     return { household_id: hid, id: d.id, trip_id: trip.id, deleted: false, doc };
   }), { onConflict: "household_id,id" });
   if (error) return ok({ error: error.message }, 500);
+  // the app's bell: one line per trip day of photos, counting up as they arrive
+  const mid = `photos:${trip.id}:${isoDay(taken)}`;
+  const { data: logRow } = await admin.from("inbound_emails").select("id, items").eq("household_id", hid).eq("message_id", mid).maybeSingle();
+  if (logRow) {
+    await admin.from("inbound_emails").update({ items: ((logRow as { items: number }).items || 0) + 1, created_at: new Date().toISOString() }).eq("id", (logRow as { id: number }).id);
+  } else {
+    await admin.from("inbound_emails").insert({
+      household_id: hid, sender: "iPhone Shortcut", subject: `Photos from ${label(taken)}`, items: 1, status: "added", reader: "shortcut",
+      trip_title: String(trip.doc.title || ""), trip_id: trip.id, message_id: mid, body: "", attachments: [],
+    });
+  }
   return ok({ added: 1, trip: String(trip.doc.title || "") });
 }
 
@@ -1018,7 +1029,7 @@ Deno.serve(async (req) => {
     const note = [idea.summary, !idea.start && idea.dates ? "Dates: " + idea.dates : ""].filter(Boolean).join("\n");
     await admin.from("entries").upsert({
       household_id: hid, id: nid, trip_id: tid, deleted: false,
-      doc: { id: nid, date: label(new Date()), title: idea.people ? `Idea from ${idea.people}` : "Trip idea", place: idea.place, note, photos: [], pos: (idea.start || new Date()).getTime() - 60000, source: "email-idea" },
+      doc: { id: nid, date: label(new Date()), title: idea.people ? `Idea from ${idea.people}` : "Trip idea", place: idea.place, note, photos: [], pos: (idea.start || new Date()).getTime() - 60000, source: "email-idea", added: Date.now() },
     }, { onConflict: "household_id,id" });
     ideaTitles.push(known ? String(known.doc.title || "") : idea.title);
     if (!ideaTripId) ideaTripId = tid;
@@ -1175,11 +1186,14 @@ Deno.serve(async (req) => {
 
   // same item forwarded again → same row id, so it is updated rather than duplicated; keep photos people added
   const all = [...bRows, ...keptCosts];
-  const { data: existing } = await admin.from("entries").select("id, photos:doc->photos").eq("household_id", hid).in("id", all.map((r) => r.id));
+  const { data: existing } = await admin.from("entries").select("id, photos:doc->photos, added:doc->added").eq("household_id", hid).in("id", all.map((r) => r.id));
+  // keep photos people added, and when the item first came in
   const photos = new Map((existing || []).map((r: { id: string; photos: unknown }) => [r.id, r.photos]));
+  const firstAdded = new Map((existing || []).filter((r: { added: unknown }) => typeof r.added === "number").map((r: { id: string; added: number }) => [r.id, r.added]));
   const rows = all.map((r) => {
     const doc = { ...r.doc };
     if (!doc.type && Array.isArray(photos.get(r.id))) doc.photos = photos.get(r.id);
+    if (firstAdded.has(r.id)) doc.added = firstAdded.get(r.id);
     return { household_id: hid, id: r.id, trip_id: tripId, deleted: false, doc };
   });
   const { error: eErr } = rows.length ? await admin.from("entries").upsert(rows, { onConflict: "household_id,id" }) : { error: null };

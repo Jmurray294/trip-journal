@@ -14,7 +14,8 @@ export async function tripDocuments(householdId, tripId) {
       .eq('status', 'filed').not('email_id', 'is', null),
   ]);
   if (direct.error) throw direct.error;
-  let rows = direct.data || [];
+  // photo days from the iPhone Shortcut are logged for the bell, not documents
+  let rows = (direct.data || []).filter((r) => !String(r.message_id || '').startsWith('photos:'));
   const ids = (sorted.data || []).map((r) => r.email_id).filter((id) => !rows.some((x) => x.id === id));
   if (ids.length) {
     const more = await supabase.from('inbound_emails').select(COLS).in('id', ids);

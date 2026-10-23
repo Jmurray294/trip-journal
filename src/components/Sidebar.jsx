@@ -2,9 +2,10 @@ import { Plus, TabTrips, TabMap, TabAlbums, TabTravelers, People } from './Icons
 import { accentFor, short } from '../lib/derive.js';
 import { statusLabel } from '../screens/FamilySheet.jsx';
 import { groupTrips, STAGES } from '../lib/stages.js';
+import { BellIcon } from './Bell.jsx';
 
 // Desktop navigation (≥900px wide); the tab bar takes over on phones.
-export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onTravelers, onAdd, onNewTrip, onOpenTrip, someday = [], onSomeday, family, onFamily }) {
+export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onTravelers, onAdd, onNewTrip, onOpenTrip, someday = [], onSomeday, unread = null, onBell, family, onFamily }) {
   const cls = (t) => 'side-nav' + (tab === t ? ' active' : '');
   const groups = groupTrips(trips);
   return (
@@ -21,6 +22,12 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         <button className={cls('map')} onClick={onMap}><TabMap /><span>Map</span></button>
         <button className={cls('albums')} onClick={onAlbums}><TabAlbums /><span>Albums</span></button>
         <button className={cls('travelers')} onClick={onTravelers}><TabTravelers /><span>Travelers</span></button>
+        {unread != null && (
+          <button className="side-nav" onClick={onBell}>
+            <BellIcon size={22} /><span>What's new</span>
+            {unread > 0 && <span className="bell-count inline">{unread > 9 ? '9+' : unread}</span>}
+          </button>
+        )}
       </nav>
 
       {STAGES.map(([key, title]) => groups[key].length > 0 && (

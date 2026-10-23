@@ -2,6 +2,7 @@ import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
 import { groupTrips, countdown } from '../lib/stages.js';
 import SomedayBoard from './SomedayBoard.jsx';
+import { BellButton } from '../components/Bell.jsx';
 
 function TripCard({ t, onOpen, upcoming }) {
   const accent = accentFor(t.id);
@@ -25,7 +26,7 @@ function TripCard({ t, onOpen, upcoming }) {
   );
 }
 
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea }) {
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell }) {
   // upcoming (soonest first), possible (ideas from friends and family, not booked) and past trips
   const { upcoming, possible, past } = groupTrips(trips);
   const [featured, ...later] = upcoming;
@@ -33,6 +34,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
   return (
     <div className="screen pad-tab">
       <header className="page-head wash" style={{ position: 'relative' }}>
+        {unread != null && <BellButton unread={unread} onClick={onBell} />}
         {family.available && (
           <button className={'family-btn press ' + (family.household ? family.status.state : 'none')} onClick={onFamily} aria-label="Account and sharing">
             <People color="#2A2520" />
