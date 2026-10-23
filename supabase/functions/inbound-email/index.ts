@@ -211,7 +211,9 @@ function tripRange(text: string): [Date, Date] | null {
   const year = years.length ? years[years.length - 1] : new Date().getFullYear();
   const mi = (w: string) => MONTHS.map((m) => m.toLowerCase()).indexOf(w.slice(0, 3).toLowerCase());
   const points: Date[] = [];
-  const re = /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?!\d)(?:\s*[–—-]\s*(\d{1,2})\b(?!\s*[a-z]))?(?:,?\s*(20\d{2}))?/gi;
+  // whole month names or abbreviations only, so "decided" isn't December (same as src/lib/stages.js)
+  const month = "\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\b";
+  const re = new RegExp(month + "\\.?\\s+(\\d{1,2})(?!\\d)(?:\\s*[–—-]\\s*(\\d{1,2})\\b(?!\\s*[a-z]))?(?:,?\\s*(20\\d{2}))?", "gi");
   let m: RegExpExecArray | null;
   while ((m = re.exec(s))) {
     const mo = mi(m[1]); const y = m[4] ? +m[4] : year;
@@ -223,7 +225,7 @@ function tripRange(text: string): [Date, Date] | null {
     if (points.length >= 2 && points[0] > points[points.length - 1]) points[0] = new Date(points[0].getFullYear() - 1, points[0].getMonth(), points[0].getDate());
     return [new Date(Math.min(...points.map(Number))), new Date(Math.max(...points.map(Number)))];
   }
-  const mm = s.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/i);
+  const mm = s.match(new RegExp(month, "i"));
   if (mm) { const mo = mi(mm[1]); return [new Date(year, mo, 1), new Date(year, mo + 1, 0)]; }
   return null;
 }

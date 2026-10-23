@@ -1,10 +1,12 @@
 import { Plus, TabTrips, TabMap, TabAlbums, People } from './Icons.jsx';
 import { accentFor, short } from '../lib/derive.js';
 import { statusLabel } from '../screens/FamilySheet.jsx';
+import { groupTrips, STAGES } from '../lib/stages.js';
 
 // Desktop navigation (≥900px wide); the tab bar takes over on phones.
 export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onAdd, onNewTrip, onOpenTrip, family, onFamily }) {
   const cls = (t) => 'side-nav' + (tab === t ? ' active' : '');
+  const groups = groupTrips(trips);
   return (
     <aside className="sidebar">
       <div className="side-brand">
@@ -20,14 +22,20 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         <button className={cls('albums')} onClick={onAlbums}><TabAlbums /><span>Albums</span></button>
       </nav>
 
-      <div className="side-label">Your trips</div>
+      {STAGES.map(([key, title]) => groups[key].length > 0 && (
+        <div key={key} className="side-stage">
+          <div className="side-label">{title} <span className="side-count">{groups[key].length}</span></div>
+          <div className="side-trips">
+            {groups[key].map((t) => (
+              <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '')} onClick={() => onOpenTrip(t.id)} title={t.title}>
+                <span className="accent-dot" style={{ background: accentFor(t.id) }} />
+                <span className="side-trip-name">{short(t.title, 22)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
       <div className="side-trips">
-        {trips.map((t) => (
-          <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '')} onClick={() => onOpenTrip(t.id)} title={t.title}>
-            <span className="accent-dot" style={{ background: accentFor(t.id) }} />
-            <span className="side-trip-name">{short(t.title, 22)}</span>
-          </button>
-        ))}
         <button className="side-trip side-new" onClick={onNewTrip}><Plus size={12} w={1.8} /> New trip</button>
       </div>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
+import { stageLabel } from '../lib/stages.js';
 
 import { Bookings, Budget, Documents } from './TripSections.jsx';
 
@@ -128,7 +129,7 @@ export default function TripDetail(p) {
         <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.82) 0%, rgba(48,26,14,0.10) 52%, rgba(30,20,14,0.22) 100%)' }} />
         <button className="back-btn press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
         <div className="hero-text">
-          <div className="status-chip">{trip.statusLabel}</div>
+          <div className="status-chip">{stageLabel(trip)}</div>
           <div className="hero-title">{trip.title}</div>
           <div className="meta-row" style={{ marginTop: 8 }}><span>{trip.place}</span><span className="dot-sep">·</span><span>{trip.dates}</span></div>
         </div>

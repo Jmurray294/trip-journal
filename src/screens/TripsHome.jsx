@@ -1,11 +1,33 @@
 import { Plus, People } from '../components/Icons.jsx';
 import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
+import { groupTrips, countdown } from '../lib/stages.js';
+
+function TripCard({ t, onOpen, upcoming }) {
+  const accent = accentFor(t.id);
+  return (
+    <div className="trip-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
+      <div className="trip-card-cover">
+        <div className="fill" style={coverBg(t)} />
+        <div className="fill" style={{ background: 'linear-gradient(to top, rgba(26,22,18,0.6), rgba(26,22,18,0) 62%)' }} />
+        <div className="trip-card-text">
+          <div className="trip-card-title">{t.title}</div>
+          <div className="trip-card-place">{t.place}</div>
+        </div>
+      </div>
+      <div className="trip-card-meta">
+        <span className="mono-13">{t.dates}</span>
+        <span className="accent-pill" style={{ background: accent + '1F', color: accent }}>
+          <span className="accent-dot" style={{ background: accent }} />{upcoming ? countdown(t) || 'planned' : countPhotos(t) + ' photos'}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort }) {
-  // possible trips (ideas from friends and family, not booked) get their own section
-  const possible = trips.filter((t) => t.possible);
-  const featured = trips.find((t) => t.planning && !t.possible);
-  const others = trips.filter((t) => t !== featured && !t.possible);
+  // upcoming (soonest first), possible (ideas from friends and family, not booked) and past trips
+  const { upcoming, possible, past } = groupTrips(trips);
+  const [featured, ...later] = upcoming;
 
   return (
     <div className="screen pad-tab">
@@ -38,7 +60,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
           <div className="featured press-soft" onClick={() => onOpen(featured.id)} role="button" tabIndex={0}>
             <div className="fill" style={coverBg(featured)} />
             <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.76) 0%, rgba(48,26,14,0.10) 46%, rgba(48,26,14,0) 72%)' }} />
-            <div className="status-pill">Planning · {featured.countdown || 'planned'}</div>
+            <div className="status-pill">Upcoming · {countdown(featured) || 'planned'}</div>
             <div className="featured-text">
               <div className="featured-title">{featured.title}</div>
               <div className="meta-row"><span>{featured.place}</span><span className="dot-sep">·</span><span>{featured.dates}</span></div>
@@ -46,6 +68,16 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
           </div>
         </section>
       )}
+
+      <section className="sec" style={{ paddingTop: featured ? 24 : 8 }}>
+        <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#E2A32B' }} />{featured ? 'Also upcoming' : 'Upcoming'}</div>
+        <div className="stack-16 journeys">
+          <div className="new-trip press" onClick={onNewTrip} role="button" tabIndex={0}>
+            <Plus /> Start a new trip
+          </div>
+          {later.map((t) => <TripCard key={t.id} t={t} onOpen={onOpen} upcoming />)}
+        </div>
+      </section>
 
       {possible.length > 0 && (
         <section className="sec" style={{ paddingTop: 24 }}>
@@ -65,35 +97,14 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
         </section>
       )}
 
-      <section className="sec" style={{ paddingTop: 28 }}>
-        <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#2E7C86' }} />Your journeys</div>
-        <div className="stack-16 journeys">
-          <div className="new-trip press" onClick={onNewTrip} role="button" tabIndex={0}>
-            <Plus /> Start a new trip
+      {past.length > 0 && (
+        <section className="sec" style={{ paddingTop: 28 }}>
+          <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#2E7C86' }} />Past trips</div>
+          <div className="stack-16 journeys">
+            {past.map((t) => <TripCard key={t.id} t={t} onOpen={onOpen} />)}
           </div>
-          {others.map((t) => {
-            const accent = accentFor(t.id);
-            return (
-              <div key={t.id} className="trip-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
-                <div className="trip-card-cover">
-                  <div className="fill" style={coverBg(t)} />
-                  <div className="fill" style={{ background: 'linear-gradient(to top, rgba(26,22,18,0.6), rgba(26,22,18,0) 62%)' }} />
-                  <div className="trip-card-text">
-                    <div className="trip-card-title">{t.title}</div>
-                    <div className="trip-card-place">{t.place}</div>
-                  </div>
-                </div>
-                <div className="trip-card-meta">
-                  <span className="mono-13">{t.dates}</span>
-                  <span className="accent-pill" style={{ background: accent + '1F', color: accent }}>
-                    <span className="accent-dot" style={{ background: accent }} />{countPhotos(t)} photos
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

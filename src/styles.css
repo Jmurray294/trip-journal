@@ -313,6 +313,8 @@ h1 { margin: 0; font-weight: 600; }
   .side-nav.active { background: rgba(190,95,40,0.13); color: #A8481F; }
   .side-nav.active svg { color: #A8481F; }
   .side-label { margin: 26px 12px 8px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .side-stage + .side-stage .side-label { margin-top: 18px; }
+  .side-count { margin-left: 4px; opacity: 0.7; }
   .side-trips { display: flex; flex-direction: column; gap: 1px; }
   .side-trip { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border: none; border-radius: 10px; background: none; color: var(--secondary); font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left; }
   .side-trip:hover { background: rgba(42,37,32,0.05); }
