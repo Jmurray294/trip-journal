@@ -34,7 +34,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Publish to gh-pages
-        run: >
-          npx gh-pages -d dist --dotfiles
-          -u "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-          -r "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist   # includes CNAME and .nojekyll from public/
+          publish_branch: gh-pages
