@@ -1,0 +1,40 @@
+# Push to main = deploy: run the tests, build, and publish dist/ to the gh-pages branch (what
+# `npm run deploy` does by hand). GitHub Pages serves it at jcmurraytrips.com a minute or so later.
+# Pushes that only touch the Supabase functions/scripts or docs don't redeploy the site.
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['supabase/**', '**.md']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      # public values (the publishable key is meant for browsers; data is protected by row-level security)
+      VITE_SUPABASE_URL: https://hevucbiddgcvbxynstjn.supabase.co
+      VITE_SUPABASE_ANON_KEY: sb_publishable_k19pn_g3VbV2XVZoAU9ShA_eBn86lCD
+      VITE_INBOUND_ADDRESS: murraytrips@gmail.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Publish to gh-pages
+        run: >
+          npx gh-pages -d dist --dotfiles
+          -u "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          -r "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"

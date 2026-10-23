@@ -25,9 +25,10 @@ Regenerate the app icons with `powershell -File scripts/make-icons.ps1`.
 registered at Cloudflare (DNS only, not proxied) and set as the GitHub Pages custom domain via
 `public/CNAME`; the old jmurray294.github.io/trip-journal/ address redirects to it.
 
-Publish an update with `npm run deploy` (runs the tests, builds, and pushes `dist/` to the
-`gh-pages` branch; GitHub Pages serves it about a minute later). Installed copies pick up the new
-version the next time they're opened.
+Pushing to `main` publishes the site: the Deploy site workflow (`.github/workflows/deploy.yml`) runs
+the tests, builds, and pushes `dist/` to the `gh-pages` branch, and GitHub Pages serves it about a
+minute later. If a test fails nothing is published. `npm run deploy` does the same by hand (it needs a
+`.env`, see `.env.example`). Installed copies pick up the new version the next time they're opened.
 
 The build assumes the site is served from the domain root. For a sub-path host set e.g.
 `BASE_PATH=/trip-journal/` when building.
