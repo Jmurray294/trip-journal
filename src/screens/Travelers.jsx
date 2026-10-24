@@ -73,6 +73,7 @@ function PersonCard({ t, onEdit, onAddScan, onRemoveScan, toast }) {
   const d = t.doc || {};
   const pp = d.passport || {}, ktn = d.ktn || {}, lic = d.license || {}, pr = d.prefs || {}, em = d.emergency || {};
   const loyalty = (d.loyalty || []).filter((l) => l.program || l.number);
+  const cards = (d.cards || []).filter((c) => c.last);
   const r = { toast, shown };
   const any = (o) => Object.values(o).some((v) => v && (!Array.isArray(v) || v.length));
   const hasDocs = any({ ...pp, scans: null }) || !!d.dob || !!ktn.number || !!d.redress || any(lic);
@@ -102,6 +103,10 @@ function PersonCard({ t, onEdit, onAddScan, onRemoveScan, toast }) {
           <Row key={i} label={l.program || 'Program'} value={l.number}
             note={l.status || l.balance ? { level: 'info', text: [l.status, l.balance && l.balance + ' pts', l.asOf && 'as of ' + monthYear(l.asOf)].filter(Boolean).join(' · ') } : null} {...r} />
         ))}
+      </Section>
+
+      <Section title="Trip cards" has={cards.length > 0} empty="No trip cards yet — add the cards you use for trips under Edit. Only their purchase alerts go into trip budgets.">
+        {cards.map((c, i) => <Row key={i} label={c.name || 'Card'} value={'…' + c.last} copy={false} {...r} />)}
       </Section>
 
       <Section title="Preferences" has={any(pr)} empty="No preferences yet.">
@@ -148,6 +153,7 @@ function EditSheet({ t, onSave, onRemove, onClose, toast }) {
   );
   const loyalty = d.loyalty || [];
   const setLoyalty = (i, key, value) => setD((x) => ({ ...x, loyalty: (x.loyalty || []).map((l, j) => (j === i ? { ...l, [key]: value } : l)) }));
+  const setCard = (i, key, value) => setD((x) => ({ ...x, cards: (x.cards || []).map((c, j) => (j === i ? { ...c, [key]: value } : c)) }));
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -158,7 +164,7 @@ function EditSheet({ t, onSave, onRemove, onClose, toast }) {
   const save = async () => {
     setBusy(true);
     try {
-      const doc = { ...d, loyalty: loyalty.filter((l) => l.program || l.number) };
+      const doc = { ...d, loyalty: loyalty.filter((l) => l.program || l.number), cards: (d.cards || []).filter((c) => c.last) };
       await onSave(t.id, { name: name.trim() || t.name, doc });
       toast('Saved');
       onClose();
@@ -205,6 +211,17 @@ function EditSheet({ t, onSave, onRemove, onClose, toast }) {
           </div>
         ))}
         <button className="btn-soft-pill press" style={{ marginTop: 10 }} onClick={() => setD((x) => ({ ...x, loyalty: [...(x.loyalty || []), {}] }))}><Plus size={13} w={1.8} /> Add a program</button>
+
+        <div className="mono-label tv-edit-head">Trip cards</div>
+        <div className="sheet-copy" style={{ marginTop: 6 }}>The cards you use for trips. Purchase alerts from other cards — business cards, say — are ignored.</div>
+        {(d.cards || []).map((c, i) => (
+          <div key={i} className="row-8" style={{ marginTop: 8 }}>
+            <input className="field" style={{ flex: 2, minWidth: 0 }} value={c.name || ''} onChange={(e) => setCard(i, 'name', e.target.value)} placeholder="e.g. Delta SkyMiles Gold" />
+            <input className="field" style={{ flex: 1, minWidth: 0 }} value={c.last || ''} onChange={(e) => setCard(i, 'last', e.target.value.replace(/\D/g, '').slice(-6))} placeholder="Last digits" inputMode="numeric" autoComplete="off" />
+            <button className="thumb-x static" onClick={() => setD((x) => ({ ...x, cards: (x.cards || []).filter((_, j) => j !== i) }))} aria-label="Remove card"><span>×</span></button>
+          </div>
+        ))}
+        <button className="btn-soft-pill press" style={{ marginTop: 10 }} onClick={() => setD((x) => ({ ...x, cards: [...(x.cards || []), {}] }))}><Plus size={13} w={1.8} /> Add a card</button>
 
         <div className="mono-label tv-edit-head">Preferences</div>
         {field('prefs', 'airport', 'Home airport', { ph: 'DFW' })}

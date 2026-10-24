@@ -1110,6 +1110,17 @@ Deno.serve(async (req) => {
   let target = trips.find((t) => t.id === chosenTrip) || (confHit ? trips.find((t) => t.id === confHit.trip_id) : undefined);
   let makeNew = false;
 
+  // only the cards the family uses for trips (Travelers → Trip cards); with none listed, any card counts
+  if (read.cardAlert && !read.bookings.length) {
+    const digits = (s: string) => (String(s || "").match(/(\d{4,6})\D*$/) || [, ""])[1];
+    const allowed = travelers.flatMap((t) => ((t.doc || {}).cards || []) as { last?: string }[]).map((c) => digits(c.last || "")).filter(Boolean);
+    if (allowed.length) {
+      const mine = (card: string) => { const d = digits(card); return !!d && allowed.some((a) => a.endsWith(d) || d.endsWith(a)); };
+      read.costs = read.costs.filter((c) => mine(c.card));
+      if (!read.costs.length) return ok({ ignored: "not a trip card" });
+    }
+  }
+
   // card purchase alerts cover every purchase: keep a charge only when it was made during a trip (a
   // day either side, for time zones) or Claude ties the merchant to a trip's bookings. A travel
   // charge it can't place waits in To sort; anything else is dropped, and nothing of it is kept.

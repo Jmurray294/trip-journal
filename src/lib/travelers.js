@@ -10,6 +10,7 @@ import { bookingProgram, programKey, last4 } from './loyalty.js';
 //   dob, redress
 //   license   { state, expires }
 //   loyalty   [{ program, number, status, balance, asOf }]   balance and asOf also come from statements
+//   cards     [{ name, last }]   cards used for trips: only their purchase alerts reach trip budgets
 //   prefs     { airport, seat, cabin, meal, room, airlines, hotels, notes }
 //   emergency { insurance, contacts, medical }
 // Dates are YYYY-MM-DD. A copy is kept on the device so the numbers are there at the airport offline.
