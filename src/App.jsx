@@ -492,10 +492,20 @@ export default function App() {
     updateTrip(tripId, (t) => ({
       ...t,
       costs: (t.costs || []).map((c) => (c.id === costId
-        ? { ...c, status: 'paid', date: today, note: [c.note, 'Marked paid ' + todayLabel()].filter(Boolean).join(' · ') }
+        ? { ...c, status: 'paid', date: today, note: [c.note, 'Marked paid ' + todayLabel()].filter(Boolean).join(' · '), edited: true }
         : c)),
     }));
     showToast('Marked paid');
+  };
+
+  const editCost = (tripId, costId, fields) => {
+    const pos = fields.date ? new Date(fields.date + 'T12:00:00').getTime() : undefined;
+    updateTrip(tripId, (t) => ({
+      ...t,
+      // `edited`: later emails about the same item leave it as corrected here
+      costs: (t.costs || []).map((c) => (c.id === costId ? { ...c, ...fields, ...(pos ? { pos } : {}), edited: true } : c)).sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)),
+    }));
+    showToast('Cost updated');
   };
 
   const deleteCost = (tripId, costId) => {
@@ -653,6 +663,7 @@ export default function App() {
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onMarkPaid={(cid) => markPaid(trip.id, cid)}
+              onEditCost={(cid, f) => editCost(trip.id, cid, f)}
               onDeleteTrip={() => deleteTrip(trip.id)}
               onWriteSong={() => writeSong(trip.id)}
               onToggleSong={toggleSong}

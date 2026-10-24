@@ -93,8 +93,11 @@ export function Bookings({ trip, inbox, toast, onUpload }) {
 // ---------- Budget ----------
 const CATEGORIES = KIND_ORDER;
 
-function AddCost({ onSave, onCancel }) {
-  const [f, setF] = useState({ title: '', amount: '', currency: 'USD', status: 'paid', date: '', category: 'Other', vendor: '' });
+// adds a cost, or with `initial` edits one
+function AddCost({ onSave, onCancel, initial }) {
+  const [f, setF] = useState(() => (initial
+    ? { title: initial.title || '', amount: String(initial.amount ?? ''), currency: initial.currency || 'USD', status: initial.status || 'paid', date: initial.date || '', category: initial.category || 'Other', vendor: initial.vendor || '' }
+    : { title: '', amount: '', currency: 'USD', status: 'paid', date: '', category: 'Other', vendor: '' }));
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
   const amount = parseFloat(String(f.amount).replace(/[^0-9.]/g, ''));
   const ok = f.title.trim() && amount > 0;
@@ -140,15 +143,16 @@ function AddCost({ onSave, onCancel }) {
         <button className="btn-muted press" onClick={onCancel}>Cancel</button>
         <button className="btn-primary small press" disabled={!ok}
           onClick={() => onSave({ title: f.title.trim(), amount: Math.round(amount * 100) / 100, currency: (f.currency || 'USD').slice(0, 3), status: f.status, date: f.date, category: f.category, vendor: f.vendor.trim() })}>
-          Add cost
+          {initial ? 'Save' : 'Add cost'}
         </button>
       </div>
     </div>
   );
 }
 
-export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid }) {
+export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid, onEditCost }) {
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null); // a cost's id: tap a cost to correct it
   const costs = trip.costs || [];
   const { totals } = costTotals(costs);
   const today = new Date().toISOString().slice(0, 10);
@@ -216,9 +220,11 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid }) {
         {adding && <AddCost onCancel={() => setAdding(false)} onSave={(c) => { onAddCost(c); setAdding(false); }} />}
         {costs.length > 0 && (
           <div className="budget-card">
-            {costs.map((c) => (
+            {costs.map((c) => (editing === c.id && onEditCost ? (
+              <AddCost key={c.id} initial={c} onCancel={() => setEditing(null)} onSave={(f) => { onEditCost(c.id, f); setEditing(null); }} />
+            ) : (
               <div key={c.id} className="cost-row">
-                <div className="grow">
+                <div className="grow press-soft" style={{ cursor: onEditCost ? 'pointer' : undefined }} onClick={() => onEditCost && setEditing(c.id)} title="Tap to edit">
                   <div className="cost-title">{c.title}</div>
                   <div className="cost-sub">{[KIND_LABEL[c.category] || c.category, c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.card, c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
                   {c.note && <div className="cost-sub">{c.note}</div>}
@@ -226,7 +232,7 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid }) {
                 <div className={'cost-amt ' + c.status}>{c.status === 'refund' ? '−' : ''}{money(c.amount, c.currency)}</div>
                 <button className="del-btn press" onClick={() => onDeleteCost(c.id)} aria-label="Remove cost"><span><Trash /></span></button>
               </div>
-            ))}
+            )))}
           </div>
         )}
       </section>

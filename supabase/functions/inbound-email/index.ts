@@ -693,6 +693,8 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "COSTS: list money paid, owed or refunded — deposits, final payments, receipts, invoices, balances due (with the due date), refunds. " +
         "A confirmation that shows a price is also a cost (status 'paid' if it was charged, 'due' if it is owed). If part was paid and " +
         "a balance remains, give two costs. Payment and receipt emails are costs, not bookings, unless they also confirm a reservation. " +
+        "When a payment, card authorization or receipt is toward a booking already in one of the family's trips, give that booking's " +
+        "confirmation number (from the trip's items) even if this email doesn't show it, so it comes off that booking's balance. " +
         "A card authorization that has not been charged yet is 'due', with a note like 'Card authorized'. An itinerary or invoice that " +
         "lists the trip's sailings, flights or hotels is also a source of bookings.\n\n" +
         "TRIP: these are the family's trips (id, title, place, dates, some items already in each):\n" +
@@ -1226,18 +1228,52 @@ Deno.serve(async (req) => {
 
   // same item forwarded again → same row id, so it is updated rather than duplicated; keep photos people added
   const all = [...bRows, ...keptCosts];
-  const { data: existing } = await admin.from("entries").select("id, photos:doc->photos, added:doc->added").eq("household_id", hid).in("id", all.map((r) => r.id));
-  // keep photos people added, and when the item first came in
-  const photos = new Map((existing || []).map((r: { id: string; photos: unknown }) => [r.id, r.photos]));
-  const firstAdded = new Map((existing || []).filter((r: { added: unknown }) => typeof r.added === "number").map((r: { id: string; added: number }) => [r.id, r.added]));
+  const { data: existing } = await admin.from("entries").select("id, doc").eq("household_id", hid).in("id", all.map((r) => r.id));
+  const before = new Map(((existing || []) as { id: string; doc: Record<string, any> }[]).map((r) => [r.id, r.doc]));
   const rows = all.map((r) => {
-    const doc = { ...r.doc };
-    if (!doc.type && Array.isArray(photos.get(r.id))) doc.photos = photos.get(r.id);
-    if (firstAdded.has(r.id)) doc.added = firstAdded.get(r.id);
+    let doc = { ...r.doc };
+    const old = before.get(r.id);
+    // a cost someone corrected or marked paid in the app stays as they left it
+    if (old && old.edited) doc = old;
+    else if (old) {
+      // keep photos people added, and when the item first came in
+      if (!doc.type && Array.isArray(old.photos)) doc.photos = old.photos;
+      if (typeof old.added === "number") doc.added = old.added;
+      // a balance that payments have already brought down keeps its running amount
+      if (Array.isArray(old.applied) && old.applied.length) { doc.amount = old.amount; doc.note = old.note; doc.applied = old.applied; }
+    }
     return { household_id: hid, id: r.id, trip_id: tripId, deleted: false, doc };
   });
   const { error: eErr } = rows.length ? await admin.from("entries").upsert(rows, { onConflict: "household_id,id" }) : { error: null };
   if (eErr) { await log({ items: 0, status: "error: " + eErr.message, reader }); return ok({ error: eErr.message }, 500); }
+
+  // Payments toward a balance: a payment or card authorization for a booking whose balance is due
+  // (same confirmation number) settles the balance when the amounts match, or brings it down by that
+  // much. `applied` on the balance remembers which payments it took, so reading an email again
+  // changes nothing; a charge that only replaces an authorization already taken off isn't taken twice.
+  const isAuthDoc = (d: Record<string, any>) => d.status === "due" && /authori[sz]/i.test(`${d.title} ${d.note}`);
+  const balances = oldCosts.filter((o) => o.doc.status === "due" && !isAuthDoc(o.doc) && confKey(o.doc.confirmation).length >= 4);
+  for (const r of keptCosts) {
+    const d = r.doc;
+    const k = confKey(d.confirmation);
+    if (!(d.status === "paid" || isAuthDoc(d)) || k.length < 4) continue;
+    if (d.status === "paid" && oldCosts.some((o) => o.id !== r.id && isAuthDoc(o.doc) && sameMoney(o.doc, d))) continue;
+    const b = balances.find((o) => o.id !== r.id && confKey(o.doc.confirmation) === k && String(o.doc.currency) === String(d.currency) &&
+      Number(o.doc.amount) + 0.005 >= Number(d.amount) && !(o.doc.applied || []).includes(r.id));
+    if (!b) continue;
+    const left = Math.round((Number(b.doc.amount) - Number(d.amount)) * 100) / 100;
+    if (left < 0.01) {
+      await admin.from("entries").update({ deleted: true }).eq("household_id", hid).eq("id", b.id);
+      balances.splice(balances.indexOf(b), 1);
+    } else {
+      const amt = Number(d.amount).toLocaleString("en-US", { style: "currency", currency: String(d.currency || "USD") });
+      b.doc = {
+        ...b.doc, amount: left, applied: [...(b.doc.applied || []), r.id],
+        note: [b.doc.note, `less ${amt} ${d.status === "paid" ? "paid" : "authorized"}${d.date ? " " + d.date : ""}`].filter(Boolean).join(" · "),
+      };
+      await admin.from("entries").update({ doc: b.doc }).eq("household_id", hid).eq("id", b.id);
+    }
+  }
 
   await log({ items: count, status: "added", reader, trip_title: tripDoc.title, trip_id: tripId });
   return ok({ added: count, trip: tripDoc.title, tripId });

@@ -202,7 +202,7 @@ export default function TripDetail(p) {
         </div>
 
         {tab === 'bookings' && <Bookings trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} />}
-        {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} />}
+        {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'itinerary' && <>
