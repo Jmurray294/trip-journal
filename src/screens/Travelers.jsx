@@ -85,7 +85,7 @@ function PersonCard({ t, onEdit, onAddScan, onRemoveScan, toast }) {
         <button className="btn-soft-pill press" onClick={onEdit}>Edit</button>
       </div>
 
-      <Section title="Travel documents" has={hasDocs} empty="No documents yet — tap Edit to add a passport, Global Entry and more.">
+      <Section title="Travel documents" has={hasDocs} empty="None yet — tap Edit to add a passport and Global Entry.">
         <Row label="Name on passport" value={pp.name} {...r} />
         <Row label="Passport no." value={pp.number} secret {...r} />
         <Row label="Passport country" value={pp.country} copy={false} {...r} />
@@ -98,29 +98,27 @@ function PersonCard({ t, onEdit, onAddScan, onRemoveScan, toast }) {
       </Section>
       <Scans t={t} onAddScan={onAddScan} onRemoveScan={onRemoveScan} toast={toast} />
 
-      <Section title="Loyalty programs" has={loyalty.length > 0} empty="No programs yet — add AAdvantage, Bonvoy and the rest under Edit.">
+      <Section title="Loyalty programs" has={loyalty.length > 0} empty="None yet — tap Edit.">
         {loyalty.map((l, i) => (
           <Row key={i} label={l.program || 'Program'} value={l.number}
             note={l.status || l.balance ? { level: 'info', text: [l.status, l.balance && l.balance + ' pts', l.asOf && 'as of ' + monthYear(l.asOf)].filter(Boolean).join(' · ') } : null} {...r} />
         ))}
       </Section>
 
-      <Section title="Trip cards" has={cards.length > 0} empty="No trip cards yet — add the cards you use for trips under Edit. Only their purchase alerts go into trip budgets.">
+      <Section title="Trip cards" has={cards.length > 0} empty="None yet — tap Edit. Only these cards' charges reach trip budgets.">
         {cards.map((c, i) => <Row key={i} label={c.name || 'Card'} value={'…' + c.last} copy={false} {...r} />)}
       </Section>
 
-      <Section title="Preferences" has={any(pr)} empty="No preferences yet.">
+      <Section title="Preferences" has={any(pr)} empty="None yet — tap Edit.">
         <Row label="Home airport" value={pr.airport} copy={false} {...r} />
-        <Row label="Seat" value={pr.seat} copy={false} {...r} />
-        <Row label="Cabin" value={pr.cabin} copy={false} {...r} />
+        <Row label="Seat · cabin" value={[pr.seat, pr.cabin].filter(Boolean).join(' · ')} copy={false} {...r} />
         <Row label="Meals & diet" value={pr.meal} copy={false} {...r} />
         <Row label="Room" value={pr.room} copy={false} {...r} />
-        <Row label="Airlines" value={pr.airlines} copy={false} {...r} />
-        <Row label="Hotels" value={pr.hotels} copy={false} {...r} />
+        <Row label="Airlines · hotels" value={[pr.airlines, pr.hotels].filter(Boolean).join(' · ')} copy={false} {...r} />
         <Row label="Notes" value={pr.notes} copy={false} {...r} />
       </Section>
 
-      <Section title="Health & emergency" has={any(em)} empty="No emergency details yet.">
+      <Section title="Health & emergency" has={any(em)} empty="None yet — tap Edit.">
         <Row label="Travel insurance" value={em.insurance} {...r} />
         <Row label="Emergency contacts" value={em.contacts} {...r} />
         <Row label="Medical & allergies" value={em.medical} copy={false} {...r} />
