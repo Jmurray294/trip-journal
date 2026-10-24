@@ -4,6 +4,7 @@ import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLab
 import { fmtTime, activeLine } from '../lib/song.js';
 import { stageLabel, tripStage } from '../lib/stages.js';
 import TripAlerts from '../components/TripAlerts.jsx';
+import Explore from './Explore.jsx';
 
 import { Bookings, Budget, Documents } from './TripSections.jsx';
 
@@ -41,7 +42,7 @@ function addedNote(d) {
   return ' · added ' + l + (a.getFullYear() !== new Date().getFullYear() ? ', ' + a.getFullYear() : '');
 }
 
-const TABS = [['itinerary', 'Itinerary'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['documents', 'Documents']];
+const TABS = [['itinerary', 'Itinerary'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -206,6 +207,8 @@ export default function TripDetail(p) {
 
         {tab === 'bookings' && <Bookings trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
+        {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
+          onAsk={p.onAskSuggestions} onAdd={p.onAddSuggestion} onDismiss={p.onDismissSuggestion} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'itinerary' && <>

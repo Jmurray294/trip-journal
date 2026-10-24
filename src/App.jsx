@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
+import { placeKey, mergeSuggestions } from './lib/explore.js';
 import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
 import { useActivity } from './lib/activity.js';
@@ -422,6 +423,56 @@ export default function App() {
     return true;
   };
 
+  // ---- explore: suggestions for each stop, kept on the trip (explore.js) ----
+  const [exploreBusy, setExploreBusy] = useState(() => new Set()); // `${tripId}|${placeKey}`
+  const askSuggestions = async (tripId, place, focus) => {
+    const k = tripId + '|' + placeKey(place);
+    setExploreBusy((s) => new Set(s).add(k));
+    try {
+      const t = tripsRef.current.find((x) => x.id === tripId);
+      const prev = ((t && t.suggestions) || {})[placeKey(place)];
+      const { data, error } = await supabase.functions.invoke('inbound-email', {
+        body: { Suggest: true, TripId: tripId, Place: place, Focus: focus || '', Have: ((prev && prev.items) || []).map((i) => i.title) },
+      });
+      if (error || !data || data.error) {
+        let msg = (data && data.error) || 'Could not get suggestions — try again';
+        try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (e) { /* no body */ }
+        showToast(msg);
+        return;
+      }
+      updateTrip(tripId, (x) => {
+        const all = { ...(x.suggestions || {}) };
+        all[placeKey(place)] = mergeSuggestions(all[placeKey(place)], data, newEntryId);
+        return { ...x, suggestions: all };
+      });
+    } finally {
+      setExploreBusy((s) => { const n = new Set(s); n.delete(k); return n; });
+    }
+  };
+  const setSuggestion = (tripId, place, id, status) => updateTrip(tripId, (x) => {
+    const all = { ...(x.suggestions || {}) };
+    const cur = all[placeKey(place)];
+    if (!cur) return x;
+    all[placeKey(place)] = { ...cur, items: cur.items.map((i) => (i.id === id ? { ...i, status } : i)) };
+    return { ...x, suggestions: all };
+  });
+  // a suggestion onto the itinerary, on the stop's first day
+  const addSuggestion = (tripId, stop, item) => {
+    const base = stop.first;
+    updateTrip(tripId, (x) => ({
+      ...x,
+      days: sortDays([...(x.days || []), {
+        id: newEntryId(), date: (base && base.date) || todayLabel(), title: item.title, place: stop.place,
+        note: [item.why, [item.when, item.where].filter(Boolean).join(' · ')].filter(Boolean).join('\n'),
+        kind: item.kind === 'eat' ? 'Dining' : 'Activity', source: 'suggestion', photos: [],
+        pos: base && typeof base.pos === 'number' ? base.pos + 60000 : Date.now(), added: Date.now(),
+        ...(base && typeof base.lon === 'number' ? { lon: base.lon, lat: base.lat } : {}),
+      }]),
+    }));
+    setSuggestion(tripId, stop.place, item.id, 'added');
+    showToast('Added ' + item.title + ' to the itinerary');
+  };
+
   // many photos at once, filed by when and where each was taken (photos.js)
   const importPhotos = async (tripId, fileList) => {
     const files = [...fileList].filter((f) => /^image\//.test(f.type) || /\.(jpe?g|heic|heif|png)$/i.test(f.name)).slice(0, 150);
@@ -660,6 +711,11 @@ export default function App() {
               onBook={() => go({ bookId: trip.id })}
               onAdd={() => openAddFor(trip.id)}
               onAddPhotos={(files) => importPhotos(trip.id, files)}
+              canExplore={!!(supabase && family.household)}
+              exploreBusy={new Set([...exploreBusy].filter((k) => k.startsWith(trip.id + '|')).map((k) => k.slice(trip.id.length + 1)))}
+              onAskSuggestions={(place, focus) => askSuggestions(trip.id, place, focus)}
+              onAddSuggestion={(stop, item) => addSuggestion(trip.id, stop, item)}
+              onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onMarkPaid={(cid) => markPaid(trip.id, cid)}

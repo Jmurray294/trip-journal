@@ -500,6 +500,113 @@ async function costRows(hid: string, costs: Cost[]) {
   return out;
 }
 
+// ---- suggestions: what to see, do and eat at one stop, for the app's Explore tab ----
+// Claude searches the web for current picks, knowing the dates, what's already booked there (a
+// cruise's shore excursion, say) and the travelers' preferences, and hands them back through the
+// save_suggestions tool (a strict schema; JSON output and web-search citations don't mix).
+const SUGGESTION_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string", description: "One or two lines on this stop for this trip: how much time there is and how to spend it" },
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["see", "do", "eat", "know"] },
+          title: { type: "string", description: "Short name, e.g. 'Glover Garden', 'Champon at Shikairo'" },
+          why: { type: "string", description: "One or two sentences: why it's worth it for these travelers" },
+          when: { type: "string", description: "Best time, which day of the stop, or how long it takes; or empty" },
+          where: { type: "string", description: "Neighborhood or short address, and how far from the port or hotel when useful; or empty" },
+          url: { type: "string", description: "Official site or a good source, or empty" },
+        },
+        required: ["kind", "title", "why", "when", "where", "url"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["summary", "items"],
+  additionalProperties: false,
+};
+
+async function suggestFor(admin: any, hid: string, body: Record<string, any>) {
+  if (!Deno.env.get("ANTHROPIC_API_KEY")) return ok({ error: "Suggestions need the Claude key set up" }, 500);
+  const tripId = String(body.TripId || ""), place = String(body.Place || "").slice(0, 80);
+  if (!tripId || !place) return ok({ error: "Pick a stop first" }, 400);
+  const [{ data: tripRow }, { data: rows }, { data: people }, { data: hh }] = await Promise.all([
+    admin.from("trips").select("doc").eq("household_id", hid).eq("id", tripId).maybeSingle(),
+    admin.from("entries").select("doc").eq("household_id", hid).eq("trip_id", tripId).eq("deleted", false),
+    admin.from("travelers").select("name, doc").eq("household_id", hid),
+    admin.from("households").select("home").eq("id", hid).maybeSingle(),
+  ]);
+  if (!tripRow) return ok({ error: "Trip not found" }, 404);
+  const trip = (tripRow as { doc: Record<string, any> }).doc;
+  const items = ((rows || []) as { doc: Record<string, any> }[]).map((r) => r.doc).filter((d) => d.type !== "cost")
+    .sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
+  const line = (d: Record<string, any>) => [d.date, d.kind, d.title, d.place, d.booking?.time, d.note].filter(Boolean).join(" · ").slice(0, 240);
+  const here = items.filter((d) => String(d.place || "").toLowerCase() === place.toLowerCase());
+  const prefs = ((people || []) as { name: string; doc: Record<string, any> }[]).map((p) => {
+    const pr = (p.doc || {}).prefs || {}, em = (p.doc || {}).emergency || {};
+    return [p.name, pr.meal && `eats: ${pr.meal}`, em.medical && `health: ${em.medical}`, pr.notes].filter(Boolean).join("; ");
+  }).filter(Boolean).join(" | ");
+  const have = (Array.isArray(body.Have) ? body.Have : []).map((s: unknown) => String(s).slice(0, 80)).slice(0, 60);
+  const focus = String(body.Focus || "").slice(0, 200);
+  const home = ((hh as { home?: { home?: string } } | null)?.home || {}).home || "";
+
+  const prompt =
+    `Suggest what to see, do and eat in ${place} for this trip, and what to know before going.\n\n` +
+    `TRIP: ${trip.title || ""} — ${trip.place || ""}, ${trip.dates || ""}.${home ? ` They live in ${home}.` : ""}\n` +
+    `TRAVELERS: ${prefs || "two adults"}\n\n` +
+    `AT THIS STOP (already booked or planned — don't suggest these again; fit suggestions around them and the time ashore):\n` +
+    (here.map(line).join("\n") || "(nothing yet)") + "\n\n" +
+    `THE WHOLE ITINERARY, for context (a cruise means limited hours in port):\n` + items.slice(0, 60).map(line).join("\n") + "\n\n" +
+    (have.length ? `ALREADY SUGGESTED (give different ones): ${have.join("; ")}\n\n` : "") +
+    (focus ? `THEY ASKED FOR: ${focus}\n\n` : "") +
+    "Search the web for current information — what's open on these dates, seasonal events, the best places to eat now. " +
+    "Give 10–14 picks across see, do, eat and know (practical tips: getting from the port or station, money, customs, what to wear). " +
+    "Be specific (named places and dishes), realistic about the time available, and say why each one suits these travelers. " +
+    "When you're done, call save_suggestions once with everything.";
+
+  const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
+  const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
+  const tools = [
+    { type: "web_search_20260209", name: "web_search", max_uses: 6 },
+    { name: "save_suggestions", description: "Save the finished suggestions for this stop. Call once, at the end.", strict: true, input_schema: SUGGESTION_SCHEMA },
+  ];
+  const messages: any[] = [{ role: "user", content: prompt }];
+  for (let turn = 0; turn < 6; turn++) {
+    const res: any = await client.beta.messages.create({
+      model: "claude-opus-5-5",
+      max_tokens: 16000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      output_config: { effort: "medium" },
+      tools,
+      messages,
+    } as any);
+    const saved = (res.content || []).find((b: any) => b.type === "tool_use" && b.name === "save_suggestions");
+    if (saved) {
+      const out = saved.input || {};
+      const clean = (s: unknown, n: number) => String(s || "").slice(0, n);
+      return ok({
+        summary: clean(out.summary, 400),
+        items: (Array.isArray(out.items) ? out.items : []).filter((i: any) => i && i.title).slice(0, 20).map((i: any) => ({
+          kind: ["see", "do", "eat", "know"].includes(i.kind) ? i.kind : "do",
+          title: clean(i.title, 100), why: clean(i.why, 400), when: clean(i.when, 120), where: clean(i.where, 160),
+          url: /^https?:\/\//.test(String(i.url || "")) ? clean(i.url, 500) : "",
+        })),
+      });
+    }
+    if (res.stop_reason === "refusal") return ok({ error: "Couldn't make suggestions for that — try again" }, 502);
+    // a long web search pauses; send the turn back and it carries on
+    messages.push({ role: "assistant", content: res.content });
+    if (res.stop_reason === "pause_turn") continue;
+    // finished without saving: ask for the tool call
+    messages.push({ role: "user", content: "Now call save_suggestions with your picks." });
+  }
+  return ok({ error: "Suggestions took too long — try again" }, 504);
+}
+
 // ---- photos from the family's iPhone Shortcut (?key=…&family=<inbox code>) ----
 // GET  &check&date=YYYY-MM-DD → { trip: "<title>" } when a trip is on that day (a day either side for
 //      travel days), else { trip: "" } — the Shortcut sends nothing on ordinary days.
@@ -617,6 +724,8 @@ Deno.serve(async (req) => {
     uploader = "Uploaded by " + (who.user.email || "a family member");
   }
   const hid = household.id;
+  // the app asking for things to see, do and eat at one stop of a trip
+  if (!fromForwarder && mail.Suggest === true) return await suggestFor(admin, hid, mail);
   // uploads made from inside a trip go to that trip
   const chosenTrip = fromForwarder ? "" : String(mail.TripId || "");
   // sent to the plain trips address (bookings made with it) rather than forwarded to the +code address on purpose
