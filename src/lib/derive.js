@@ -26,20 +26,26 @@ export function dayLabel(iso) {
   return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Paid (net of refunds) and still-due totals per currency, plus the next payment due.
+// A card authorization: approved on the card, waiting to be charged — not a bill to pay.
+export const isPending = (c) => !!c && c.status === 'due' && /authori[sz]|pending/i.test(`${c.title || ''} ${c.note || ''}`);
+
+// Paid (net of refunds) and still-due totals per currency, the next payment due (bills only), and
+// the charges pending on a card.
 export function costTotals(costs) {
   const by = {};
   let nextDue = null;
+  const pending = [];
   for (const c of costs || []) {
     const cur = c.currency || 'USD';
     const t = by[cur] || (by[cur] = { currency: cur, paid: 0, due: 0 });
     if (c.status === 'due') {
       t.due += c.amount || 0;
-      if (c.date && (!nextDue || c.date < nextDue.date)) nextDue = c;
+      if (isPending(c)) pending.push(c);
+      else if (c.date && (!nextDue || c.date < nextDue.date)) nextDue = c;
     } else if (c.status === 'refund') t.paid -= c.amount || 0;
     else t.paid += c.amount || 0;
   }
-  return { totals: Object.values(by), nextDue };
+  return { totals: Object.values(by), nextDue, pending };
 }
 
 const STRIPE = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0 7px, rgba(0,0,0,0.05) 7px 14px)';

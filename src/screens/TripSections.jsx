@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash } from '../components/Icons.jsx';
-import { money, dayLabel, costTotals } from '../lib/derive.js';
+import { money, dayLabel, costTotals, isPending } from '../lib/derive.js';
 import { tripDocuments, openFile } from '../lib/docs.js';
 import { tripIdeas } from '../lib/someday.js';
 import { Idea } from './SomedayBoard.jsx';
@@ -187,7 +187,9 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid, onEditCost }
               <div key={c.id} className="cost-row">
                 <div className="grow">
                   <div className="cost-title">{c.title}</div>
-                  <div className={'cost-sub' + (c.date && c.date < today ? ' overdue' : '')}>{c.date ? (c.date < today ? 'was due ' : 'due ') + dayLabel(c.date) : 'no due date given'}{c.vendor ? ' · ' + c.vendor : ''}</div>
+                  {isPending(c)
+                    ? <div className="cost-sub">Pending charge{c.date ? ' · authorized ' + dayLabel(c.date) : ''}{c.card ? ' · ' + c.card : ''}{c.vendor ? ' · ' + c.vendor : ''}</div>
+                    : <div className={'cost-sub' + (c.date && c.date < today ? ' overdue' : '')}>{c.date ? (c.date < today ? 'was due ' : 'due ') + dayLabel(c.date) : 'no due date given'}{c.vendor ? ' · ' + c.vendor : ''}</div>}
                 </div>
                 <div className="cost-amt due">{money(c.amount, c.currency)}</div>
                 {onMarkPaid && <button className="tv-copy press" onClick={() => onMarkPaid(c.id)}>Mark paid</button>}
@@ -226,7 +228,7 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid, onEditCost }
               <div key={c.id} className="cost-row">
                 <div className="grow press-soft" style={{ cursor: onEditCost ? 'pointer' : undefined }} onClick={() => onEditCost && setEditing(c.id)} title="Tap to edit">
                   <div className="cost-title">{c.title}</div>
-                  <div className="cost-sub">{[KIND_LABEL[c.category] || c.category, c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.card, c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
+                  <div className="cost-sub">{[KIND_LABEL[c.category] || c.category, c.vendor, isPending(c) ? 'pending charge' + (c.date ? ', authorized ' + dayLabel(c.date) : '') : c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.card, c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
                   {c.note && <div className="cost-sub">{c.note}</div>}
                 </div>
                 <div className={'cost-amt ' + c.status}>{c.status === 'refund' ? '−' : ''}{money(c.amount, c.currency)}</div>

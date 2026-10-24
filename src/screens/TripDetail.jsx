@@ -9,7 +9,7 @@ import { Bookings, Budget, Documents } from './TripSections.jsx';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
 function CostsCard({ costs, onOpen }) {
-  const { totals, nextDue } = costTotals(costs);
+  const { totals, nextDue, pending } = costTotals(costs);
   return (
     <button className="costs-card press-soft" onClick={onOpen}>
       <div className="mono-label">Costs</div>
@@ -21,6 +21,9 @@ function CostsCard({ costs, onOpen }) {
           </div>
         ))}
       </div>
+      {pending.map((c) => (
+        <div key={c.id} className="costs-next pending">Pending charge {money(c.amount, c.currency)}{c.date ? ' · authorized ' + dayLabel(c.date) : ''}</div>
+      ))}
       {nextDue && <div className="costs-next">Next payment {money(nextDue.amount, nextDue.currency)} due {dayLabel(nextDue.date)}</div>}
       <div className="costs-more">See budget →</div>
     </button>

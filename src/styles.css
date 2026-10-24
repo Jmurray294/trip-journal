@@ -712,3 +712,5 @@ select.field { -webkit-appearance: auto; appearance: auto; }
 .tv-scan-open { width: 64px; height: 44px; }
 .tv-scan-add { min-height: 30px; padding: 0 11px; font-size: 12px; border-radius: 999px; border-width: 1px; }
 .tv-grid { gap: 14px; }
+.costs-next.pending { color: var(--secondary); }
+.costs-next + .costs-next { margin-top: 4px; }
