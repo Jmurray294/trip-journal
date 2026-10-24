@@ -219,7 +219,7 @@ export function Budget({ trip, onAddCost, onDeleteCost }) {
               <div key={c.id} className="cost-row">
                 <div className="grow">
                   <div className="cost-title">{c.title}</div>
-                  <div className="cost-sub">{[KIND_LABEL[c.category] || c.category, c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
+                  <div className="cost-sub">{[KIND_LABEL[c.category] || c.category, c.vendor, c.status === 'due' ? (c.date ? 'due ' + dayLabel(c.date) : 'due') : c.status === 'refund' ? 'refunded' : c.date ? 'paid ' + dayLabel(c.date) : 'paid', c.card, c.confirmation && 'Conf ' + c.confirmation].filter(Boolean).join(' · ')}</div>
                   {c.note && <div className="cost-sub">{c.note}</div>}
                 </div>
                 <div className={'cost-amt ' + c.status}>{c.status === 'refund' ? '−' : ''}{money(c.amount, c.currency)}</div>

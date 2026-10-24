@@ -373,13 +373,13 @@ type Booking = {
 };
 type Cost = {
   category: string; title: string; vendor: string; amount: number; currency: string;
-  status: string; date: Date | null; confirmation: string; note: string;
+  status: string; date: Date | null; confirmation: string; note: string; card: string; travel: boolean;
 };
 type Placement = { decision: "existing" | "new" | "unsure"; tripId: string; title: string; place: string; reason: string };
 type Idea = { title: string; place: string; dates: string; start: Date | null; end: Date | null; people: string; summary: string; tripId: string };
 type Saved = { title: string; place: string; spot: string; note: string; url: string };
 type Account = { program: string; number: string; traveler: string; status: string; balance: number | null; asOf: string };
-type Reading = { summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[]; someday: Saved[]; loyalty: Account[] };
+type Reading = { cardAlert?: boolean; summary: string; destination: string; bookings: Booking[]; costs: Cost[]; placement: Placement | null; ideas: Idea[]; someday: Saved[]; loyalty: Account[] };
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -462,6 +462,7 @@ const COST_KINDS = [...KINDS.filter((k) => k !== "Other"), "Insurance", "Fees", 
 const READING_SCHEMA = {
   type: "object",
   properties: {
+    card_alert: { type: "boolean", description: "True when this email is a card issuer's transaction alert (a purchase, charge, refund or pending authorization on a credit card)" },
     summary: { type: "string", description: "One short line saying what this email is, e.g. 'Final payment receipt for the Regent Japan cruise'" },
     destination: { type: "string", description: "Main destination city/area, or empty" },
     bookings: {
@@ -501,8 +502,10 @@ const READING_SCHEMA = {
           date: { type: "string", description: "Date paid, date due by, or refund date, YYYY-MM-DD, or empty" },
           confirmation: { type: "string", description: "Booking/confirmation number this money is for, or empty" },
           note: { type: "string" },
+          card: { type: "string", description: "The card charged, as the email names it, e.g. 'Amex Gold …1007', 'Luxury Mastercard …4421', or empty" },
+          travel: { type: "boolean", description: "True when the merchant is travel: an airline, hotel or rental, cruise line, car rental, rail, tour, travel agency or travel insurance" },
         },
-        required: ["category", "title", "vendor", "amount", "currency", "status", "date", "confirmation", "note"],
+        required: ["category", "title", "vendor", "amount", "currency", "status", "date", "confirmation", "note", "card", "travel"],
         additionalProperties: false,
       },
     },
@@ -571,7 +574,7 @@ const READING_SCHEMA = {
       },
     },
   },
-  required: ["summary", "destination", "bookings", "costs", "trip", "ideas", "someday", "loyalty"],
+  required: ["card_alert", "summary", "destination", "bookings", "costs", "trip", "ideas", "someday", "loyalty"],
   additionalProperties: false,
 };
 
@@ -707,6 +710,10 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "link, a screenshot, a friend's recommendation, a note like 'we should go here' — that aren't part of a trip being planned " +
         "(those are IDEAS) or booked. One per distinct place or thing; group them by country (or US state / Canadian province) " +
         "in place, with the town, area or venue in spot.\n\n" +
+        "CARD ALERTS: a card issuer's transaction alert (American Express, Luxury Card / Barclays and the like) is a cost: the merchant " +
+        "as vendor and a short title, the amount, the transaction date, status 'paid' ('refund' for a credit), and the card in card. " +
+        "Always list the charge, whatever it is for — we decide whether it belongs to a trip. Say whether the merchant is travel, " +
+        "and for trip, choose 'existing' only when the merchant clearly matches one of the trips' bookings.\n\n" +
         "LOYALTY: for statements, balance updates and status emails about the family's own airline, hotel, rental and cruise " +
         "accounts (not offers or promotions), list each account: program, member number as printed, status tier and points or miles " +
         `balance.${people ? ` Say whose account it is from these travelers: ${people}.` : ""} For bookings, put any loyalty numbers ` +
@@ -715,7 +722,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "Infer missing years from today's date. If the email has no bookings, no costs, no trip ideas and nothing for someday, return empty lists.\n\n" +
         (watched ? "This email arrived at the family's trips address directly rather than being forwarded on purpose, so it may not be travel. Unless it is " +
           "about the family's own travel (a reservation, a change, a payment, a trip being planned with us, a place one of us wants to go, " +
-          "or one of our loyalty accounts), return empty lists.\n\n" : "") +
+          "or one of our loyalty accounts), return empty lists — but always list a card transaction alert.\n\n" : "") +
         (saving ? "Someone in the family saved this in the app as inspiration for a trip someday: list it under SOMEDAY, and nothing " +
           "else unless it is plainly a booking or a receipt.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
@@ -745,6 +752,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
     costs.push({
       category: c.category, title: str(c.title, 120), vendor: str(c.vendor, 80), amount: Math.round(amount * 100) / 100,
       currency: str(c.currency || "USD", 3).toUpperCase(), status: c.status, date: iso(c.date), confirmation: str(c.confirmation, 40), note: str(c.note, 200),
+      card: str(c.card, 60), travel: c.travel === true,
     });
   }
   const ideas: Idea[] = (p.ideas || []).filter((i: Record<string, string>) => i.title || i.place).map((i: Record<string, string>) => ({
@@ -757,6 +765,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
   }));
   const t = p.trip || {};
   return {
+    cardAlert: p.card_alert === true,
     summary: str(p.summary, 200), destination: str(p.destination, 60), bookings, costs, ideas, someday,
     loyalty: (p.loyalty || []).filter((a: Record<string, unknown>) => a.program).map((a: Record<string, unknown>) => ({
       program: str(a.program, 60), number: str(a.number, 40), traveler: str(a.traveler, 60), status: str(a.status, 40),
@@ -817,6 +826,7 @@ async function costRows(hid: string, costs: Cost[]) {
       doc: {
         id, type: "cost", category: c.category, title: c.title, vendor: c.vendor, amount: c.amount, currency: c.currency,
         status: c.status, date: isoDay(c.date), confirmation: c.confirmation, note: c.note, source: "email",
+        ...(c.card ? { card: c.card } : {}),
         pos: (c.date || new Date()).getTime(), added: Date.now(),
       },
     });
@@ -1100,6 +1110,20 @@ Deno.serve(async (req) => {
   let target = trips.find((t) => t.id === chosenTrip) || (confHit ? trips.find((t) => t.id === confHit.trip_id) : undefined);
   let makeNew = false;
 
+  // card purchase alerts cover every purchase: keep a charge only when it was made during a trip (a
+  // day either side, for time zones) or Claude ties the merchant to a trip's bookings. A travel
+  // charge it can't place waits in To sort; anything else is dropped, and nothing of it is kept.
+  if (read.cardAlert && !read.bookings.length && !target) {
+    const when = read.costs.find((c) => c.date)?.date || new Date();
+    const x = day(when).getTime();
+    const during = trips.filter((t) => !t.doc.possible && t.range && x >= day(t.range[0]).getTime() - 86400000 && x <= day(t.range[1]).getTime() + 86400000)
+      .sort((a, b) => (a.range![1].getTime() - a.range![0].getTime()) - (b.range![1].getTime() - b.range![0].getTime()))[0];
+    const named = read.placement?.decision === "existing" ? trips.find((t) => t.id === read.placement!.tripId) : undefined;
+    target = during || named;
+    if (!target && !read.costs.some((c) => c.travel)) return ok({ ignored: "not a trip charge" });
+    if (!target && read.placement) read.placement.decision = "unsure";
+  }
+
   const dated = read.bookings.map((b) => b.date);
   const first = dated.length ? new Date(Math.min(...dated.map(Number))) : null;
   const last = read.bookings.reduce((a: Date | null, b) => { const e = b.endDate || b.date; return !a || e > a ? e : a; }, first);
@@ -1180,7 +1204,12 @@ Deno.serve(async (req) => {
   // only costs marked as card authorizations — equal installments still due are real
   const isAuthorization = (d: Record<string, any>) => d.status === "due" &&
     /authori[sz]/i.test(`${d.title} ${d.note}`) && paid.some((p) => sameMoney(p, d));
-  const keptCosts = cRows.filter((r) => !isAuthorization(r.doc));
+  // the same payment reported twice — a booking email and the card alert for it — is kept once
+  const near = (a: Record<string, any>, b: Record<string, any>) =>
+    !!a.date && !!b.date && Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) <= 3 * 86400000;
+  const already = (d: Record<string, any>) => d.status === "paid" &&
+    oldCosts.some((o) => o.id !== d.id && o.doc.status === "paid" && sameMoney(o.doc, d) && near(o.doc, d));
+  const keptCosts = cRows.filter((r) => !isAuthorization(r.doc) && !already(r.doc));
   const settled = oldCosts.filter((r) => isAuthorization(r.doc)).map((r) => r.id);
   if (settled.length) await admin.from("entries").update({ deleted: true }).eq("household_id", hid).in("id", settled);
 
