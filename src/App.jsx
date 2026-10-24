@@ -486,6 +486,18 @@ export default function App() {
     showToast('Cost added');
   };
 
+  // an amount that was due (an authorization, a balance) has been charged
+  const markPaid = (tripId, costId) => {
+    const today = new Date().toISOString().slice(0, 10);
+    updateTrip(tripId, (t) => ({
+      ...t,
+      costs: (t.costs || []).map((c) => (c.id === costId
+        ? { ...c, status: 'paid', date: today, note: [c.note, 'Marked paid ' + todayLabel()].filter(Boolean).join(' · ') }
+        : c)),
+    }));
+    showToast('Marked paid');
+  };
+
   const deleteCost = (tripId, costId) => {
     if (!window.confirm('Remove this cost?')) return;
     updateTrip(tripId, (t) => ({ ...t, costs: (t.costs || []).filter((c) => c.id !== costId) }));
@@ -640,6 +652,7 @@ export default function App() {
               onAddPhotos={(files) => importPhotos(trip.id, files)}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
+              onMarkPaid={(cid) => markPaid(trip.id, cid)}
               onDeleteTrip={() => deleteTrip(trip.id)}
               onWriteSong={() => writeSong(trip.id)}
               onToggleSong={toggleSong}

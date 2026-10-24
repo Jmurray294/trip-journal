@@ -147,7 +147,7 @@ function AddCost({ onSave, onCancel }) {
   );
 }
 
-export function Budget({ trip, onAddCost, onDeleteCost }) {
+export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid }) {
   const [adding, setAdding] = useState(false);
   const costs = trip.costs || [];
   const { totals } = costTotals(costs);
@@ -186,6 +186,7 @@ export function Budget({ trip, onAddCost, onDeleteCost }) {
                   <div className={'cost-sub' + (c.date && c.date < today ? ' overdue' : '')}>{c.date ? (c.date < today ? 'was due ' : 'due ') + dayLabel(c.date) : 'no due date given'}{c.vendor ? ' · ' + c.vendor : ''}</div>
                 </div>
                 <div className="cost-amt due">{money(c.amount, c.currency)}</div>
+                {onMarkPaid && <button className="tv-copy press" onClick={() => onMarkPaid(c.id)}>Mark paid</button>}
               </div>
             ))}
           </div>
