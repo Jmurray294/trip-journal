@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
-import { searchIdeas } from '../lib/someday.js';
+import { searchIdeas, byCountry } from '../lib/someday.js';
 
-// The Trips page's Someday section: saved inspiration grouped by place. "Start planning" turns a
+// The Trips page's Someday section: saved inspiration by country, then state. "Start planning" turns a
 // place into a Possible trip carrying its ideas.
 
 const SHOW = 3;
@@ -24,19 +24,25 @@ export function Idea({ it, onRemove }) {
   );
 }
 
-function Place({ g, searching, onPlan, onRemove }) {
+const placeId = (place) => 'someday-' + place.toLowerCase().replace(/W+/g, '-');
+const count = (n, of) => (of != null ? `${n} of ${of} ideas` : `${n} ${n === 1 ? 'idea' : 'ideas'}`);
+
+// One place's ideas. As a state inside a country it has its own small heading; alone, the country's.
+function Place({ g, heading, searching, onPlan, onRemove }) {
   const [all, setAll] = useState(false);
   const shown = all || searching ? g.items : g.items.slice(0, SHOW);
   const total = (g.all || g).items.length;
   return (
-    <div className="someday-place" id={'someday-' + g.place.toLowerCase().replace(/\W+/g, '-')}>
-      <div className="someday-head">
-        <div className="grow">
-          <div className="someday-name">{g.place}</div>
-          <div className="someday-count">{searching ? `${g.items.length} of ${total} ideas` : `${total} ${total === 1 ? 'idea' : 'ideas'}`}</div>
+    <div className="someday-state" id={placeId(g.place)}>
+      {heading && (
+        <div className="someday-head">
+          <div className="grow">
+            <div className="someday-sub">{heading}</div>
+            <div className="someday-count">{count(g.items.length, searching ? total : null)}</div>
+          </div>
+          <button className="btn-soft-pill press" onClick={() => onPlan(g.all || g)}>Start planning</button>
         </div>
-        <button className="btn-soft-pill press" onClick={() => onPlan(g.all || g)}>Start planning</button>
-      </div>
+      )}
       <div className="stack-9">
         {shown.map((it) => <Idea key={it.id} it={it} onRemove={onRemove} />)}
       </div>
@@ -44,6 +50,35 @@ function Place({ g, searching, onPlan, onRemove }) {
         <button className="btn-link" style={{ width: 'auto', marginTop: 8 }} onClick={() => setAll(!all)}>
           {all ? 'Show fewer' : `Show all ${g.items.length}`}
         </button>
+      )}
+    </div>
+  );
+}
+
+// A country's card: its states inside it, or just its ideas when they name no state.
+function Country({ c, searching, onPlan, onRemove }) {
+  const only = c.places.length === 1 && !c.places[0].state ? c.places[0] : null;
+  const total = c.places.reduce((n, g) => n + (g.all || g).items.length, 0);
+  return (
+    <div className="someday-place">
+      <div className="someday-head">
+        <div className="grow">
+          <div className="someday-name">{c.country}</div>
+          <div className="someday-count">
+            {count(c.count, searching ? total : null)}
+            {!only && ` · ${c.places.filter((g) => g.state).length} ${c.places.filter((g) => g.state).length === 1 ? 'state' : 'states'}`}
+          </div>
+        </div>
+        {only && <button className="btn-soft-pill press" onClick={() => onPlan(only.all || only)}>Start planning</button>}
+      </div>
+      {only ? (
+        <Place g={only} searching={searching} onPlan={onPlan} onRemove={onRemove} />
+      ) : (
+        <div className="someday-states">
+          {c.places.map((g) => (
+            <Place key={g.place} g={g} heading={g.state || `Around ${c.country}`} searching={searching} onPlan={onPlan} onRemove={onRemove} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -66,14 +101,14 @@ export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove
       ) : (
         <>
           <div className="someday-search">
-            <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search ideas — a place, “beach”, “wine”…" aria-label="Search ideas" />
+            <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search: Italy, Maine, beach, wine…" aria-label="Search ideas" />
             {searching && <button className="someday-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>}
           </div>
           {found.length === 0 ? (
             <div className="someday-empty">No ideas match “{query.trim()}”.</div>
           ) : (
             <div className="someday-grid">
-              {found.map((g) => <Place key={g.place} g={g} searching={searching} onPlan={onPlan} onRemove={onRemove} />)}
+              {byCountry(found).map((c) => <Country key={c.country} c={c} searching={searching} onPlan={onPlan} onRemove={onRemove} />)}
             </div>
           )}
         </>

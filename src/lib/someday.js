@@ -20,12 +20,63 @@ export function groupByPlace(items) {
   return [...m.values()].sort((a, b) => b.items.length - a.items.length || (newest(a) < newest(b) ? 1 : -1));
 }
 
+// Ideas are filed by country, or by US state / Canadian province / Australian state; the board shows
+// them country first, then state.
+const STATES = {
+  'United States': ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida',
+    'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
+    'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+    'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington',
+    'West Virginia', 'Wisconsin', 'Wyoming', 'Washington DC', 'Washington, D.C.', 'District of Columbia', 'Puerto Rico'],
+  Canada: ['Alberta', 'British Columbia', 'Manitoba', 'New Brunswick', 'Newfoundland and Labrador', 'Nova Scotia', 'Ontario',
+    'Prince Edward Island', 'Quebec', 'Québec', 'Saskatchewan', 'Yukon', 'Northwest Territories', 'Nunavut'],
+  Australia: ['New South Wales', 'Victoria', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania',
+    'Northern Territory', 'Australian Capital Territory'],
+};
+const COUNTRY_NAMES = { usa: 'United States', us: 'United States', 'u.s.': 'United States', 'u.s.a.': 'United States',
+  'united states of america': 'United States', america: 'United States' };
+const STATE_OF = new Map();
+for (const [country, list] of Object.entries(STATES)) for (const st of list) STATE_OF.set(st.toLowerCase(), country);
+
+// "Alaska" → { country: 'United States', state: 'Alaska' }; "Italy" → { country: 'Italy', state: '' }.
+// Also reads "Alaska, USA" and "Tuscany, Italy".
+export function countryOf(place) {
+  const raw = (place || '').trim();
+  if (!raw || raw === 'Anywhere') return { country: 'Anywhere', state: '' };
+  const fix = (c) => COUNTRY_NAMES[c.toLowerCase()] || c;
+  const known = STATE_OF.get(raw.toLowerCase());
+  if (known) return { country: known, state: raw };
+  const m = raw.match(/^(.+),\s*([^,]+)$/);
+  if (m) {
+    const st = m[1].trim(), c = fix(m[2].trim());
+    return { country: STATE_OF.get(st.toLowerCase()) || c, state: st };
+  }
+  return { country: fix(raw), state: '' };
+}
+
+// Place groups (from groupByPlace or searchIdeas) gathered under their country: countries with the most
+// ideas first. A country's ideas that name no state come first, as their own group.
+export function byCountry(groups) {
+  const m = new Map();
+  for (const g of groups) {
+    const { country, state } = countryOf(g.place);
+    const k = country.toLowerCase();
+    if (!m.has(k)) m.set(k, { country, count: 0, places: [] });
+    const c = m.get(k);
+    c.count += g.items.length;
+    c.places.push({ ...g, state });
+  }
+  for (const c of m.values()) c.places.sort((a, b) => (a.state ? 1 : 0) - (b.state ? 1 : 0));
+  return [...m.values()].sort((a, b) => (a.country === 'Anywhere') - (b.country === 'Anywhere') || b.count - a.count);
+}
+
 // Search the board: every word must appear in the idea's place, spot, title, note or link.
 // Each group keeps `all` so Start planning still takes the whole place, not just the matches.
 export function searchIdeas(groups, query) {
   const words = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return groups;
-  const text = (g, it) => [g.place, it.spot, it.title, it.note, it.url].filter(Boolean).join(' ').toLowerCase();
+  const text = (g, it) => [g.place, countryOf(g.place).country, it.spot, it.title, it.note, it.url].filter(Boolean).join(' ').toLowerCase();
   return groups
     .map((g) => ({ place: g.place, all: g, items: g.items.filter((it) => words.every((w) => text(g, it).includes(w))) }))
     .filter((g) => g.items.length);

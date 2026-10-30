@@ -591,6 +591,10 @@ select.field { -webkit-appearance: auto; appearance: auto; }
 .someday-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .someday-name { font-family: var(--serif); font-size: 20px; font-weight: 600; line-height: 1.15; }
 .someday-count { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.someday-states { display: flex; flex-direction: column; }
+.someday-states .someday-state { padding: 12px 0 10px; border-top: 1px solid rgba(110,139,61,0.22); }
+.someday-states .someday-head { margin-bottom: 10px; }
+.someday-sub { font-size: 15.5px; font-weight: 700; line-height: 1.2; }
 .someday-idea { display: flex; align-items: flex-start; gap: 11px; }
 .someday-thumb { width: 52px; height: 52px; border-radius: 11px; flex-shrink: 0; background-size: cover; background-position: center; background-color: #E9DFCB; }
 .someday-thumb.empty { background-image: repeating-linear-gradient(135deg, rgba(110,139,61,0.10) 0 7px, rgba(110,139,61,0.04) 7px 14px); }
