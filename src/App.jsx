@@ -514,6 +514,18 @@ export default function App() {
     showToast('Memory removed');
   };
 
+  // one photo out of a memory; a photos-only memory left empty goes with it
+  const deletePhoto = (tripId, idx, pi) => {
+    if (!window.confirm('Remove this photo?')) return;
+    updateTrip(tripId, (t) => ({
+      ...t,
+      days: t.days.map((d, i) => (i === idx ? { ...d, photos: (d.photos || []).filter((_, j) => j !== pi) } : d))
+        .filter((d) => !(d.source === 'photos' && !(d.photos || []).length && !(d.note || '').trim()))
+        .map((d, i) => ({ ...d, num: i + 1 })),
+    }));
+    showToast('Photo removed');
+  };
+
   const addCost = (tripId, c) => {
     const pos = c.date ? new Date(c.date + 'T12:00:00').getTime() : Date.now();
     const cost = { id: 'cost-' + newEntryId(), type: 'cost', ...c, confirmation: '', note: '', source: 'manual', pos, added: Date.now() };
@@ -729,6 +741,7 @@ export default function App() {
               onAddSuggestion={(stop, item) => addSuggestion(trip.id, stop, item)}
               onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
+              onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onMarkPaid={(cid) => markPaid(trip.id, cid)}
               onEditCost={(cid, f) => editCost(trip.id, cid, f)}

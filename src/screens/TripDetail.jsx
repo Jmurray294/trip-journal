@@ -286,6 +286,7 @@ export default function TripDetail(p) {
                     <div key={i} className="strip-tile">
                       <div className="fill" style={photoBg(ph)} />
                       {((ph.label && ph.label.trim()) || ph.by) && <div className="strip-label">{(ph.label && ph.label.trim()) || ph.by}</div>}
+                      <button className="thumb-x strip-x" onClick={() => p.onDeletePhoto(idx, i)} aria-label="Remove photo"><span>×</span></button>
                     </div>
                   ))}
                 </div>
