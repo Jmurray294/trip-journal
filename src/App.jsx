@@ -30,6 +30,7 @@ import Story, { StoryPrint } from './screens/Story.jsx';
 import PhotoBook from './screens/PhotoBook.jsx';
 import AddSheet from './screens/AddSheet.jsx';
 import TabBar from './components/TabBar.jsx';
+import TopBar from './components/TopBar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
@@ -783,18 +784,23 @@ export default function App() {
           )}
         </div>
 
-        <Sidebar
-          tab={nav.tab} trips={trips} tripId={nav.tripId}
+        <TopBar
+          tab={nav.tab}
+          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: 'All trips', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
           onTrips={() => go({ tab: 'trips', tripId: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
+          unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
+          family={family} onFamily={() => setFamilyOpen(true)}
+        />
+
+        <Sidebar
+          tab={nav.tab} trips={trips} tripId={nav.tripId}
           onNewTrip={() => openAddFor(null, 'trip')}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
           someday={family.household ? someday.groups : []} onSomeday={showSomeday}
-          unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
-          family={family} onFamily={() => setFamilyOpen(true)}
         />
 
         <TabBar

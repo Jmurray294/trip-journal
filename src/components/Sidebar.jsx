@@ -1,36 +1,15 @@
 import { Fragment } from 'react';
-import { Plus, TabTrips, TabMap, TabAlbums, TabTravelers, People } from './Icons.jsx';
+import { Plus } from './Icons.jsx';
 import { accentFor, short } from '../lib/derive.js';
-import { statusLabel } from '../screens/FamilySheet.jsx';
 import { groupTrips, STAGES } from '../lib/stages.js';
-import { BellIcon } from './Bell.jsx';
 import { byCountry } from '../lib/someday.js';
 
-// Desktop navigation (≥900px wide); the tab bar takes over on phones.
-export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onTravelers, onAdd, onNewTrip, onOpenTrip, someday = [], onSomeday, unread = null, onBell, family, onFamily }) {
-  const cls = (t) => 'side-nav' + (tab === t ? ' active' : '');
+// Desktop trip list (≥900px wide), a card beside the page; the sections are in the TopBar.
+export default function Sidebar({ tab, trips, tripId, onNewTrip, onOpenTrip, someday = [], onSomeday }) {
   const groups = groupTrips(trips);
   return (
     <aside className="sidebar">
-      <div className="side-brand">
-        <img src={import.meta.env.BASE_URL + 'icons/icon-192.png'} alt="" width="34" height="34" />
-        <span>Trip Journal</span>
-      </div>
-
-      <button className="side-add press" onClick={onAdd}><Plus size={16} color="#FBF6EC" w={2.2} /> Add memory</button>
-
-      <nav className="side-group">
-        <button className={cls('trips')} onClick={onTrips}><TabTrips /><span>Trips</span></button>
-        <button className={cls('map')} onClick={onMap}><TabMap /><span>Map</span></button>
-        <button className={cls('albums')} onClick={onAlbums}><TabAlbums /><span>Albums</span></button>
-        <button className={cls('travelers')} onClick={onTravelers}><TabTravelers /><span>Travelers</span></button>
-        {unread != null && (
-          <button className="side-nav" onClick={onBell}>
-            <BellIcon size={22} /><span>What's new</span>
-            {unread > 0 && <span className="bell-count inline">{unread > 9 ? '9+' : unread}</span>}
-          </button>
-        )}
-      </nav>
+      <div className="side-title">Your trips</div>
 
       {STAGES.map(([key, title]) => groups[key].length > 0 && (
         <div key={key} className="side-stage">
@@ -72,17 +51,6 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         </div>
       )}
 
-      {family.available && (
-        <button className="side-family" onClick={onFamily}>
-          <People />
-          <span className="side-family-text">
-            <span>{family.session ? 'Account & sharing' : 'Sign in'}</span>
-            <span className={'side-family-sub ' + family.status.state}>
-              {family.household ? (statusLabel(family.status) || 'Connecting…') : family.session ? 'Start your journal' : 'Back up & share your trips'}
-            </span>
-          </span>
-        </button>
-      )}
     </aside>
   );
 }

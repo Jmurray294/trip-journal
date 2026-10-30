@@ -3,7 +3,7 @@ import { countPhotos, countPlaces, coverBg, photoBg } from '../lib/derive.js';
 
 export default function Story({ trip, onClose, onPrint }) {
   return (
-    <div className="screen pad-tab" style={{ background: '#FBF6EC' }}>
+    <div className="screen pad-tab" style={{ background: '#fff' }}>
       <div className="hero story-hero">
         <div className="fill" style={coverBg(trip)} />
         <div className="fill" style={{ background: 'linear-gradient(to top, rgba(26,22,18,0.82) 0%, rgba(26,22,18,0.15) 55%, rgba(26,22,18,0.3) 100%)' }} />
@@ -125,7 +125,7 @@ export function StoryPrint({ trip }) {
 
       {trip.song && (
         <div className="print-page print-break" style={{ textAlign: 'center', padding: '40px 30px', background: '#EFE7D8', borderRadius: 12 }}>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: 2.5, color: '#A4502F', textTransform: 'uppercase' }}>The trip song</div>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: 2.5, color: '#1B3FA8', textTransform: 'uppercase' }}>The trip song</div>
           <div className="serif" style={{ fontSize: 30, fontWeight: 600, marginTop: 10 }}>{trip.song.title}</div>
           <div style={{ fontSize: 13, color: '#7A7060', marginTop: 4 }}>{trip.song.mood}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 22 }}>

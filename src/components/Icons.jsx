@@ -1,6 +1,6 @@
 // Inline SVG icons from the design (1.2–2.4px strokes, no icon font).
 
-export const Plus = ({ size = 18, color = '#A4502F', w = 2 }) => {
+export const Plus = ({ size = 18, color = 'currentColor', w = 2 }) => {
   const a = size * (3 / 18), b = size - a;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
@@ -11,7 +11,7 @@ export const Plus = ({ size = 18, color = '#A4502F', w = 2 }) => {
 };
 
 export const Chevron = () => (
-  <svg width="11" height="18" viewBox="0 0 11 18" fill="none" aria-hidden="true"><path d="M9 2L2 9l7 7" stroke="#2A2520" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  <svg width="11" height="18" viewBox="0 0 11 18" fill="none" aria-hidden="true"><path d="M9 2L2 9l7 7" stroke="#1F2329" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
 export const Share = () => (
@@ -19,10 +19,10 @@ export const Share = () => (
 );
 
 export const Book = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2.5 3.5h5.5a1 1 0 011 1v10a1 1 0 00-1-1H2.5v-10zM15.5 3.5H10a1 1 0 00-1 1v10a1 1 0 011-1h5.5v-10z" stroke="#A4502F" strokeWidth="1.3" strokeLinejoin="round" /></svg>
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2.5 3.5h5.5a1 1 0 011 1v10a1 1 0 00-1-1H2.5v-10zM15.5 3.5H10a1 1 0 00-1 1v10a1 1 0 011-1h5.5v-10z" stroke="#1B3FA8" strokeWidth="1.3" strokeLinejoin="round" /></svg>
 );
 
-export const Trash = ({ color = '#9A8E7E' }) => (
+export const Trash = ({ color = '#8A9099' }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 3.5h9M5.5 3.5V2.5h3v1M3.5 3.5l.6 8a1 1 0 001 .9h3.8a1 1 0 001-.9l.6-8" stroke={color} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
@@ -38,7 +38,7 @@ export const ToSuno = () => (
   <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M2.5 7.5h8M10.5 7.5L7.8 4.8M10.5 7.5l-2.7 2.7" stroke="#FBF6EC" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M12.5 3v9" stroke="#FBF6EC" strokeWidth="1.5" strokeLinecap="round" /></svg>
 );
 
-export const Upload = ({ color = '#EFB85E' }) => (
+export const Upload = ({ color = '#7FB0F5' }) => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 9.5V2.5M7 2.5L4.4 5.1M7 2.5l2.6 2.6" stroke={color} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /><path d="M3 8.5v2a1 1 0 001 1h6a1 1 0 001-1v-2" stroke={color} strokeWidth="1.4" strokeLinecap="round" /></svg>
 );
 
@@ -47,7 +47,7 @@ export const Note = () => (
 );
 
 export const Rewrite = () => (
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M11 6.5a4.5 4.5 0 11-1.6-3.45M11 1.5V4H8.5" stroke="#EFB85E" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M11 6.5a4.5 4.5 0 11-1.6-3.45M11 1.5V4H8.5" stroke="#7FB0F5" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>
 );
 
 export const Music = () => (
@@ -63,15 +63,15 @@ export const House = ({ size = 11 }) => (
 );
 
 export const Pencil = () => (
-  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M8 2.2l1.8 1.8-5.4 5.4-2.2.4.4-2.2z" stroke="#A4502F" strokeWidth="1.2" strokeLinejoin="round" /></svg>
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M8 2.2l1.8 1.8-5.4 5.4-2.2.4.4-2.2z" stroke="#1B3FA8" strokeWidth="1.2" strokeLinejoin="round" /></svg>
 );
 
 export const Mic = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><rect x="4" y="1" width="4" height="6.5" rx="2" fill="#A4502F" /><path d="M2.5 6.2a3.5 3.5 0 007 0M6 9.7V11" stroke="#A4502F" strokeWidth="1.2" strokeLinecap="round" /></svg>
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><rect x="4" y="1" width="4" height="6.5" rx="2" fill="#1B3FA8" /><path d="M2.5 6.2a3.5 3.5 0 007 0M6 9.7V11" stroke="#1B3FA8" strokeWidth="1.2" strokeLinecap="round" /></svg>
 );
 
 export const AddPhoto = () => (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M3 16l4.5-5 3 3.2L14 9l5 7" stroke="#A4502F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><circle cx="8" cy="7" r="1.6" fill="#A4502F" /></svg>
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true"><path d="M3 16l4.5-5 3 3.2L14 9l5 7" stroke="#1B3FA8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /><circle cx="8" cy="7" r="1.6" fill="#1B3FA8" /></svg>
 );
 
 export const People = ({ color = 'currentColor' }) => (

@@ -168,8 +168,8 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid, onEditCost }
       {totals.length > 0 ? totals.map((t) => (
         <div key={t.currency} className="budget-head">
           <div><div className="stat-num" style={{ color: 'var(--ink)' }}>{money(t.paid + t.due, t.currency)}</div><div className="stat-label">total</div></div>
-          <div><div className="stat-num" style={{ color: '#6E8B3D' }}>{money(t.paid, t.currency)}</div><div className="stat-label">paid</div></div>
-          <div><div className="stat-num" style={{ color: '#BE5F28' }}>{money(t.due, t.currency)}</div><div className="stat-label">still due</div></div>
+          <div><div className="stat-num" style={{ color: '#2A7D34' }}>{money(t.paid, t.currency)}</div><div className="stat-label">paid</div></div>
+          <div><div className="stat-num" style={{ color: '#B06A1F' }}>{money(t.due, t.currency)}</div><div className="stat-label">still due</div></div>
           {t.paid + t.due > 0 && <div className="budget-bar"><div style={{ width: Math.max(0, Math.min(100, (t.paid / (t.paid + t.due)) * 100)) + '%' }} /></div>}
         </div>
       )) : (

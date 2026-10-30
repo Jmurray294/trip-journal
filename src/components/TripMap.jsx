@@ -7,8 +7,8 @@ import { haversineKm } from '../lib/geo.js';
 // The geometry is bundled with the app (and precached), so the map works offline.
 
 const C = {
-  ocean: '#BFD9DD', oceanDeep: '#A6C9CF', land: '#E3D6B4', border: 'rgba(42,37,32,0.16)',
-  route: '#A4502F', ink: '#2A2520', cream: '#FBF6EC', accent: '#A4502F', pin: '#BE6A47'
+  ocean: '#F4F7FC', oceanDeep: '#E6ECF6', land: '#D9E1F0', border: 'rgba(27,63,168,0.2)',
+  route: '#1B3FA8', ink: '#1F2329', cream: '#FFFFFF', accent: '#1B3FA8', pin: '#2450C4'
 };
 
 let landPromise = null;
@@ -158,7 +158,7 @@ export default function TripMap({ stops, activeIndex, onSelect, route = true, sp
       labelEl = (
         <g transform={`translate(${lx},${ly})`} pointerEvents="none">
           <rect x={-tw / 2} y={-16} width={tw} height={22} rx={7} fill={C.ink} fillOpacity={0.94} />
-          <text x={0} y={-1} textAnchor="middle" fill={C.cream} fontSize={11} fontFamily='"Spline Sans Mono", ui-monospace, monospace'>{label}</text>
+          <text x={0} y={-1} textAnchor="middle" fill={C.cream} fontSize={11} fontFamily='"JetBrains Mono", ui-monospace, monospace'>{label}</text>
         </g>
       );
     }

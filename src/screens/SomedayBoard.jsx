@@ -92,7 +92,7 @@ export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove
   return (
     <section className="sec" style={{ paddingTop: 28 }} id="someday">
       <div className="timeline-head" style={{ margin: '0 4px 13px' }}>
-        <div className="sec-label" style={{ margin: 0 }}><span className="tick" style={{ background: '#6E8B3D' }} />Someday</div>
+        <div className="sec-label" style={{ margin: 0 }}><span className="tick" style={{ background: '#F0B968' }} />Someday</div>
         <button className="btn-soft-pill press" onClick={onSave}><Plus size={13} w={1.8} /> Save idea</button>
       </div>
       {groups.length === 0 ? (

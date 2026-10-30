@@ -6,8 +6,8 @@ import { parseConfirmation } from '../lib/parser.js';
 
 const KIND_STYLE = {
   Flight: { background: 'rgba(111,126,132,0.18)', color: '#4E6068' },
-  Stay: { background: 'rgba(164,80,47,0.14)', color: '#A4502F' },
-  Booking: { background: 'rgba(42,37,32,0.08)', color: '#A4502F' }
+  Stay: { background: 'rgba(27,63,168,0.1)', color: '#1B3FA8' },
+  Booking: { background: 'rgba(31,35,41,0.06)', color: '#1B3FA8' }
 };
 
 const Label = ({ children, top = 16 }) => <div className="field-label" style={{ marginTop: top }}>{children}</div>;
@@ -223,7 +223,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
             <div className="swatches">
               {GRADIENTS.map((g) => (
                 <button key={g} className="swatch" aria-label="Cover colour" onClick={() => setNewTrip({ ...newTrip, grad: g })}
-                  style={{ background: g, border: newTrip.grad === g ? '3px solid #A4502F' : '3px solid transparent' }} />
+                  style={{ background: g, border: newTrip.grad === g ? '3px solid #1B3FA8' : '3px solid transparent' }} />
               ))}
             </div>
             <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => onSaveTrip(newTrip)}>Create trip</button>
@@ -283,7 +283,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
                     <div key={i} className="parsed-card">
                       <div className="row-8">
                         <span className="kind-badge" style={KIND_STYLE[r.kind]}>{r.kind}</span>
-                        <span className="mono" style={{ fontSize: 11, color: '#A4502F', letterSpacing: 0.5 }}>{r.date}</span>
+                        <span className="mono" style={{ fontSize: 11, color: '#1B3FA8', letterSpacing: 0.5 }}>{r.date}</span>
                       </div>
                       <div className="serif" style={{ fontSize: 17, fontWeight: 600, marginTop: 7, lineHeight: 1.2 }}>{r.title}</div>
                       <div style={{ fontSize: 12.5, color: '#7A7060', marginTop: 4 }}>{r.note}</div>

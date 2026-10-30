@@ -37,7 +37,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
         {unread != null && <BellButton unread={unread} onClick={onBell} />}
         {family.available && (
           <button className={'family-btn press ' + (family.household ? family.status.state : 'none')} onClick={onFamily} aria-label="Account and sharing">
-            <People color="#2A2520" />
+            <People color="#1340A1" />
             {family.household && <span className="family-btn-dot" />}
           </button>
         )}
@@ -59,7 +59,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
 
       {featured && (
         <section className="sec" style={{ paddingTop: 8 }}>
-          <div className="sec-label"><span className="tick" style={{ background: '#E2A32B' }} />Up next</div>
+          <div className="sec-label"><span className="tick" style={{ background: '#7FB0F5' }} />Up next</div>
           <div className="featured press-soft" onClick={() => onOpen(featured.id)} role="button" tabIndex={0}>
             <div className="fill" style={coverBg(featured)} />
             <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.76) 0%, rgba(48,26,14,0.10) 46%, rgba(48,26,14,0) 72%)' }} />
@@ -73,7 +73,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
       )}
 
       <section className="sec" style={{ paddingTop: featured ? 24 : 8 }}>
-        <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#E2A32B' }} />{featured ? 'Also upcoming' : 'Upcoming'}</div>
+        <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#7FB0F5' }} />{featured ? 'Also upcoming' : 'Upcoming'}</div>
         <div className="stack-16 journeys">
           <div className="new-trip press" onClick={onNewTrip} role="button" tabIndex={0}>
             <Plus /> Start a new trip
@@ -84,7 +84,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
 
       {possible.length > 0 && (
         <section className="sec" style={{ paddingTop: 24 }}>
-          <div className="sec-label"><span className="tick" style={{ background: '#A9538C' }} />Possible trips</div>
+          <div className="sec-label"><span className="tick" style={{ background: '#B48AE0' }} />Possible trips</div>
           <div className="stack-9 possible-list">
             {possible.map((t) => (
               <div key={t.id} className="possible-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
@@ -104,7 +104,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
 
       {past.length > 0 && (
         <section className="sec" style={{ paddingTop: 28 }}>
-          <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#2E7C86' }} />Past trips</div>
+          <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#5FD39B' }} />Past trips</div>
           <div className="stack-16 journeys">
             {past.map((t) => <TripCard key={t.id} t={t} onOpen={onOpen} />)}
           </div>

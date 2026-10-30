@@ -11,10 +11,10 @@ const TONES = ['#8DA1A8', '#9CA886', '#B5663F', '#BE7A50', '#C9A85C', '#7E8A66',
 
 // pin colours on the all-trips map, matching the Trips page's section ticks
 const KINDS = {
-  upcoming: { color: '#C0761A', label: 'Upcoming' },
-  past: { color: '#2E7C86', label: 'Been' },
-  possible: { color: '#A9538C', label: 'Possible' },
-  someday: { color: '#6E8B3D', label: 'Someday' },
+  upcoming: { color: '#1B3FA8', label: 'Upcoming' },
+  past: { color: '#2A7D34', label: 'Been' },
+  possible: { color: '#6B3FA0', label: 'Possible' },
+  someday: { color: '#D9822B', label: 'Someday' },
 };
 
 // Someday places (countries, states) looked up once and kept for the session; the geocoder caches too.
@@ -153,7 +153,7 @@ export default function MapView({ trips, home, sel, someday = [], onSelectTrip, 
         {!editing ? (
           <button className="home-row press" onClick={() => { setDraft(home.home); setEditing(true); }}>
             <span className="home-disc"><House /></span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: home.home ? '#5A5346' : '#A4502F' }}>{home.home ? 'From ' + home.home : 'Set your home address'}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: home.home ? '#CFE0F7' : '#7FB0F5' }}>{home.home ? 'From ' + home.home : 'Set your home address'}</span>
             <Pencil />
           </button>
         ) : (

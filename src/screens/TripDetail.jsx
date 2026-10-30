@@ -17,8 +17,8 @@ function CostsCard({ costs, onOpen }) {
       <div className="costs-totals">
         {totals.map((t) => (
           <div key={t.currency} className="row-22">
-            <div><div className="stat-num" style={{ color: '#6E8B3D' }}>{money(t.paid, t.currency)}</div><div className="stat-label">paid</div></div>
-            {t.due > 0 && <div><div className="stat-num" style={{ color: '#BE5F28' }}>{money(t.due, t.currency)}</div><div className="stat-label">still due</div></div>}
+            <div><div className="stat-num" style={{ color: '#2A7D34' }}>{money(t.paid, t.currency)}</div><div className="stat-label">paid</div></div>
+            {t.due > 0 && <div><div className="stat-num" style={{ color: '#B06A1F' }}>{money(t.due, t.currency)}</div><div className="stat-label">still due</div></div>}
           </div>
         ))}
       </div>
@@ -199,9 +199,9 @@ export default function TripDetail(p) {
       <div className="detail-side">
       <div className="stats-card">
         <div className="row-22">
-          <div><div className="stat-num" style={{ color: '#BE5F28' }}>{trip.days.length}</div><div className="stat-label">entries</div></div>
-          <div><div className="stat-num" style={{ color: '#2E7C86' }}>{countPlaces(trip)}</div><div className="stat-label">places</div></div>
-          <div><div className="stat-num" style={{ color: '#C0761A' }}>{countPhotos(trip)}</div><div className="stat-label">photos</div></div>
+          <div><div className="stat-num" style={{ color: '#1F2329' }}>{trip.days.length}</div><div className="stat-label">entries</div></div>
+          <div><div className="stat-num" style={{ color: '#1B3FA8' }}>{countPlaces(trip)}</div><div className="stat-label">places</div></div>
+          <div><div className="stat-num" style={{ color: '#6B3FA0' }}>{countPhotos(trip)}</div><div className="stat-label">photos</div></div>
         </div>
         <button className="btn-share press" onClick={p.onShare}><Share /> Share</button>
       </div>
@@ -297,7 +297,7 @@ export default function TripDetail(p) {
         ))}
         </>}
 
-        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#A4502F" /> Delete this trip</button>
+        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#9E1B1B" /> Delete this trip</button>
       </div>
       </div>
     </div>
