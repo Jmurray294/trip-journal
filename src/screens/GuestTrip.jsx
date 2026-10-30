@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { coverBg } from '../lib/derive.js';
 import { parseExif } from '../lib/photos.js';
 import { resizePhoto } from '../lib/resize.js';
+import { onUpdateReady, applyUpdate } from '../lib/update.js';
 import { Plus, Note } from '../components/Icons.jsx';
 
 // A trip opened from its shared link (jcmurraytrips.com/?t=<token>): fellow travelers see the plan
@@ -37,6 +38,15 @@ export default function GuestTrip({ token }) {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [toast, setToast] = useState('');
+
+  // no Update button here: a new version goes in by itself, once nothing is sending
+  const busyRef = useRef(false);
+  const updateWaiting = useRef(false);
+  useEffect(() => onUpdateReady(() => { updateWaiting.current = true; if (!busyRef.current) applyUpdate(); }), []);
+  useEffect(() => {
+    busyRef.current = !!busy || noteOpen;
+    if (!busyRef.current && updateWaiting.current) applyUpdate();
+  }, [busy, noteOpen]);
 
   const say = (msg) => { setToast(msg); setTimeout(() => setToast((t) => (t === msg ? '' : t)), 3200); };
 
