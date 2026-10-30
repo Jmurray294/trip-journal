@@ -1333,6 +1333,14 @@ Deno.serve(async (req) => {
     oldCosts.some((o) => o.id !== d.id && o.doc.status === "paid" && sameMoney(o.doc, d) && near(o.doc, d));
   const keptCosts = cRows.filter((r) => !isAuthorization(r.doc) && !already(r.doc));
   const settled = oldCosts.filter((r) => isAuthorization(r.doc)).map((r) => r.id);
+  // A new statement of what's still due on a booking (same confirmation number) already counts the
+  // payments made so far, so it replaces the older balances for that booking instead of adding to them.
+  const dueKeys = new Set(keptCosts.filter((r) => r.doc.status === "due" && !/authori[sz]/i.test(`${r.doc.title} ${r.doc.note}`))
+    .map((r) => `${confKey(r.doc.confirmation)}|${r.doc.currency}`).filter((k) => k.split("|")[0].length >= 4));
+  const newIds = new Set(keptCosts.map((r) => r.id));
+  const stale = oldCosts.filter((o) => !newIds.has(o.id) && o.doc.status === "due" && !/authori[sz]/i.test(`${o.doc.title} ${o.doc.note}`) &&
+    dueKeys.has(`${confKey(o.doc.confirmation)}|${o.doc.currency}`));
+  settled.push(...stale.map((o) => o.id));
   if (settled.length) await admin.from("entries").update({ deleted: true }).eq("household_id", hid).in("id", settled);
 
   // same item forwarded again → same row id, so it is updated rather than duplicated; keep photos people added
@@ -1361,7 +1369,8 @@ Deno.serve(async (req) => {
   // much. `applied` on the balance remembers which payments it took, so reading an email again
   // changes nothing; a charge that only replaces an authorization already taken off isn't taken twice.
   const isAuthDoc = (d: Record<string, any>) => d.status === "due" && /authori[sz]/i.test(`${d.title} ${d.note}`);
-  const balances = oldCosts.filter((o) => o.doc.status === "due" && !isAuthDoc(o.doc) && confKey(o.doc.confirmation).length >= 4);
+  const balances = oldCosts.filter((o) => o.doc.status === "due" && !isAuthDoc(o.doc) && confKey(o.doc.confirmation).length >= 4 &&
+    !settled.includes(o.id));
   for (const r of keptCosts) {
     const d = r.doc;
     const k = confKey(d.confirmation);
