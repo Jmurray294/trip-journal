@@ -20,8 +20,8 @@ export function groupByPlace(items) {
   return [...m.values()].sort((a, b) => b.items.length - a.items.length || (newest(a) < newest(b) ? 1 : -1));
 }
 
-// Ideas are filed by country, or by US state / Canadian province / Australian state; the board shows
-// them country first, then state.
+// Ideas are filed by country, or by US state / Canadian province / Australian state / Italian region;
+// the board shows them country first, then state.
 const STATES = {
   'United States': ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida',
     'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
@@ -31,6 +31,10 @@ const STATES = {
     'West Virginia', 'Wisconsin', 'Wyoming', 'Washington DC', 'Washington, D.C.', 'District of Columbia', 'Puerto Rico'],
   Canada: ['Alberta', 'British Columbia', 'Manitoba', 'New Brunswick', 'Newfoundland and Labrador', 'Nova Scotia', 'Ontario',
     'Prince Edward Island', 'Quebec', 'Québec', 'Saskatchewan', 'Yukon', 'Northwest Territories', 'Nunavut'],
+  Italy: ['Abruzzo', 'Aosta Valley', "Valle d'Aosta", 'Apulia', 'Puglia', 'Basilicata', 'Calabria', 'Campania',
+    'Emilia-Romagna', 'Friuli Venezia Giulia', 'Friuli-Venezia Giulia', 'Lazio', 'Liguria', 'Lombardy', 'Lombardia', 'Marche',
+    'Molise', 'Piedmont', 'Piemonte', 'Sardinia', 'Sardegna', 'Sicily', 'Sicilia', 'Tuscany', 'Toscana',
+    'Trentino-Alto Adige', 'Trentino', 'South Tyrol', 'Umbria', 'Veneto'],
   Australia: ['New South Wales', 'Victoria', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania',
     'Northern Territory', 'Australian Capital Territory'],
 };
@@ -54,6 +58,9 @@ export function countryOf(place) {
   }
   return { country: fix(raw), state: '' };
 }
+
+// What a country's parts are called on the board.
+export const partsOf = (country) => ({ Canada: 'provinces', Italy: 'regions' })[country] || 'states';
 
 // Place groups (from groupByPlace or searchIdeas) gathered under their country: countries with the most
 // ideas first. A country's ideas that name no state come first, as their own group.

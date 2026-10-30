@@ -547,7 +547,7 @@ const READING_SCHEMA = {
         type: "object",
         properties: {
           title: { type: "string", description: "What it is, short, e.g. 'Positano cliffside hotels', 'Northern lights in Tromsø', 'Noma'" },
-          place: { type: "string", description: "Where, for grouping: the country, or the US state or Canadian province, e.g. 'Italy', 'Alaska'" },
+          place: { type: "string", description: "Where, for grouping: the country, or the US state or Canadian province, or for Italy 'Region, Italy', e.g. 'Japan', 'Alaska', 'Tuscany, Italy'" },
           spot: { type: "string", description: "The particular town, area or venue within it, e.g. 'Amalfi Coast', or empty" },
           note: { type: "string", description: "One or two lines: why it's worth going, best season, who recommended it, rough cost" },
           url: { type: "string", description: "The link it came from, or empty" },
@@ -711,7 +711,8 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "SOMEDAY: list places and things someone in the family saved as inspiration for a trip one day — a shared article or " +
         "link, a screenshot, a friend's recommendation, a note like 'we should go here' — that aren't part of a trip being planned " +
         "(those are IDEAS) or booked. One per distinct place or thing; group them by country (or US state / Canadian province) " +
-        "in place, with the town, area or venue in spot.\n\n" +
+        "in place, with the town, area or venue in spot. For Italy, put the region and country in place, e.g. 'Tuscany, Italy', " +
+        "'Campania, Italy' (Amalfi Coast), 'Sicily, Italy', using the English region names.\n\n" +
         "CARD ALERTS: a card issuer's transaction alert (American Express, Luxury Card / Barclays and the like) is a cost: the merchant " +
         "as vendor and a short title, the amount, the transaction date, status 'paid' ('refund' for a credit), and the card in card. " +
         "Always list the charge, whatever it is for — we decide whether it belongs to a trip. Say whether the merchant is travel, " +

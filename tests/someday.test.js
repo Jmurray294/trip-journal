@@ -36,6 +36,8 @@ test('places read as country, then state', () => {
   assert.deepEqual(countryOf('USA'), { country: 'United States', state: '' });
   assert.deepEqual(countryOf('Tuscany, Italy'), { country: 'Italy', state: 'Tuscany' });
   assert.deepEqual(countryOf('Maine, USA'), { country: 'United States', state: 'Maine' });
+  assert.deepEqual(countryOf('Sicily'), { country: 'Italy', state: 'Sicily' });
+  assert.deepEqual(countryOf('Campania, Italy'), { country: 'Italy', state: 'Campania' });
   assert.deepEqual(countryOf(''), { country: 'Anywhere', state: '' });
 });
 

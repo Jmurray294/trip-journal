@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
-import { searchIdeas, byCountry } from '../lib/someday.js';
+import { searchIdeas, byCountry, partsOf } from '../lib/someday.js';
 
 // The Trips page's Someday section: saved inspiration by country, then state. "Start planning" turns a
 // place into a Possible trip carrying its ideas.
@@ -59,6 +59,7 @@ function Place({ g, heading, searching, onPlan, onRemove }) {
 function Country({ c, searching, onPlan, onRemove }) {
   const only = c.places.length === 1 && !c.places[0].state ? c.places[0] : null;
   const total = c.places.reduce((n, g) => n + (g.all || g).items.length, 0);
+  const parts = c.places.filter((g) => g.state).length;
   return (
     <div className="someday-place">
       <div className="someday-head">
@@ -66,7 +67,7 @@ function Country({ c, searching, onPlan, onRemove }) {
           <div className="someday-name">{c.country}</div>
           <div className="someday-count">
             {count(c.count, searching ? total : null)}
-            {!only && ` · ${c.places.filter((g) => g.state).length} ${c.places.filter((g) => g.state).length === 1 ? 'state' : 'states'}`}
+            {!only && ` · ${parts} ${parts === 1 ? partsOf(c.country).slice(0, -1) : partsOf(c.country)}`}
           </div>
         </div>
         {only && <button className="btn-soft-pill press" onClick={() => onPlan(only.all || only)}>Start planning</button>}
