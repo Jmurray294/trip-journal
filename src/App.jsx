@@ -716,6 +716,8 @@ export default function App() {
               onShare={() => shareTrip(trip)}
               onMakeLink={() => makeTripLink(trip.id)}
               onSendLink={() => sendTripLink(trip)}
+              tripLink={trip.shareToken ? tripLink(trip) : ''}
+              onCopyLink={async () => showToast((await copyText(tripLink(trip))) ? 'Trip link copied' : 'Could not copy — press and hold the link instead')}
               onStopLink={() => stopTripLink(trip.id)}
               onStory={() => openStory(trip.id)}
               onBook={() => go({ bookId: trip.id })}

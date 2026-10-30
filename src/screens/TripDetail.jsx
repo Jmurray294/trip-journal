@@ -32,7 +32,7 @@ function CostsCard({ costs, onOpen }) {
 }
 
 // The trip link for fellow travelers: they see the plan and add photos and notes, no account.
-function TripLinkCard({ trip, onMake, onSend, onStop }) {
+function TripLinkCard({ trip, link, onMake, onSend, onCopy, onStop }) {
   return (
     <div className="trip-link-card">
       <div className="mono-label">Trip link</div>
@@ -41,12 +41,14 @@ function TripLinkCard({ trip, onMake, onSend, onStop }) {
           ? 'Anyone with the link can see the plan and add their photos and notes. Costs, confirmation numbers and travel documents stay private.'
           : 'Send the people you travel with a link. They can see the plan and add their photos and notes for the story and album, no account needed.'}
       </div>
-      {trip.shareToken ? (
-        <div className="row-8" style={{ marginTop: 12 }}>
+      {trip.shareToken ? (<>
+        <div className="trip-link-url">{link}</div>
+        <div className="row-8" style={{ marginTop: 10 }}>
           <button className="btn-primary small press" onClick={onSend}><Share /> Send link</button>
+          <button className="btn-muted press" onClick={onCopy}>Copy</button>
           <button className="btn-muted press" onClick={onStop}>Turn off</button>
         </div>
-      ) : (
+      </>) : (
         <button className="btn-secondary press" onClick={onMake}>Create trip link</button>
       )}
     </div>
@@ -204,7 +206,7 @@ export default function TripDetail(p) {
         <button className="btn-share press" onClick={p.onShare}><Share /> Share</button>
       </div>
 
-      {p.household && <TripLinkCard trip={trip} onMake={p.onMakeLink} onSend={p.onSendLink} onStop={p.onStopLink} />}
+      {p.household && <TripLinkCard trip={trip} link={p.tripLink} onMake={p.onMakeLink} onSend={p.onSendLink} onCopy={p.onCopyLink} onStop={p.onStopLink} />}
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
       <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>
