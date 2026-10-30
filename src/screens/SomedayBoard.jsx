@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
+import { searchIdeas } from '../lib/someday.js';
 
 // The Trips page's Someday section: saved inspiration grouped by place. "Start planning" turns a
 // place into a Possible trip carrying its ideas.
@@ -23,22 +24,23 @@ export function Idea({ it, onRemove }) {
   );
 }
 
-function Place({ g, onPlan, onRemove }) {
+function Place({ g, searching, onPlan, onRemove }) {
   const [all, setAll] = useState(false);
-  const shown = all ? g.items : g.items.slice(0, SHOW);
+  const shown = all || searching ? g.items : g.items.slice(0, SHOW);
+  const total = (g.all || g).items.length;
   return (
     <div className="someday-place" id={'someday-' + g.place.toLowerCase().replace(/\W+/g, '-')}>
       <div className="someday-head">
         <div className="grow">
           <div className="someday-name">{g.place}</div>
-          <div className="someday-count">{g.items.length} {g.items.length === 1 ? 'idea' : 'ideas'}</div>
+          <div className="someday-count">{searching ? `${g.items.length} of ${total} ideas` : `${total} ${total === 1 ? 'idea' : 'ideas'}`}</div>
         </div>
-        <button className="btn-soft-pill press" onClick={() => onPlan(g)}>Start planning</button>
+        <button className="btn-soft-pill press" onClick={() => onPlan(g.all || g)}>Start planning</button>
       </div>
       <div className="stack-9">
         {shown.map((it) => <Idea key={it.id} it={it} onRemove={onRemove} />)}
       </div>
-      {g.items.length > SHOW && (
+      {!searching && g.items.length > SHOW && (
         <button className="btn-link" style={{ width: 'auto', marginTop: 8 }} onClick={() => setAll(!all)}>
           {all ? 'Show fewer' : `Show all ${g.items.length}`}
         </button>
@@ -48,6 +50,9 @@ function Place({ g, onPlan, onRemove }) {
 }
 
 export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove }) {
+  const [query, setQuery] = useState('');
+  const searching = !!query.trim();
+  const found = searchIdeas(groups, query);
   return (
     <section className="sec" style={{ paddingTop: 28 }} id="someday">
       <div className="timeline-head" style={{ margin: '0 4px 13px' }}>
@@ -59,9 +64,19 @@ export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove
           Places you'd love to go one day. Send a link, screenshot or note{address ? <> to <strong>{address}</strong></> : ''}, or tap <strong>Save idea</strong> — they're sorted by place here, ready for when you start planning.
         </div>
       ) : (
-        <div className="someday-grid">
-          {groups.map((g) => <Place key={g.place} g={g} onPlan={onPlan} onRemove={onRemove} />)}
-        </div>
+        <>
+          <div className="someday-search">
+            <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search ideas — a place, “beach”, “wine”…" aria-label="Search ideas" />
+            {searching && <button className="someday-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>}
+          </div>
+          {found.length === 0 ? (
+            <div className="someday-empty">No ideas match “{query.trim()}”.</div>
+          ) : (
+            <div className="someday-grid">
+              {found.map((g) => <Place key={g.place} g={g} searching={searching} onPlan={onPlan} onRemove={onRemove} />)}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

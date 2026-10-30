@@ -20,6 +20,17 @@ export function groupByPlace(items) {
   return [...m.values()].sort((a, b) => b.items.length - a.items.length || (newest(a) < newest(b) ? 1 : -1));
 }
 
+// Search the board: every word must appear in the idea's place, spot, title, note or link.
+// Each group keeps `all` so Start planning still takes the whole place, not just the matches.
+export function searchIdeas(groups, query) {
+  const words = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return groups;
+  const text = (g, it) => [g.place, it.spot, it.title, it.note, it.url].filter(Boolean).join(' ').toLowerCase();
+  return groups
+    .map((g) => ({ place: g.place, all: g, items: g.items.filter((it) => words.every((w) => text(g, it).includes(w))) }))
+    .filter((g) => g.items.length);
+}
+
 export function useSomeday(household) {
   const [items, setItems] = useState([]);
   const hid = household && household.id;
