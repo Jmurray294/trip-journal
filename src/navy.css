@@ -297,3 +297,26 @@ body, .app { background-color: #0F3A70; background-image: var(--blueprint); }
   .toast { left: calc(50% + var(--side-w) / 2); }
   .sheet { border-radius: 15px; }
 }
+
+/* ---------- Trips home: the trip up next, then (phones) every trip as a list ---------- */
+.home-back { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin: -6px 0 8px -2px; padding: 0 4px; border: none; background: none; color: var(--on-navy-sub); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.home-back svg { width: 8px; height: 13px; }
+.home-back path { stroke: var(--on-navy-sub); }
+.side-label-link { display: block; border: none; background: none; padding: 0; font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; text-align: left; cursor: pointer; }
+.side-label-link:hover { color: var(--terra); }
+.home-list { padding-top: 18px; }
+@media (max-width: 899px) {
+  .sidebar.inline { display: flex; flex-direction: column; padding: 16px 10px 12px; background: #fff; border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 2px 10px rgba(5,20,45,0.22); }
+  .sidebar.inline .side-title { padding: 0 10px 2px; font-size: 15px; font-weight: 700; color: var(--ink); }
+  .sidebar.inline .side-label { margin: 16px 10px 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  .sidebar.inline .side-count { margin-left: 4px; opacity: 0.7; }
+  .sidebar.inline .side-trips { display: flex; flex-direction: column; gap: 1px; }
+  .sidebar.inline .side-trip { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: none; border-radius: 9px; background: none; color: var(--secondary); font-size: 14.5px; font-weight: 500; cursor: pointer; text-align: left; }
+  .sidebar.inline .side-trip:active { background: #F3F6FB; }
+  .sidebar.inline .side-trip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar.inline .side-new { color: var(--terra); font-weight: 600; margin-top: 4px; }
+  .sidebar.inline .side-trip.side-sub { padding-left: 34px; font-size: 13.5px; min-height: 38px; }
+}
+@media (min-width: 900px) {
+  .home-list { display: none; }
+}

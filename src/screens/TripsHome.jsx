@@ -1,35 +1,27 @@
-import { Plus, People } from '../components/Icons.jsx';
-import { accentFor, countPhotos, coverBg } from '../lib/derive.js';
+import { Plus, People, Chevron } from '../components/Icons.jsx';
+import { coverBg } from '../lib/derive.js';
 import { groupTrips, countdown } from '../lib/stages.js';
 import SomedayBoard from './SomedayBoard.jsx';
+import Sidebar from '../components/Sidebar.jsx';
 import { BellButton } from '../components/Bell.jsx';
 
-function TripCard({ t, onOpen, upcoming }) {
-  const accent = accentFor(t.id);
-  return (
-    <div className="trip-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
-      <div className="trip-card-cover">
-        <div className="fill" style={coverBg(t)} />
-        <div className="fill" style={{ background: 'linear-gradient(to top, rgba(26,22,18,0.6), rgba(26,22,18,0) 62%)' }} />
-        <div className="trip-card-text">
-          <div className="trip-card-title">{t.title}</div>
-          <div className="trip-card-place">{t.place}</div>
-        </div>
-      </div>
-      <div className="trip-card-meta">
-        <span className="mono-13">{t.dates}</span>
-        <span className="accent-pill" style={{ background: accent + '1F', color: accent }}>
-          <span className="accent-dot" style={{ background: accent }} />{upcoming ? countdown(t) || 'planned' : countPhotos(t) + ' photos'}
-        </span>
-      </div>
-    </div>
-  );
-}
+// The Trips home is the trip up next. On a computer the Your trips card beside it lists the rest; on a
+// phone that same list follows below. Someday ideas have their own page (view 'someday').
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell, view, onSomeday, onHome }) {
+  const [featured] = groupTrips(trips).upcoming;
 
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell }) {
-  // upcoming (soonest first), possible (ideas from friends and family, not booked) and past trips
-  const { upcoming, possible, past } = groupTrips(trips);
-  const [featured, ...later] = upcoming;
+  if (view === 'someday') {
+    return (
+      <div className="screen pad-tab">
+        <header className="page-head wash">
+          <button className="home-back" onClick={onHome}><Chevron /> Up next</button>
+          <div className="eyebrow">Saved for one day</div>
+          <h1 className="title-xl">Someday</h1>
+        </header>
+        {someday && <SomedayBoard groups={someday} address={address} onSave={onSaveIdea} onPlan={onPlanPlace} onRemove={onRemoveIdea} />}
+      </div>
+    );
+  }
 
   return (
     <div className="screen pad-tab">
@@ -42,7 +34,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
           </button>
         )}
         <div className="eyebrow">My journal</div>
-        <h1 className="title-xl">Journals</h1>
+        <h1 className="title-xl">Up next</h1>
       </header>
 
       {toSort > 0 && (
@@ -57,59 +49,28 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
         </section>
       )}
 
-      {featured && (
-        <section className="sec" style={{ paddingTop: 8 }}>
-          <div className="sec-label"><span className="tick" style={{ background: '#7FB0F5' }} />Up next</div>
+      <section className="sec" style={{ paddingTop: 8 }}>
+        {featured ? (
           <div className="featured press-soft" onClick={() => onOpen(featured.id)} role="button" tabIndex={0}>
             <div className="fill" style={coverBg(featured)} />
-            <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.76) 0%, rgba(48,26,14,0.10) 46%, rgba(48,26,14,0) 72%)' }} />
+            <div className="fill" style={{ background: 'linear-gradient(to top, rgba(10,25,50,0.78) 0%, rgba(10,25,50,0.12) 46%, rgba(10,25,50,0) 72%)' }} />
             <div className="status-pill">Upcoming · {countdown(featured) || 'planned'}</div>
             <div className="featured-text">
               <div className="featured-title">{featured.title}</div>
               <div className="meta-row"><span>{featured.place}</span><span className="dot-sep">·</span><span>{featured.dates}</span></div>
             </div>
           </div>
-        </section>
-      )}
-
-      <section className="sec" style={{ paddingTop: featured ? 24 : 8 }}>
-        <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#7FB0F5' }} />{featured ? 'Also upcoming' : 'Upcoming'}</div>
-        <div className="stack-16 journeys">
+        ) : (
           <div className="new-trip press" onClick={onNewTrip} role="button" tabIndex={0}>
-            <Plus /> Start a new trip
+            <Plus /> Nothing booked yet — start a new trip
           </div>
-          {later.map((t) => <TripCard key={t.id} t={t} onOpen={onOpen} upcoming />)}
-        </div>
+        )}
       </section>
 
-      {possible.length > 0 && (
-        <section className="sec" style={{ paddingTop: 24 }}>
-          <div className="sec-label"><span className="tick" style={{ background: '#B48AE0' }} />Possible trips</div>
-          <div className="stack-9 possible-list">
-            {possible.map((t) => (
-              <div key={t.id} className="possible-card press-soft" onClick={() => onOpen(t.id)} role="button" tabIndex={0}>
-                <div className="possible-swatch" style={coverBg(t)} />
-                <div className="grow">
-                  <div className="possible-title">{t.title}</div>
-                  <div className="possible-sub">{[t.place, t.dates].filter(Boolean).join(' · ')}</div>
-                  {t.companions && <div className="possible-who">with {t.companions}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {someday && <SomedayBoard groups={someday} address={address} onSave={onSaveIdea} onPlan={onPlanPlace} onRemove={onRemoveIdea} />}
-
-      {past.length > 0 && (
-        <section className="sec" style={{ paddingTop: 28 }}>
-          <div className="sec-label" style={{ marginBottom: 13 }}><span className="tick" style={{ background: '#5FD39B' }} />Past trips</div>
-          <div className="stack-16 journeys">
-            {past.map((t) => <TripCard key={t.id} t={t} onOpen={onOpen} />)}
-          </div>
-        </section>
-      )}
+      <section className="sec home-list">
+        <Sidebar inline tab="trips" tripId={null} trips={trips} onOpenTrip={onOpen} onNewTrip={onNewTrip}
+          someday={someday || []} onSomeday={onSomeday} />
+      </section>
     </div>
   );
 }

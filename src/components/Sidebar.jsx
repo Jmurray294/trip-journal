@@ -4,11 +4,12 @@ import { accentFor, short } from '../lib/derive.js';
 import { groupTrips, STAGES } from '../lib/stages.js';
 import { byCountry } from '../lib/someday.js';
 
-// Desktop trip list (≥900px wide), a card beside the page; the sections are in the TopBar.
-export default function Sidebar({ tab, trips, tripId, onNewTrip, onOpenTrip, someday = [], onSomeday }) {
+// Every trip by stage, plus Someday ideas by country: a card beside the page on a computer (≥900px),
+// and with `inline`, the list under the trip up next on a phone's Trips home.
+export default function Sidebar({ tab, trips, tripId, onNewTrip, onOpenTrip, someday = [], onSomeday, inline = false }) {
   const groups = groupTrips(trips);
   return (
-    <aside className="sidebar">
+    <aside className={'sidebar' + (inline ? ' inline' : '')}>
       <div className="side-title">Your trips</div>
 
       {STAGES.map(([key, title]) => groups[key].length > 0 && (
@@ -30,7 +31,7 @@ export default function Sidebar({ tab, trips, tripId, onNewTrip, onOpenTrip, som
 
       {someday.length > 0 && (
         <div className="side-stage">
-          <div className="side-label">Someday <span className="side-count">{someday.reduce((n, g) => n + g.items.length, 0)}</span></div>
+          <button className="side-label side-label-link" onClick={() => onSomeday(null)}>Someday <span className="side-count">{someday.reduce((n, g) => n + g.items.length, 0)}</span></button>
           <div className="side-trips">
             {byCountry(someday).map((c) => (
               <Fragment key={c.country}>

@@ -53,7 +53,8 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [trips, setTrips] = useState([]);
   const [home, setHome] = useState({ home: '', homeLon: null, homeLat: null });
-  const [nav, setNav] = useState({ tab: 'trips', tripId: null, storyId: null, bookId: null });
+  // view: null is the Trips home (the trip up next); 'someday' is the ideas board
+  const [nav, setNav] = useState({ tab: 'trips', tripId: null, view: null, storyId: null, bookId: null });
   // 'all': every trip on one map; a trip id: that trip's route
   const [mapSel, setMapSel] = useState({ tripId: 'all', stop: 0 });
   const [albumFilter, setAlbumFilter] = useState('all');
@@ -189,7 +190,7 @@ export default function App() {
     try { await someday.remove(it.id); showToast('Removed ' + it.title); } catch (e) { showToast('Could not remove — try again'); }
   };
   const showSomeday = (place) => {
-    go({ tab: 'trips', tripId: null });
+    go({ tab: 'trips', tripId: null, view: 'someday' });
     // a state has its own section; any other place scrolls to its country's card
     const id = (p) => 'someday-' + p.toLowerCase().replace(/\W+/g, '-');
     setTimeout(() => {
@@ -342,7 +343,7 @@ export default function App() {
 
   // Android back button / browser back: step back through the app instead of leaving it.
   useEffect(() => {
-    const depth = nav.storyId || nav.bookId ? 2 : nav.tripId && nav.tab === 'trips' ? 1 : 0;
+    const depth = (nav.view && nav.tab === 'trips' ? 1 : 0) + (nav.tripId && nav.tab === 'trips' ? 1 : 0) + (nav.storyId || nav.bookId ? 1 : 0);
     const cur = (history.state && history.state.tj) || 0;
     if (depth > cur) history.pushState({ tj: depth }, '');
     else if (depth < cur) history.replaceState({ tj: depth }, '');
@@ -352,6 +353,7 @@ export default function App() {
       const n = navRef.current;
       if (n.storyId || n.bookId) go({ storyId: null, bookId: null });
       else if (n.tripId) go({ tripId: null });
+      else if (n.view) go({ view: null });
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -382,8 +384,7 @@ export default function App() {
     if (data.someday && data.someday.length) {
       someday.refresh();
       showToast('Saved to Someday: ' + data.someday.join(', '));
-      go({ tab: 'trips', tripId: null });
-      setTimeout(() => { const el = document.getElementById('someday'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }, 300);
+      showSomeday(null);
       return true;
     }
     if (idea) { showToast("Couldn't find a place in that — add a few words about it"); return false; }
@@ -720,7 +721,8 @@ export default function App() {
               family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)}
               someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
               onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea}
-              unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)} />
+              unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
+              view={nav.view} onSomeday={showSomeday} onHome={() => go({ view: null })} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -788,8 +790,8 @@ export default function App() {
 
         <TopBar
           tab={nav.tab}
-          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: 'All trips', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
-          onTrips={() => go({ tab: 'trips', tripId: null })}
+          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: nav.view === 'someday' ? 'Someday ideas' : 'Up next', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
+          onTrips={() => go({ tab: 'trips', tripId: null, view: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
@@ -807,7 +809,7 @@ export default function App() {
 
         <TabBar
           tab={nav.tab}
-          onTrips={() => go({ tab: 'trips', tripId: null })}
+          onTrips={() => go({ tab: 'trips', tripId: null, view: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
