@@ -5,7 +5,7 @@ import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
-import { useSomeday } from './lib/someday.js';
+import { useSomeday, countryOf } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
 import { resizePhoto } from './lib/resize.js';
 import { placeKey, mergeSuggestions } from './lib/explore.js';
@@ -187,8 +187,12 @@ export default function App() {
   };
   const showSomeday = (place) => {
     go({ tab: 'trips', tripId: null });
-    const id = place ? 'someday-' + place.toLowerCase().replace(/\W+/g, '-') : 'someday';
-    setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300);
+    // a state has its own section; any other place scrolls to its country's card
+    const id = (p) => 'someday-' + p.toLowerCase().replace(/\W+/g, '-');
+    setTimeout(() => {
+      const el = place ? document.getElementById(id(place)) || document.getElementById(id(countryOf(place).country)) : document.getElementById('someday');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
   };
 
   const dismissInboxItem = async (item) => {

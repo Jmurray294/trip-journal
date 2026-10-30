@@ -1,8 +1,10 @@
+import { Fragment } from 'react';
 import { Plus, TabTrips, TabMap, TabAlbums, TabTravelers, People } from './Icons.jsx';
 import { accentFor, short } from '../lib/derive.js';
 import { statusLabel } from '../screens/FamilySheet.jsx';
 import { groupTrips, STAGES } from '../lib/stages.js';
 import { BellIcon } from './Bell.jsx';
+import { byCountry } from '../lib/someday.js';
 
 // Desktop navigation (≥900px wide); the tab bar takes over on phones.
 export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, onTravelers, onAdd, onNewTrip, onOpenTrip, someday = [], onSomeday, unread = null, onBell, family, onFamily }) {
@@ -51,12 +53,20 @@ export default function Sidebar({ tab, trips, tripId, onTrips, onMap, onAlbums, 
         <div className="side-stage">
           <div className="side-label">Someday <span className="side-count">{someday.reduce((n, g) => n + g.items.length, 0)}</span></div>
           <div className="side-trips">
-            {someday.map((g) => (
-              <button key={g.place} className="side-trip" onClick={() => onSomeday(g.place)} title={g.place}>
-                <span className="accent-dot" style={{ background: '#6E8B3D' }} />
-                <span className="side-trip-name">{short(g.place, 18)}</span>
-                <span className="side-count" style={{ marginLeft: 'auto' }}>{g.items.length}</span>
-              </button>
+            {byCountry(someday).map((c) => (
+              <Fragment key={c.country}>
+                <button className="side-trip" onClick={() => onSomeday(c.country)} title={c.country}>
+                  <span className="accent-dot" style={{ background: '#6E8B3D' }} />
+                  <span className="side-trip-name">{short(c.country, 18)}</span>
+                  <span className="side-count" style={{ marginLeft: 'auto' }}>{c.count}</span>
+                </button>
+                {c.places.filter((g) => g.state).map((g) => (
+                  <button key={g.place} className="side-trip side-sub" onClick={() => onSomeday(g.place)} title={g.place}>
+                    <span className="side-trip-name">{short(g.state, 18)}</span>
+                    <span className="side-count" style={{ marginLeft: 'auto' }}>{g.items.length}</span>
+                  </button>
+                ))}
+              </Fragment>
             ))}
           </div>
         </div>

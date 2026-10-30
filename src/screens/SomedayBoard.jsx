@@ -33,7 +33,7 @@ function Place({ g, heading, searching, onPlan, onRemove }) {
   const shown = all || searching ? g.items : g.items.slice(0, SHOW);
   const total = (g.all || g).items.length;
   return (
-    <div className="someday-state" id={placeId(g.place)}>
+    <div className="someday-state" id={g.state ? placeId(g.place) : undefined}>
       {heading && (
         <div className="someday-head">
           <div className="grow">
@@ -61,7 +61,7 @@ function Country({ c, searching, onPlan, onRemove }) {
   const total = c.places.reduce((n, g) => n + (g.all || g).items.length, 0);
   const parts = c.places.filter((g) => g.state).length;
   return (
-    <div className="someday-place">
+    <div className="someday-place" id={placeId(c.country)}>
       <div className="someday-head">
         <div className="grow">
           <div className="someday-name">{c.country}</div>
