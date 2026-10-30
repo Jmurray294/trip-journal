@@ -78,6 +78,16 @@ export function byCountry(groups) {
   return [...m.values()].sort((a, b) => (a.country === 'Anywhere') - (b.country === 'Anywhere') || b.count - a.count);
 }
 
+// Just one place's ideas: a state or region exactly ("California"), else everything in a country
+// ("United States", or "Italy" with its regions).
+export function onlyPlace(groups, place) {
+  if (!place) return groups;
+  const k = place.trim().toLowerCase();
+  const exact = groups.filter((g) => g.place.toLowerCase() === k);
+  const country = countryOf(place).country.toLowerCase();
+  return exact.some((g) => countryOf(g.place).state) ? exact : groups.filter((g) => countryOf(g.place).country.toLowerCase() === country);
+}
+
 // Search the board: every word must appear in the idea's place, spot, title, note or link.
 // Each group keeps `all` so Start planning still takes the whole place, not just the matches.
 export function searchIdeas(groups, query) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { groupByPlace, searchIdeas, countryOf, byCountry } from '../src/lib/someday.js';
+import { groupByPlace, searchIdeas, countryOf, byCountry, onlyPlace } from '../src/lib/someday.js';
 
 test('ideas group by place, biggest place first, newest first within a place', () => {
   const items = [
@@ -54,4 +54,20 @@ test('the board gathers states under their country, biggest country first, Anywh
   assert.deepEqual(c.map((x) => [x.country, x.count]), [['United States', 3], ['Italy', 1], ['Anywhere', 2]]);
   assert.equal(c[0].places[0].state, '');
   assert.deepEqual(c[0].places.slice(1).map((x) => x.state).sort(), ['Alaska', 'Maine']);
+});
+
+test('picking a place shows just that state, or the whole country', () => {
+  const g = groupByPlace([
+    { id: 1, place: 'California', title: 'Pigeon Point', created_at: '2026-10-01' },
+    { id: 2, place: 'Montana', title: 'Paws Up', created_at: '2026-10-02' },
+    { id: 3, place: 'USA', title: 'Route 66', created_at: '2026-10-03' },
+    { id: 4, place: 'Italy', title: 'Dolomites', created_at: '2026-10-04' },
+    { id: 5, place: 'Tuscany, Italy', title: 'Siena', created_at: '2026-10-05' },
+  ]);
+  const ids = (x) => x.flatMap((y) => y.items.map((i) => i.id)).sort();
+  assert.deepEqual(ids(onlyPlace(g, 'California')), [1]);
+  assert.deepEqual(ids(onlyPlace(g, 'United States')), [1, 2, 3]);
+  assert.deepEqual(ids(onlyPlace(g, 'Italy')), [4, 5]);
+  assert.deepEqual(ids(onlyPlace(g, 'Tuscany, Italy')), [5]);
+  assert.equal(onlyPlace(g, null), g);
 });

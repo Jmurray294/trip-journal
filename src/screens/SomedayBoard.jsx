@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
-import { searchIdeas, byCountry, partsOf } from '../lib/someday.js';
+import { searchIdeas, byCountry, partsOf, onlyPlace } from '../lib/someday.js';
 
 // The Trips page's Someday section: saved inspiration by country, then state. "Start planning" turns a
 // place into a Possible trip carrying its ideas.
@@ -85,10 +85,11 @@ function Country({ c, searching, onPlan, onRemove }) {
   );
 }
 
-export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove }) {
+export default function SomedayBoard({ groups, only = null, address, onSave, onPlan, onRemove }) {
   const [query, setQuery] = useState('');
   const searching = !!query.trim();
-  const found = searchIdeas(groups, query);
+  // `only`: a state or country picked from the trip list
+  const found = searchIdeas(onlyPlace(groups, only), query);
   return (
     <section className="sec" style={{ paddingTop: 28 }} id="someday">
       <div className="timeline-head" style={{ margin: '0 4px 13px' }}>
@@ -106,7 +107,7 @@ export default function SomedayBoard({ groups, address, onSave, onPlan, onRemove
             {searching && <button className="someday-clear" onClick={() => setQuery('')} aria-label="Clear search">×</button>}
           </div>
           {found.length === 0 ? (
-            <div className="someday-empty">No ideas match “{query.trim()}”.</div>
+            <div className="someday-empty">{searching ? <>No ideas match “{query.trim()}”.</> : <>No ideas saved for {only} right now.</>}</div>
           ) : (
             <div className="someday-grid">
               {byCountry(found).map((c) => <Country key={c.country} c={c} searching={searching} onPlan={onPlan} onRemove={onRemove} />)}

@@ -5,7 +5,7 @@ import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
-import { useSomeday, countryOf } from './lib/someday.js';
+import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
 import { resizePhoto } from './lib/resize.js';
 import { placeKey, mergeSuggestions } from './lib/explore.js';
@@ -54,7 +54,7 @@ export default function App() {
   const [trips, setTrips] = useState([]);
   const [home, setHome] = useState({ home: '', homeLon: null, homeLat: null });
   // view: null is the Trips home (the trip up next); 'someday' is the ideas board
-  const [nav, setNav] = useState({ tab: 'trips', tripId: null, view: null, storyId: null, bookId: null });
+  const [nav, setNav] = useState({ tab: 'trips', tripId: null, view: null, ideaPlace: null, storyId: null, bookId: null });
   // 'all': every trip on one map; a trip id: that trip's route
   const [mapSel, setMapSel] = useState({ tripId: 'all', stop: 0 });
   const [albumFilter, setAlbumFilter] = useState('all');
@@ -189,15 +189,8 @@ export default function App() {
   const removeIdea = async (it) => {
     try { await someday.remove(it.id); showToast('Removed ' + it.title); } catch (e) { showToast('Could not remove — try again'); }
   };
-  const showSomeday = (place) => {
-    go({ tab: 'trips', tripId: null, view: 'someday' });
-    // a state has its own section; any other place scrolls to its country's card
-    const id = (p) => 'someday-' + p.toLowerCase().replace(/\W+/g, '-');
-    setTimeout(() => {
-      const el = place ? document.getElementById(id(place)) || document.getElementById(id(countryOf(place).country)) : document.getElementById('someday');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300);
-  };
+  // the Someday page, with just one state or country's ideas when a place is picked
+  const showSomeday = (place) => go({ tab: 'trips', tripId: null, view: 'someday', ideaPlace: place || null });
 
   const dismissInboxItem = async (item) => {
     try { await inbox.close(item.id, 'dismissed'); showToast('Dismissed'); } catch (e) { showToast('Could not dismiss — try again'); }
@@ -722,7 +715,7 @@ export default function App() {
               someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
               onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea}
               unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
-              view={nav.view} onSomeday={showSomeday} onHome={() => go({ view: null })} />
+              view={nav.view} ideaPlace={nav.ideaPlace} onSomeday={showSomeday} onHome={() => go({ view: null, ideaPlace: null })} />
           )}
           {screen === 'detail' && (
             <TripDetail
@@ -790,7 +783,7 @@ export default function App() {
 
         <TopBar
           tab={nav.tab}
-          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: nav.view === 'someday' ? 'Someday ideas' : 'Up next', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
+          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: nav.view === 'someday' ? 'Someday ideas' + (nav.ideaPlace ? ' · ' + nav.ideaPlace : '') : 'Up next', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
           onTrips={() => go({ tab: 'trips', tripId: null, view: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}

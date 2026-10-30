@@ -7,18 +7,20 @@ import { BellButton } from '../components/Bell.jsx';
 
 // The Trips home is the trip up next. On a computer the Your trips card beside it lists the rest; on a
 // phone that same list follows below. Someday ideas have their own page (view 'someday').
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell, view, onSomeday, onHome }) {
+export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell, view, ideaPlace, onSomeday, onHome }) {
   const [featured] = groupTrips(trips).upcoming;
 
   if (view === 'someday') {
     return (
       <div className="screen pad-tab">
         <header className="page-head wash">
-          <button className="home-back" onClick={onHome}><Chevron /> Up next</button>
+          {ideaPlace
+            ? <button className="home-back" onClick={() => onSomeday(null)}><Chevron /> All ideas</button>
+            : <button className="home-back" onClick={onHome}><Chevron /> Up next</button>}
           <div className="eyebrow">Saved for one day</div>
-          <h1 className="title-xl">Someday</h1>
+          <h1 className="title-xl">{ideaPlace || 'Someday'}</h1>
         </header>
-        {someday && <SomedayBoard groups={someday} address={address} onSave={onSaveIdea} onPlan={onPlanPlace} onRemove={onRemoveIdea} />}
+        {someday && <SomedayBoard groups={someday} only={ideaPlace} address={address} onSave={onSaveIdea} onPlan={onPlanPlace} onRemove={onRemoveIdea} />}
       </div>
     );
   }
