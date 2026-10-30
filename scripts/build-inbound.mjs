@@ -19,5 +19,8 @@ const photos = readFileSync(new URL('../src/lib/photos.js', import.meta.url), 'u
   .replace(/^export /gm, '')
   .replace(/^/, '// ---- inlined from src/lib/photos.js ----\n');
 
-writeFileSync(new URL('index.ts', dir), template.replace('/*__PARSER__*/', parser).replace('/*__LOYALTY__*/', loyalty).replace('/*__PHOTOS__*/', photos));
+const out = template.replace('/*__PARSER__*/', parser).replace('/*__LOYALTY__*/', loyalty).replace('/*__PHOTOS__*/', photos);
+// Plain ASCII, every other character as a \u escape: copying the file into the dashboard editor
+// through a Windows console turned "·" into "┬╖" (and "—" likewise) in saved trips.
+writeFileSync(new URL('index.ts', dir), out.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')));
 console.log('wrote supabase/functions/inbound-email/index.ts');

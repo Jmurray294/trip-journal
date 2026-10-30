@@ -6,12 +6,12 @@
 // balances due, refunds) and a guess at which trip it belongs to. Confident guesses are filed
 // straight into the trip; the rest wait in inbox_items for someone to pick the trip in the app.
 //
-// GENERATED index.ts — edit template.ts, then run `node scripts/build-inbound.mjs`
+// GENERATED index.ts \u2014 edit template.ts, then run `node scripts/build-inbound.mjs`
 // (that inlines src/lib/parser.js so the app and the server parse confirmations the same way).
 //
 // Secrets: INBOUND_SECRET (also in the forwarder, sent as ?key=...), ANTHROPIC_API_KEY, and
 // ANTHROPIC_WORKSPACE_ID when that key is organization-wide rather than scoped to one workspace.
-// Deploy with "Verify JWT" OFF — the forwarder cannot sign in; the secret key protects it instead.
+// Deploy with "Verify JWT" OFF \u2014 the forwarder cannot sign in; the secret key protects it instead.
 // The app also posts uploads here (PDFs, photos, pasted text) with the member's sign-in token, which
 // this function checks itself; those go to the member's family, and to TripId when one is given.
 
@@ -95,22 +95,22 @@ function parseConfirmation(raw) {
     seenFlights[key] = 1;
     let route = '';
     const near = text.slice(Math.max(0, fm.index - 260), fm.index + 320);
-    const pair = near.match(/\b([A-Z]{3})\s*(?:–|-|—|to|→)\s*([A-Z]{3})\b/);
-    if (pair) route = pair[1] + ' → ' + pair[2];
+    const pair = near.match(/\b([A-Z]{3})\s*(?:\u2013|-|\u2014|to|\u2192)\s*([A-Z]{3})\b/);
+    if (pair) route = pair[1] + ' \u2192 ' + pair[2];
     else {
       const codes = []; let am;
       const ar = /\(([A-Z]{3})\)/g;
       while ((am = ar.exec(near))) codes.push(am[1]);
-      if (codes.length >= 2) route = codes[0] + ' → ' + codes[1];
+      if (codes.length >= 2) route = codes[0] + ' \u2192 ' + codes[1];
     }
     const d = dates.find((x) => Math.abs(x.idx - fm.index) < 400) || dates[0];
     const t = times.find((x) => Math.abs(x.idx - fm.index) < 400);
     entries.push({
       kind: 'Flight', sortDate: d ? d.date : null,
       date: d ? fmtDate(d.date) : todayLabel(),
-      title: AIRLINES[code] + ' ' + code + num + (route ? ' · ' + route : ''),
+      title: AIRLINES[code] + ' ' + code + num + (route ? ' \u00b7 ' + route : ''),
       place: route || 'Flight',
-      note: [t ? 'Departs ' + t.label : '', 'From confirmation email'].filter(Boolean).join(' · ')
+      note: [t ? 'Departs ' + t.label : '', 'From confirmation email'].filter(Boolean).join(' \u00b7 ')
     });
   }
 
@@ -123,7 +123,7 @@ function parseConfirmation(raw) {
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
     const generic = /reservation|confirmed|confirmation|booking|receipt|itinerary|thank you|your trip/i;
     const brandLine = lines.find((l) => l.length <= 70 && l.toLowerCase().includes(hb[0].toLowerCase().split(' ')[0]) && !/^(check|conf|book|reserv)/i.test(l));
-    if (brandLine && brandLine.length > name.length && !/\d{2}/.test(brandLine)) name = brandLine.replace(/[,•|].*$/, '').trim();
+    if (brandLine && brandLine.length > name.length && !/\d{2}/.test(brandLine)) name = brandLine.replace(/[,\u2022|].*$/, '').trim();
     if (!brandLine || generic.test(name)) {
       const alt = lines.find((l) => l.length >= 3 && l.length <= 60 && !/\d/.test(l) && !generic.test(l) && !/^check/i.test(l));
       if (alt) name = alt;
@@ -156,7 +156,7 @@ function parseConfirmation(raw) {
       kind: 'Stay', sortDate: ci ? ci.date : (dates[0] ? dates[0].date : null),
       date: ci ? fmtDate(ci.date) : todayLabel(),
       title: name, place: city || name,
-      note: parts.join(' · ') || 'From confirmation email'
+      note: parts.join(' \u00b7 ') || 'From confirmation email'
     });
   }
 
@@ -184,7 +184,7 @@ const PROGRAMS = [
   ['rapidrewards', 'Southwest Rapid Rewards', /rapid rewards|southwest/i],
   ['alaska', 'Alaska Mileage Plan', /mileage plan|alaska air/i],
   ['trueblue', 'JetBlue TrueBlue', /trueblue|jetblue/i],
-  ['bonvoy', 'Marriott Bonvoy', /bonvoy|marriott|ritz[- ]carlton|westin|sheraton|st\.? regis|courtyard|residence inn|autograph collection|le m[ée]ridien|fairfield|springhill|renaissance|\baloft\b|luxury collection|\bedition\b|w hotels?/i],
+  ['bonvoy', 'Marriott Bonvoy', /bonvoy|marriott|ritz[- ]carlton|westin|sheraton|st\.? regis|courtyard|residence inn|autograph collection|le m[\u00e9e]ridien|fairfield|springhill|renaissance|\baloft\b|luxury collection|\bedition\b|w hotels?/i],
   ['hilton', 'Hilton Honors', /hilton|conrad|waldorf|doubletree|embassy suites|hampton inn|homewood|curio|canopy by|tapestry/i],
   ['hyatt', 'World of Hyatt', /hyatt|andaz|thompson hotels?/i],
   ['ihg', 'IHG One Rewards', /\bihg\b|intercontinental|holiday inn|kimpton|crowne plaza|six senses|hotel indigo/i],
@@ -235,7 +235,7 @@ function kmBetween(a, b) {
   return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-// "2026:10:31 14:22:05" (EXIF) or "2026-10-31 14:22:05" / "2026-10-31T14:22" → a local Date
+// "2026:10:31 14:22:05" (EXIF) or "2026-10-31 14:22:05" / "2026-10-31T14:22" \u2192 a local Date
 function parsePhotoTime(s) {
   const m = /^(\d{4})[:-](\d{2})[:-](\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(s || '').trim());
   if (!m) return null;
@@ -309,7 +309,7 @@ const photoKey = (taken, fallback) => (taken ? 't' + taken.getTime() / 1000 : 'f
 // Each photo joins the "photos" memory for its day and place (made if needed): the place is the
 // nearest stop in the trip within 25 km when the photo has GPS, else that day's place, else the
 // trip's. Photos already in the trip (same key) are skipped.
-// Returns { trip, added, created } — `trip` is a new object; `newId()` names new memories.
+// Returns { trip, added, created } \u2014 `trip` is a new object; `newId()` names new memories.
 function placePhotos(trip, items, newId, fallbackDay = new Date()) {
   const days = (trip.days || []).map((d) => ({ ...d, photos: [...(d.photos || [])] }));
   const have = new Set();
@@ -394,7 +394,7 @@ const label = (d: Date) => MONTHS[d.getMonth()] + " " + d.getDate();
 const isoDay = (d: Date | null) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "");
 const confKey = (s: string) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-// "Aug 8–15, 2026" · "Dec 28, 2026 – Jan 3, 2027" · "Aug 2026" → [start, end]
+// "Aug 8\u201315, 2026" \u00b7 "Dec 28, 2026 \u2013 Jan 3, 2027" \u00b7 "Aug 2026" \u2192 [start, end]
 function tripRange(text: string): [Date, Date] | null {
   const s = String(text || "");
   const years = [...s.matchAll(/\b(20\d{2})\b/g)].map((m) => +m[1]);
@@ -403,7 +403,7 @@ function tripRange(text: string): [Date, Date] | null {
   const points: Date[] = [];
   // whole month names or abbreviations only, so "decided" isn't December (same as src/lib/stages.js)
   const month = "\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\b";
-  const re = new RegExp(month + "\\.?\\s+(\\d{1,2})(?!\\d)(?:\\s*[–—-]\\s*(\\d{1,2})\\b(?!\\s*[a-z]))?(?:,?\\s*(20\\d{2}))?", "gi");
+  const re = new RegExp(month + "\\.?\\s+(\\d{1,2})(?!\\d)(?:\\s*[\u2013\u2014-]\\s*(\\d{1,2})\\b(?!\\s*[a-z]))?(?:,?\\s*(20\\d{2}))?", "gi");
   let m: RegExpExecArray | null;
   while ((m = re.exec(s))) {
     const mo = mi(m[1]); const y = m[4] ? +m[4] : year;
@@ -411,7 +411,7 @@ function tripRange(text: string): [Date, Date] | null {
     if (m[3]) points.push(new Date(y, mo, +m[3]));
   }
   if (points.length) {
-    // a range that wraps the year ("Dec 28 – Jan 3, 2027") puts the start in the previous year
+    // a range that wraps the year ("Dec 28 \u2013 Jan 3, 2027") puts the start in the previous year
     if (points.length >= 2 && points[0] > points[points.length - 1]) points[0] = new Date(points[0].getFullYear() - 1, points[0].getMonth(), points[0].getDate());
     return [new Date(Math.min(...points.map(Number))), new Date(Math.max(...points.map(Number)))];
   }
@@ -422,9 +422,9 @@ function tripRange(text: string): [Date, Date] | null {
 
 function rangeLabel(a: Date, b: Date) {
   if (a.getTime() === b.getTime()) return `${label(a)}, ${a.getFullYear()}`;
-  if (a.getFullYear() !== b.getFullYear()) return `${label(a)}, ${a.getFullYear()} – ${label(b)}, ${b.getFullYear()}`;
-  if (a.getMonth() === b.getMonth()) return `${label(a)}–${b.getDate()}, ${b.getFullYear()}`;
-  return `${label(a)} – ${label(b)}, ${b.getFullYear()}`;
+  if (a.getFullYear() !== b.getFullYear()) return `${label(a)}, ${a.getFullYear()} \u2013 ${label(b)}, ${b.getFullYear()}`;
+  if (a.getMonth() === b.getMonth()) return `${label(a)}\u2013${b.getDate()}, ${b.getFullYear()}`;
+  return `${label(a)} \u2013 ${label(b)}, ${b.getFullYear()}`;
 }
 
 function countdown(start: Date) {
@@ -435,7 +435,7 @@ function countdown(start: Date) {
   return `in ${Math.round(days / 30)} months`;
 }
 
-// "7:45am", "19:30", "3 PM" → minutes after midnight, so same-day bookings sort by time
+// "7:45am", "19:30", "3 PM" \u2192 minutes after midnight, so same-day bookings sort by time
 function minutesOf(time: string) {
   const m = /(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?m?\.?/i.exec(String(time || ""));
   if (!m) return 0;
@@ -502,7 +502,7 @@ const READING_SCHEMA = {
           date: { type: "string", description: "Date paid, date due by, or refund date, YYYY-MM-DD, or empty" },
           confirmation: { type: "string", description: "Booking/confirmation number this money is for, or empty" },
           note: { type: "string" },
-          card: { type: "string", description: "The card charged, as the email names it, e.g. 'Amex Gold …1007', 'Luxury Mastercard …4421', or empty" },
+          card: { type: "string", description: "The card charged, as the email names it, e.g. 'Amex Gold \u20261007', 'Luxury Mastercard \u20264421', or empty" },
           travel: { type: "boolean", description: "True when the merchant is travel: an airline, hotel or rental, cruise line, car rental, rail, tour, travel agency or travel insurance" },
         },
         required: ["category", "title", "vendor", "amount", "currency", "status", "date", "confirmation", "note", "card", "travel"],
@@ -529,10 +529,10 @@ const READING_SCHEMA = {
         properties: {
           title: { type: "string", description: "Short trip name, e.g. 'Tuscany with the Smiths'" },
           place: { type: "string", description: "Destination, or empty" },
-          dates: { type: "string", description: "Dates as known, e.g. 'June 2027', 'Mar 3–10, 2027', or empty" },
+          dates: { type: "string", description: "Dates as known, e.g. 'June 2027', 'Mar 3\u201310, 2027', or empty" },
           start_date: { type: "string", description: "YYYY-MM-DD if a start date is known, else empty" },
           end_date: { type: "string", description: "YYYY-MM-DD if an end date is known, else empty" },
-          people: { type: "string", description: "Who else is proposing or going (names or families), comma separated — not our own family" },
+          people: { type: "string", description: "Who else is proposing or going (names or families), comma separated \u2014 not our own family" },
           summary: { type: "string", description: "One or two lines: what is proposed, rough cost, what they need from us and by when" },
           trip_id: { type: "string", description: "id of the family's trip this idea is about, if one already exists, else empty" },
         },
@@ -546,7 +546,7 @@ const READING_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          title: { type: "string", description: "What it is, short, e.g. 'Positano cliffside hotels', 'Northern lights in Tromsø', 'Noma'" },
+          title: { type: "string", description: "What it is, short, e.g. 'Positano cliffside hotels', 'Northern lights in Troms\u00f8', 'Noma'" },
           place: { type: "string", description: "Where, for grouping: the country, or the US state or Canadian province, or for Italy 'Region, Italy', e.g. 'Japan', 'Alaska', 'Tuscany, Italy'" },
           spot: { type: "string", description: "The particular town, area or venue within it, e.g. 'Amalfi Coast', or empty" },
           note: { type: "string", description: "One or two lines: why it's worth going, best season, who recommended it, rough cost" },
@@ -684,13 +684,13 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
       role: "user",
       content: [...blocks, { type: "text", text:
         `Today is ${today}.\n\n` +
-        (names.length ? `The email's attachments (${names.join(", ")}) come first; they often hold the real details — read them as part of the email.\n\n` : "") +
-        "BOOKINGS: list every reservation the email confirms, changes or cancels — flights (each segment separately), " +
+        (names.length ? `The email's attachments (${names.join(", ")}) come first; they often hold the real details \u2014 read them as part of the email.\n\n` : "") +
+        "BOOKINGS: list every reservation the email confirms, changes or cancels \u2014 flights (each segment separately), " +
         "hotels and rentals, cruises, car rentals, trains, transfers, tours and activities, restaurants, tickets. Titles: flights " +
-        "like 'United UA1234 · SEA → SFO', stays use the property name, cruises the line and ship, cars like 'Hertz car rental'. " +
-        "Notes are one short line, e.g. 'Departs 7:45am · Conf ABC123' or 'Check-in Aug 10 · check-out Aug 13 · 3 nights'. " +
+        "like 'United UA1234 \u00b7 SEA \u2192 SFO', stays use the property name, cruises the line and ship, cars like 'Hertz car rental'. " +
+        "Notes are one short line, e.g. 'Departs 7:45am \u00b7 Conf ABC123' or 'Check-in Aug 10 \u00b7 check-out Aug 13 \u00b7 3 nights'. " +
         "A changed booking is listed once with its new details and status 'changed'; a cancelled one with status 'cancelled'.\n\n" +
-        "COSTS: list money paid, owed or refunded — deposits, final payments, receipts, invoices, balances due (with the due date), refunds. " +
+        "COSTS: list money paid, owed or refunded \u2014 deposits, final payments, receipts, invoices, balances due (with the due date), refunds. " +
         "A confirmation that shows a price is also a cost (status 'paid' if it was charged, 'due' if it is owed). If part was paid and " +
         "a balance remains, give two costs. Payment and receipt emails are costs, not bookings, unless they also confirm a reservation. " +
         "When a payment, card authorization or receipt is toward a booking already in one of the family's trips, give that booking's " +
@@ -703,19 +703,19 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "itinerary, overlapping dates, or a confirmation number already in it). Choose 'new' when it is a reservation for travel " +
         "that matches none of them, and name the trip. Choose 'unsure' when it could fit more than one trip, or when it is a " +
         "payment or notice you cannot tie to a trip.\n\n" +
-        "IDEAS: list trips that are being proposed, planned or discussed but not booked — invitations, 'want to come with us…', " +
+        "IDEAS: list trips that are being proposed, planned or discussed but not booked \u2014 invitations, 'want to come with us\u2026', " +
         "group trip plans, save-the-dates, a friend's itinerary we might join. One per distinct trip. If an idea is about one of the " +
         "family's trips above (including ones marked possible), give its trip_id so we don't make it twice. Ideas are not bookings: " +
         "list nothing under BOOKINGS for a trip that is only being proposed. " +
         `People are the friends or relatives involved, not us${family ? ` (we are ${family})` : ""}.\n\n` +
-        "SOMEDAY: list places and things someone in the family saved as inspiration for a trip one day — a shared article or " +
-        "link, a screenshot, a friend's recommendation, a note like 'we should go here' — that aren't part of a trip being planned " +
+        "SOMEDAY: list places and things someone in the family saved as inspiration for a trip one day \u2014 a shared article or " +
+        "link, a screenshot, a friend's recommendation, a note like 'we should go here' \u2014 that aren't part of a trip being planned " +
         "(those are IDEAS) or booked. One per distinct place or thing; group them by country (or US state / Canadian province) " +
         "in place, with the town, area or venue in spot. For Italy, put the region and country in place, e.g. 'Tuscany, Italy', " +
         "'Campania, Italy' (Amalfi Coast), 'Sicily, Italy', using the English region names.\n\n" +
         "CARD ALERTS: a card issuer's transaction alert (American Express, Luxury Card / Barclays and the like) is a cost: the merchant " +
         "as vendor and a short title, the amount, the transaction date, status 'paid' ('refund' for a credit), and the card in card. " +
-        "Always list the charge, whatever it is for — we decide whether it belongs to a trip. Say whether the merchant is travel, " +
+        "Always list the charge, whatever it is for \u2014 we decide whether it belongs to a trip. Say whether the merchant is travel, " +
         "and for trip, choose 'existing' only when the merchant clearly matches one of the trips' bookings.\n\n" +
         "LOYALTY: for statements, balance updates and status emails about the family's own airline, hotel, rental and cruise " +
         "accounts (not offers or promotions), list each account: program, member number as printed, status tier and points or miles " +
@@ -725,7 +725,7 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "Infer missing years from today's date. If the email has no bookings, no costs, no trip ideas and nothing for someday, return empty lists.\n\n" +
         (watched ? "This email arrived at the family's trips address directly rather than being forwarded on purpose, so it may not be travel. Unless it is " +
           "about the family's own travel (a reservation, a change, a payment, a trip being planned with us, a place one of us wants to go, " +
-          "or one of our loyalty accounts), return empty lists — but always list a card transaction alert.\n\n" : "") +
+          "or one of our loyalty accounts), return empty lists \u2014 but always list a card transaction alert.\n\n" : "") +
         (saving ? "Someone in the family saved this in the app as inspiration for a trip someday: list it under SOMEDAY, and nothing " +
           "else unless it is plainly a booking or a receipt.\n\n" : "") +
         `SUBJECT: ${subject}\n\nEMAIL:\n${text.slice(0, 60000)}`,
@@ -803,8 +803,8 @@ async function bookingRows(hid: string, bookings: Booking[], fallbackPlace: stri
     } else {
       id = "email-" + await sha([hid, b.kind, b.title.toLowerCase(), label(b.date), b.date.getFullYear()].join("|"));
     }
-    const note = (b.status === "cancelled" ? "Cancelled · " : b.status === "changed" ? "Changed · " : "") +
-      (b.note || [b.time && "Starts " + b.time, b.confirmation && "Conf " + b.confirmation].filter(Boolean).join(" · ") || "From confirmation email");
+    const note = (b.status === "cancelled" ? "Cancelled \u00b7 " : b.status === "changed" ? "Changed \u00b7 " : "") +
+      (b.note || [b.time && "Starts " + b.time, b.confirmation && "Conf " + b.confirmation].filter(Boolean).join(" \u00b7 ") || "From confirmation email");
     out.push({
       id,
       doc: {
@@ -880,7 +880,7 @@ async function suggestFor(admin: any, hid: string, body: Record<string, any>) {
   const trip = (tripRow as { doc: Record<string, any> }).doc;
   const items = ((rows || []) as { doc: Record<string, any> }[]).map((r) => r.doc).filter((d) => d.type !== "cost")
     .sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
-  const line = (d: Record<string, any>) => [d.date, d.kind, d.title, d.place, d.booking?.time, d.note].filter(Boolean).join(" · ").slice(0, 240);
+  const line = (d: Record<string, any>) => [d.date, d.kind, d.title, d.place, d.booking?.time, d.note].filter(Boolean).join(" \u00b7 ").slice(0, 240);
   const here = items.filter((d) => String(d.place || "").toLowerCase() === place.toLowerCase());
   const prefs = ((people || []) as { name: string; doc: Record<string, any> }[]).map((p) => {
     const pr = (p.doc || {}).prefs || {}, em = (p.doc || {}).emergency || {};
@@ -892,15 +892,15 @@ async function suggestFor(admin: any, hid: string, body: Record<string, any>) {
 
   const prompt =
     `Suggest what to see, do and eat in ${place} for this trip, and what to know before going.\n\n` +
-    `TRIP: ${trip.title || ""} — ${trip.place || ""}, ${trip.dates || ""}.${home ? ` They live in ${home}.` : ""}\n` +
+    `TRIP: ${trip.title || ""} \u2014 ${trip.place || ""}, ${trip.dates || ""}.${home ? ` They live in ${home}.` : ""}\n` +
     `TRAVELERS: ${prefs || "two adults"}\n\n` +
-    `AT THIS STOP (already booked or planned — don't suggest these again; fit suggestions around them and the time ashore):\n` +
+    `AT THIS STOP (already booked or planned \u2014 don't suggest these again; fit suggestions around them and the time ashore):\n` +
     (here.map(line).join("\n") || "(nothing yet)") + "\n\n" +
     `THE WHOLE ITINERARY, for context (a cruise means limited hours in port):\n` + items.slice(0, 60).map(line).join("\n") + "\n\n" +
     (have.length ? `ALREADY SUGGESTED (give different ones): ${have.join("; ")}\n\n` : "") +
     (focus ? `THEY ASKED FOR: ${focus}\n\n` : "") +
-    "Search the web for current information — what's open on these dates, seasonal events, the best places to eat now. " +
-    "Give 10–14 picks across see, do, eat and know (practical tips: getting from the port or station, money, customs, what to wear). " +
+    "Search the web for current information \u2014 what's open on these dates, seasonal events, the best places to eat now. " +
+    "Give 10\u201314 picks across see, do, eat and know (practical tips: getting from the port or station, money, customs, what to wear). " +
     "Be specific (named places and dishes), realistic about the time available, and say why each one suits these travelers. " +
     "When you're done, call save_suggestions once with everything.";
 
@@ -934,20 +934,20 @@ async function suggestFor(admin: any, hid: string, body: Record<string, any>) {
         })),
       });
     }
-    if (res.stop_reason === "refusal") return ok({ error: "Couldn't make suggestions for that — try again" }, 502);
+    if (res.stop_reason === "refusal") return ok({ error: "Couldn't make suggestions for that \u2014 try again" }, 502);
     // a long web search pauses; send the turn back and it carries on
     messages.push({ role: "assistant", content: res.content });
     if (res.stop_reason === "pause_turn") continue;
     // finished without saving: ask for the tool call
     messages.push({ role: "user", content: "Now call save_suggestions with your picks." });
   }
-  return ok({ error: "Suggestions took too long — try again" }, 504);
+  return ok({ error: "Suggestions took too long \u2014 try again" }, 504);
 }
 
-// ---- photos from the family's iPhone Shortcut (?key=…&family=<inbox code>) ----
-// GET  &check&date=YYYY-MM-DD → { trip: "<title>" } when a trip is on that day (a day either side for
-//      travel days), else { trip: "" } — the Shortcut sends nothing on ordinary days.
-// POST &photo  { image: base64 JPEG, taken: "YYYY-MM-DD HH:MM:SS", lat?, lon? } → filed into that day's
+// ---- photos from the family's iPhone Shortcut (?key=\u2026&family=<inbox code>) ----
+// GET  &check&date=YYYY-MM-DD \u2192 { trip: "<title>" } when a trip is on that day (a day either side for
+//      travel days), else { trip: "" } \u2014 the Shortcut sends nothing on ordinary days.
+// POST &photo  { image: base64 JPEG, taken: "YYYY-MM-DD HH:MM:SS", lat?, lon? } \u2192 filed into that day's
 //      photos memory by placePhotos, as the app's Add photos does; the same shot twice is skipped.
 async function photoDrop(req: Request, url: URL) {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
@@ -1032,14 +1032,14 @@ async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, tr
 }
 
 // ---- a trip shared by link (?share=<token>: the trip's shareToken), no sign-in ----
-// GET → the trip as a fellow traveler sees it: the plan, memories and photos — no costs, confirmation
+// GET \u2192 the trip as a fellow traveler sees it: the plan, memories and photos \u2014 no costs, confirmation
 //       or loyalty numbers, and nothing from the family's other trips.
 // POST { action: "photo", name, image, taken, lat?, lon? } adds a photo; { action: "note", name, text, when }
 //       a note on that day. Both are marked with who sent them. Turning the link off in the app ends it.
-const noConf = (s: string) => s.replace(/\s*(·\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^·\s*/, "");
+const noConf = (s: string) => s.replace(/\s*(\u00b7\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^\u00b7\s*/, "");
 async function sharedTrip(req: Request, url: URL) {
   const token = String(url.searchParams.get("share") || "");
-  if (token.length < 16) return ok({ error: "This trip link isn't complete — ask for it again" }, 404);
+  if (token.length < 16) return ok({ error: "This trip link isn't complete \u2014 ask for it again" }, 404);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const { data: found } = await admin.from("trips").select("household_id, id, doc").eq("doc->>shareToken", token).eq("deleted", false).limit(1);
   const t = ((found || []) as { household_id: string; id: string; doc: Record<string, any> }[])[0];
@@ -1060,7 +1060,7 @@ async function sharedTrip(req: Request, url: URL) {
       id, date: String(d.date || ""), title: String(d.title || ""), place: String(d.place || ""), kind: String(d.kind || ""),
       pos: Number(d.pos) || 0, by: String(d.by || ""), cancelled: d.booking?.status === "cancelled",
       // a booking shows when and where, not its confirmation number or who holds it
-      note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" · ") : noConf(String(d.note || "")),
+      note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
       photos: (d.photos || []).map((p: Record<string, any>) => ({
         url: p.path ? signed.get(p.path) || "" : typeof p.src === "string" && !p.src.startsWith("data:") ? p.src : "",
         label: String(p.label || ""), by: String(p.by || ""),
@@ -1089,7 +1089,7 @@ async function sharedTrip(req: Request, url: URL) {
   const { error } = await admin.from("entries").upsert({ household_id: hid, id, trip_id: t.id, deleted: false, doc }, { onConflict: "household_id,id" });
   if (error) return ok({ error: error.message }, 500);
   await admin.from("inbound_emails").insert({
-    household_id: hid, sender: name, subject: `${name}: ${text.length > 60 ? text.slice(0, 57) + "…" : text}`, items: 1, status: "added",
+    household_id: hid, sender: name, subject: `${name}: ${text.length > 60 ? text.slice(0, 57) + "\u2026" : text}`, items: 1, status: "added",
     reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
   });
   return ok({ added: 1 });
@@ -1160,7 +1160,7 @@ Deno.serve(async (req) => {
   const items = (itemRows || []) as { id: string; trip_id: string; title: string | null; bconf: string | null; cconf: string | null }[];
   const briefs: TripBrief[] = trips.map((t) => ({
     id: t.id, title: t.doc.title || "", place: t.doc.place || "", dates: t.doc.dates || "", ...(t.doc.possible ? { possible: true } : {}),
-    items: items.filter((e) => e.trip_id === t.id).slice(0, 15).map((e) => [e.title, e.bconf || e.cconf].filter(Boolean).join(" · ")),
+    items: items.filter((e) => e.trip_id === t.id).slice(0, 15).map((e) => [e.title, e.bconf || e.cconf].filter(Boolean).join(" \u00b7 ")),
   }));
 
   let read: Reading | null = null;
@@ -1181,7 +1181,7 @@ Deno.serve(async (req) => {
   const { data: travelerRows } = await admin.from("travelers").select("id, name, doc").eq("household_id", hid);
   const travelers = (travelerRows || []) as { id: string; name: string; doc: Record<string, any> }[];
   const people = travelers.map((t) => {
-    const progs = ((t.doc || {}).loyalty || []).map((l: Record<string, string>) => [l.program, l.number && "…" + last4(l.number)].filter(Boolean).join(" "));
+    const progs = ((t.doc || {}).loyalty || []).map((l: Record<string, string>) => [l.program, l.number && "\u2026" + last4(l.number)].filter(Boolean).join(" "));
     const pp = ((t.doc || {}).passport || {}).name;
     return `${t.name}${pp ? ` (${pp})` : ""}${progs.length ? `: ${progs.join(", ")}` : ""}`;
   }).join("; ");
@@ -1266,7 +1266,7 @@ Deno.serve(async (req) => {
     const list = [...(doc.loyalty || [])] as Record<string, string>[];
     let i = list.findIndex((l) => programKey(l.program) === key && (!l4 || !l.number || last4(l.number) === l4));
     if (i < 0) { list.push({ program: a.program, number: a.number }); i = list.length - 1; }
-    const masked = /[*•x]{2,}/i.test(a.number);
+    const masked = /[*\u2022x]{2,}/i.test(a.number);
     list[i] = {
       ...list[i],
       ...(a.number && !masked ? { number: a.number } : {}),
@@ -1300,7 +1300,7 @@ Deno.serve(async (req) => {
   let target = trips.find((t) => t.id === chosenTrip) || (confHit ? trips.find((t) => t.id === confHit.trip_id) : undefined);
   let makeNew = false;
 
-  // only the cards the family uses for trips (Travelers → Trip cards); with none listed, any card counts
+  // only the cards the family uses for trips (Travelers \u2192 Trip cards); with none listed, any card counts
   if (read.cardAlert && !read.bookings.length) {
     const digits = (s: string) => (String(s || "").match(/(\d{4,6})\D*$/) || [, ""])[1];
     const allowed = travelers.flatMap((t) => ((t.doc || {}).cards || []) as { last?: string }[]).map((c) => digits(c.last || "")).filter(Boolean);
@@ -1402,10 +1402,10 @@ Deno.serve(async (req) => {
   const sameMoney = (a: Record<string, any>, b: Record<string, any>) =>
     Math.abs(Number(a.amount) - Number(b.amount)) < 0.01 && String(a.currency) === String(b.currency);
   const paid = [...oldCosts.map((r) => r.doc), ...cRows.map((r) => r.doc)].filter((d) => d.status === "paid");
-  // only costs marked as card authorizations — equal installments still due are real
+  // only costs marked as card authorizations \u2014 equal installments still due are real
   const isAuthorization = (d: Record<string, any>) => d.status === "due" &&
     /authori[sz]/i.test(`${d.title} ${d.note}`) && paid.some((p) => sameMoney(p, d));
-  // the same payment reported twice — a booking email and the card alert for it — is kept once
+  // the same payment reported twice \u2014 a booking email and the card alert for it \u2014 is kept once
   const near = (a: Record<string, any>, b: Record<string, any>) =>
     !!a.date && !!b.date && Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) <= 3 * 86400000;
   const already = (d: Record<string, any>) => d.status === "paid" &&
@@ -1422,7 +1422,7 @@ Deno.serve(async (req) => {
   settled.push(...stale.map((o) => o.id));
   if (settled.length) await admin.from("entries").update({ deleted: true }).eq("household_id", hid).in("id", settled);
 
-  // same item forwarded again → same row id, so it is updated rather than duplicated; keep photos people added
+  // same item forwarded again \u2192 same row id, so it is updated rather than duplicated; keep photos people added
   const all = [...bRows, ...keptCosts];
   const { data: existing } = await admin.from("entries").select("id, doc").eq("household_id", hid).in("id", all.map((r) => r.id));
   const before = new Map(((existing || []) as { id: string; doc: Record<string, any> }[]).map((r) => [r.id, r.doc]));
@@ -1466,7 +1466,7 @@ Deno.serve(async (req) => {
       const amt = Number(d.amount).toLocaleString("en-US", { style: "currency", currency: String(d.currency || "USD") });
       b.doc = {
         ...b.doc, amount: left, applied: [...(b.doc.applied || []), r.id],
-        note: [b.doc.note, `less ${amt} ${d.status === "paid" ? "paid" : "authorized"}${d.date ? " " + d.date : ""}`].filter(Boolean).join(" · "),
+        note: [b.doc.note, `less ${amt} ${d.status === "paid" ? "paid" : "authorized"}${d.date ? " " + d.date : ""}`].filter(Boolean).join(" \u00b7 "),
       };
       await admin.from("entries").update({ doc: b.doc }).eq("household_id", hid).eq("id", b.id);
     }

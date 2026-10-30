@@ -31,6 +31,7 @@ import PhotoBook from './screens/PhotoBook.jsx';
 import AddSheet from './screens/AddSheet.jsx';
 import TabBar from './components/TabBar.jsx';
 import TopBar from './components/TopBar.jsx';
+import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
@@ -68,7 +69,8 @@ export default function App() {
   // always build on the latest state (a queued setState could otherwise be overwritten).
   const tripsRef = useRef(trips);
   const applyTrips = useCallback((fn) => {
-    const next = typeof fn === 'function' ? fn(tripsRef.current) : fn;
+    // text garbled by the old email function is put right here, and syncs back fixed
+    const next = repairTrips(typeof fn === 'function' ? fn(tripsRef.current) : fn);
     tripsRef.current = next;
     setTrips(next);
   }, []);
