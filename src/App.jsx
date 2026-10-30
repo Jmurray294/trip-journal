@@ -7,6 +7,7 @@ import { supabase } from './lib/supabase.js';
 import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
+import { resizePhoto } from './lib/resize.js';
 import { placeKey, mergeSuggestions } from './lib/explore.js';
 import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
@@ -32,23 +33,6 @@ import TabBar from './components/TabBar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
-
-function resizePhoto(file) {
-  return new Promise((res) => {
-    const img = new Image(); const url = URL.createObjectURL(file);
-    img.onload = () => {
-      // big enough for a full page of a printed photo book (11in at ~240dpi)
-      const sc = Math.min(1, 2600 / Math.max(img.width, img.height));
-      const cw = Math.round(img.width * sc), ch = Math.round(img.height * sc);
-      const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-      c.getContext('2d').drawImage(img, 0, 0, cw, ch);
-      URL.revokeObjectURL(url);
-      try { res(c.toDataURL('image/jpeg', 0.85)); } catch (e) { res(null); }
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); res(null); };
-    img.src = url;
-  });
-}
 
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (e) {
@@ -586,6 +570,29 @@ export default function App() {
     showToast((await copyText(text)) ? 'Trip summary copied' : 'Sharing not available');
   };
 
+  // the trip link: fellow travelers open it without signing in to see the plan and add photos and
+  // notes (screens/GuestTrip.jsx). A new token or none ends every copy of the old link.
+  const tripLink = (t) => `${window.location.origin}${import.meta.env.BASE_URL}?t=${t.shareToken}`;
+  const makeTripLink = (id) => {
+    const bytes = crypto.getRandomValues(new Uint8Array(18));
+    const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_');
+    updateTrip(id, (t) => ({ ...t, shareToken: token }));
+    showToast('Trip link ready — tap Send link');
+  };
+  const sendTripLink = async (t) => {
+    const url = tripLink(t);
+    const text = `${t.title}: see the plan and add your photos and notes from the trip`;
+    if (navigator.share) {
+      try { await navigator.share({ title: t.title, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    showToast((await copyText(url)) ? 'Trip link copied' : 'Could not copy the link');
+  };
+  const stopTripLink = (id) => {
+    if (!window.confirm('Turn off the trip link? Anyone using it will lose access. Their photos and notes stay in the trip.')) return;
+    updateTrip(id, (t) => { const { shareToken, ...rest } = t; return rest; }); // eslint-disable-line no-unused-vars
+    showToast('Trip link turned off');
+  };
+
   const writeSong = async (id) => {
     const t = trips.find((x) => x.id === id);
     if (!t) return;
@@ -707,6 +714,9 @@ export default function App() {
               onConfirmTrip={() => { updateTrip(trip.id, (t) => ({ ...t, possible: false, planning: true, statusLabel: 'Planning' })); showToast("It's on — moved to your trips"); }}
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
+              onMakeLink={() => makeTripLink(trip.id)}
+              onSendLink={() => sendTripLink(trip)}
+              onStopLink={() => stopTripLink(trip.id)}
               onStory={() => openStory(trip.id)}
               onBook={() => go({ bookId: trip.id })}
               onAdd={() => openAddFor(trip.id)}

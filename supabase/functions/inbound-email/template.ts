@@ -48,7 +48,7 @@ type Reading = { cardAlert?: boolean; summary: string; destination: string; book
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const ok = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -645,6 +645,14 @@ async function photoDrop(req: Request, url: URL) {
   if (!taken) return ok({ error: "no date taken" }, 400);
   const trip = tripOn(taken);
   if (!trip) return ok({ skipped: "no trip that day" });
+  return await filePhoto(admin, hid, trip, body, taken, "");
+}
+
+// One photo into a trip: stored in the family's media, then filed into its day's photos memory by
+// placePhotos, as the app's Add photos does; the same shot twice is skipped. `by` names the
+// fellow traveler who sent it from a shared trip link ("" for the family's Shortcut).
+async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, trip: { id: string; doc: Record<string, any> },
+  body: Record<string, unknown>, taken: Date, by: string) {
   const data = String(body.image || "").replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
   if (!data || data.length > 28_000_000) return ok({ error: "no image, or too big" }, 400);
 
@@ -654,9 +662,12 @@ async function photoDrop(req: Request, url: URL) {
   const before = new Map(days.map((d) => [d.id, JSON.stringify(d.photos || [])]));
   const lat = Number(body.lat), lon = Number(body.lon);
   const gps = isFinite(lat) && isFinite(lon) && (lat || lon) ? { lat, lon } : {};
-  const key = photoKey(taken, "");
-  const path = `${hid}/photos/${await sha(key + "|" + data.length + "|" + data.slice(0, 2000))}.jpg`;
-  const placed = placePhotos({ ...trip.doc, id: trip.id, days }, [{ key, taken, ...gps, path }], () => "photos-" + crypto.randomUUID().slice(0, 13));
+  const print = await sha(data.length + "|" + data.slice(0, 4000) + "|" + data.slice(-4000));
+  // two travelers can take different shots in the same second, so their photos are known by content
+  const key = by ? "g" + print : photoKey(taken, "");
+  const path = `${hid}/photos/${by ? print : await sha(key + "|" + data.length + "|" + data.slice(0, 2000))}.jpg`;
+  const placed = placePhotos({ ...trip.doc, id: trip.id, days }, [{ key, taken, ...gps, path, ...(by ? { by } : {}) }],
+    () => "photos-" + crypto.randomUUID().slice(0, 13));
   if (!placed.added) return ok({ skipped: "already added" });
 
   const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
@@ -668,24 +679,91 @@ async function photoDrop(req: Request, url: URL) {
     return { household_id: hid, id: d.id, trip_id: trip.id, deleted: false, doc };
   }), { onConflict: "household_id,id" });
   if (error) return ok({ error: error.message }, 500);
-  // the app's bell: one line per trip day of photos, counting up as they arrive
-  const mid = `photos:${trip.id}:${isoDay(taken)}`;
+  // the app's bell: one line per trip day of photos (and per traveler), counting up as they arrive
+  const mid = `photos:${trip.id}:${isoDay(taken)}${by ? ":" + by.toLowerCase() : ""}`;
   const { data: logRow } = await admin.from("inbound_emails").select("id, items").eq("household_id", hid).eq("message_id", mid).maybeSingle();
   if (logRow) {
     await admin.from("inbound_emails").update({ items: ((logRow as { items: number }).items || 0) + 1, created_at: new Date().toISOString() }).eq("id", (logRow as { id: number }).id);
   } else {
     await admin.from("inbound_emails").insert({
-      household_id: hid, sender: "iPhone Shortcut", subject: `Photos from ${label(taken)}`, items: 1, status: "added", reader: "shortcut",
+      household_id: hid, sender: by || "iPhone Shortcut", subject: `${by ? by + "'s photos" : "Photos"} from ${label(taken)}`, items: 1,
+      status: "added", reader: by ? "guest" : "shortcut",
       trip_title: String(trip.doc.title || ""), trip_id: trip.id, message_id: mid, body: "", attachments: [],
     });
   }
   return ok({ added: 1, trip: String(trip.doc.title || "") });
 }
 
+// ---- a trip shared by link (?share=<token>: the trip's shareToken), no sign-in ----
+// GET → the trip as a fellow traveler sees it: the plan, memories and photos — no costs, confirmation
+//       or loyalty numbers, and nothing from the family's other trips.
+// POST { action: "photo", name, image, taken, lat?, lon? } adds a photo; { action: "note", name, text, when }
+//       a note on that day. Both are marked with who sent them. Turning the link off in the app ends it.
+const noConf = (s: string) => s.replace(/\s*(·\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^·\s*/, "");
+async function sharedTrip(req: Request, url: URL) {
+  const token = String(url.searchParams.get("share") || "");
+  if (token.length < 16) return ok({ error: "This trip link isn't complete — ask for it again" }, 404);
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { data: found } = await admin.from("trips").select("household_id, id, doc").eq("doc->>shareToken", token).eq("deleted", false).limit(1);
+  const t = ((found || []) as { household_id: string; id: string; doc: Record<string, any> }[])[0];
+  if (!t) return ok({ error: "This trip link has been turned off" }, 404);
+  const hid = t.household_id;
+  const trip = { id: t.id, doc: t.doc };
+
+  if (req.method === "GET") {
+    const { data: rows } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", t.id).eq("deleted", false);
+    const days = ((rows || []) as { id: string; doc: Record<string, any> }[]).filter((r) => r.doc.type !== "cost");
+    const paths = [...new Set(days.flatMap((r) => (r.doc.photos || []).map((p: Record<string, any>) => p.path).filter(Boolean)))] as string[];
+    const signed = new Map<string, string>();
+    if (paths.length) {
+      const { data } = await admin.storage.from("media").createSignedUrls(paths, 12 * 3600);
+      for (const s of data || []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl);
+    }
+    const out = days.map(({ id, doc: d }) => ({
+      id, date: String(d.date || ""), title: String(d.title || ""), place: String(d.place || ""), kind: String(d.kind || ""),
+      pos: Number(d.pos) || 0, by: String(d.by || ""), cancelled: d.booking?.status === "cancelled",
+      // a booking shows when and where, not its confirmation number or who holds it
+      note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" · ") : noConf(String(d.note || "")),
+      photos: (d.photos || []).map((p: Record<string, any>) => ({
+        url: p.path ? signed.get(p.path) || "" : typeof p.src === "string" && !p.src.startsWith("data:") ? p.src : "",
+        label: String(p.label || ""), by: String(p.by || ""),
+      })).filter((p: { url: string }) => p.url),
+    })).sort((a, b) => a.pos - b.pos);
+    return ok({ trip: { title: t.doc.title || "Our trip", place: t.doc.place || "", dates: t.doc.dates || "", grad: t.doc.grad || "" }, days: out });
+  }
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return ok({ error: "bad json" }, 400); }
+  const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  if (!name) return ok({ error: "Add your name first" }, 400);
+  if (body.action === "photo") return await filePhoto(admin, hid, trip, body, parsePhotoTime(String(body.taken || "")) || new Date(), name);
+  if (body.action !== "note") return ok({ error: "unknown action" }, 400);
+
+  const text = String(body.text || "").trim().slice(0, 3000);
+  if (!text) return ok({ error: "Write something first" }, 400);
+  const when = parsePhotoTime(String(body.when || "")) || new Date();
+  const { data: rows } = await admin.from("entries").select("doc").eq("household_id", hid).eq("trip_id", t.id).eq("deleted", false);
+  const same = ((rows || []) as { doc: Record<string, any> }[]).map((r) => r.doc).filter((d) => d.type !== "cost" && d.date === label(when) && d.place);
+  const id = "note-" + crypto.randomUUID().slice(0, 13);
+  const doc = {
+    id, date: label(when), title: `${name}'s note`, place: same.length ? same[same.length - 1].place : t.doc.place || "",
+    note: text, photos: [], pos: when.getTime(), added: Date.now(), by: name, source: "guest",
+  };
+  const { error } = await admin.from("entries").upsert({ household_id: hid, id, trip_id: t.id, deleted: false, doc }, { onConflict: "household_id,id" });
+  if (error) return ok({ error: error.message }, 500);
+  await admin.from("inbound_emails").insert({
+    household_id: hid, sender: name, subject: `${name}: ${text.length > 60 ? text.slice(0, 57) + "…" : text}`, items: 1, status: "added",
+    reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
+  });
+  return ok({ added: 1 });
+}
+
 // ---- webhook (the Gmail forwarder, with ?key=) and uploads from the app (a signed-in family member) ----
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const url = new URL(req.url);
+  // a fellow traveler with the trip's link: the link itself is the pass
+  if (url.searchParams.has("share")) return await sharedTrip(req, url);
   const secret = Deno.env.get("INBOUND_SECRET");
   const fromForwarder = !!secret && url.searchParams.get("key") === secret;
   const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");

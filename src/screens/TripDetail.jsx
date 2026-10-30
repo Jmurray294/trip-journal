@@ -31,6 +31,28 @@ function CostsCard({ costs, onOpen }) {
   );
 }
 
+// The trip link for fellow travelers: they see the plan and add photos and notes, no account.
+function TripLinkCard({ trip, onMake, onSend, onStop }) {
+  return (
+    <div className="trip-link-card">
+      <div className="mono-label">Trip link</div>
+      <div className="sheet-copy">
+        {trip.shareToken
+          ? 'Anyone with the link can see the plan and add their photos and notes. Costs, confirmation numbers and travel documents stay private.'
+          : 'Send the people you travel with a link. They can see the plan and add their photos and notes for the story and album, no account needed.'}
+      </div>
+      {trip.shareToken ? (
+        <div className="row-8" style={{ marginTop: 12 }}>
+          <button className="btn-primary small press" onClick={onSend}><Share /> Send link</button>
+          <button className="btn-muted press" onClick={onStop}>Turn off</button>
+        </div>
+      ) : (
+        <button className="btn-secondary press" onClick={onMake}>Create trip link</button>
+      )}
+    </div>
+  );
+}
+
 // " · added Oct 22" when an item went into the journal on a different day from the one it's about
 // (with the year when it isn't this one)
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -182,6 +204,8 @@ export default function TripDetail(p) {
         <button className="btn-share press" onClick={p.onShare}><Share /> Share</button>
       </div>
 
+      {p.household && <TripLinkCard trip={trip} onMake={p.onMakeLink} onSend={p.onSendLink} onStop={p.onStopLink} />}
+
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
       <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>
 
@@ -248,7 +272,7 @@ export default function TripDetail(p) {
             <div className="entry-body">
               <div className="entry-top">
                 <div style={{ minWidth: 0 }}>
-                  <div className="entry-date">{d.kind && d.kind !== 'Booking' ? d.kind + ' · ' : ''}{d.date}{addedNote(d)}</div>
+                  <div className="entry-date">{d.kind && d.kind !== 'Booking' ? d.kind + ' · ' : ''}{d.date}{d.by ? ' · from ' + d.by : ''}{addedNote(d)}</div>
                   <div className="entry-title">{d.title}</div>
                 </div>
                 <button className="del-btn press" onClick={() => p.onDeleteEntry(idx)} aria-label="Delete memory"><span><Trash /></span></button>
@@ -259,7 +283,7 @@ export default function TripDetail(p) {
                   {d.photos.map((ph, i) => (
                     <div key={i} className="strip-tile">
                       <div className="fill" style={photoBg(ph)} />
-                      {ph.label && ph.label.trim() && <div className="strip-label">{ph.label}</div>}
+                      {((ph.label && ph.label.trim()) || ph.by) && <div className="strip-label">{(ph.label && ph.label.trim()) || ph.by}</div>}
                     </div>
                   ))}
                 </div>

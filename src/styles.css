@@ -563,6 +563,8 @@ select.field { -webkit-appearance: auto; appearance: auto; }
 .doc-body { margin: 4px 0 10px; padding: 12px; border-radius: 12px; background: rgba(42,37,32,0.04); font-size: 13px; line-height: 1.5; color: var(--secondary); white-space: pre-wrap; max-height: 360px; overflow-y: auto; overflow-wrap: anywhere; }
 
 /* ---------- costs ---------- */
+.trip-link-card { margin: 14px 18px 0; background: var(--card); border-radius: 20px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(42,37,32,0.08); }
+.trip-link-card .btn-primary.small { display: flex; }
 .costs-card { display: block; width: calc(100% - 36px); text-align: left; border: none; cursor: pointer; color: var(--ink); font-family: inherit; margin: 14px 18px 0; background: var(--card); border-radius: 20px; padding: 16px 18px 14px; box-shadow: 0 6px 18px rgba(42,37,32,0.08); }
 .costs-more { margin-top: 11px; font-size: 13px; font-weight: 600; color: var(--terra); }
 .costs-totals { display: flex; flex-direction: column; gap: 10px; margin-top: 11px; }
