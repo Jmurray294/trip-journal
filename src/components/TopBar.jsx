@@ -1,5 +1,5 @@
 import { Plus, TabTrips, TabMap, TabAlbums, TabTravelers } from './Icons.jsx';
-import { BellIcon } from './Bell.jsx';
+import { BellIcon, BELL_KINDS } from './Bell.jsx';
 import { statusLabel } from '../screens/FamilySheet.jsx';
 
 // Desktop header (≥900px wide): a letterhead with the family and account, then the navy band with the
@@ -10,7 +10,13 @@ function initials(name) {
   return ((w[0] || '?')[0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase();
 }
 
-export default function TopBar({ tab, crumb, onTrips, onMap, onAlbums, onTravelers, onAdd, unread = null, onBell, family, onFamily }) {
+export default function TopBar({ tab, crumb, onTrips, onMap, onAlbums, onTravelers, onAdd, attention = null, newCount = 0, onBell, family, onFamily }) {
+  // one chip per kind of thing that needs a look; a chip turns red when one of its items is overdue or due soon
+  const counts = attention && { new: newCount }, urgent = {};
+  if (counts) for (const a of attention) {
+    counts[a.kind] = (counts[a.kind] || 0) + 1;
+    if (a.level !== 'info') urgent[a.kind] = true;
+  }
   const me = family.members && family.members.find((m) => m.user_id === family.uid);
   const name = (me && me.display_name) || family.email || '';
   const tabs = [['trips', 'Trips', TabTrips, onTrips], ['map', 'Map', TabMap, onMap], ['albums', 'Albums', TabAlbums, onAlbums], ['travelers', 'Travelers', TabTravelers, onTravelers]];
@@ -26,12 +32,6 @@ export default function TopBar({ tab, crumb, onTrips, onMap, onAlbums, onTravele
           </span>
         </button>
         <div className="grow" />
-        {unread != null && (
-          <button className="tb-icon" onClick={onBell} aria-label="What's new">
-            <BellIcon size={20} />
-            {unread > 0 && <span className="bell-count">{unread > 9 ? '9+' : unread}</span>}
-          </button>
-        )}
         {family.available && (
           <button className="tb-account" onClick={onFamily}>
             <span className="tb-account-text">
@@ -50,6 +50,17 @@ export default function TopBar({ tab, crumb, onTrips, onMap, onAlbums, onTravele
               <button key={key} className={'tb-tab' + (tab === key ? ' on' : '')} onClick={on}><Icon /><span>{label}</span></button>
             ))}
           </nav>
+          <div className="grow" />
+          {counts && (
+            <div className="tb-bells">
+              <BellIcon size={16} />
+              {BELL_KINDS.filter(([k]) => counts[k] > 0 || k === 'new').map(([k, label]) => (
+                <button key={k} className={'tb-bell press' + (urgent[k] ? ' urgent' : '')} onClick={() => onBell(k)}>
+                  {label}{counts[k] > 0 && <span className="tb-bell-n">{counts[k] > 9 ? '9+' : counts[k]}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="tb-crumb">
           <strong>{here ? here[1] : 'Trips'}</strong>{crumb ? <> · {crumb}</> : null}

@@ -26,6 +26,9 @@ function line(m) {
   return { kind: 'added', where: where ? `→ ${where}` : 'Added' };
 }
 
+// The chips in the desktop band, one per kind of thing that needs a look, plus what's new
+export const BELL_KINDS = [['payments', 'Payments'], ['sort', 'To sort'], ['docs', 'Documents'], ['trips', 'Trips'], ['new', "What's new"]];
+
 export function BellButton({ unread, onClick, className = '' }) {
   return (
     <button className={'bell-btn press ' + className} onClick={onClick} aria-label={unread ? `What's new: ${unread} new` : "What's new"}>
@@ -35,10 +38,15 @@ export function BellButton({ unread, onClick, className = '' }) {
   );
 }
 
-export function BellPanel({ activity, attention = [], onClose, onOpenTrip, onSort, onOpenItem }) {
+// only: one kind from BELL_KINDS (a chip was clicked), or null for everything (the phone's bell)
+export function BellPanel({ activity, attention = [], only = null, onClose, onOpenTrip, onSort, onOpenItem }) {
   const [since] = useState(activity.seenAt); // what was new when the panel opened stays marked
+  const showAttn = only !== 'new';
+  const showNew = !only || only === 'new';
+  if (only && only !== 'new') attention = attention.filter((a) => a.kind === only);
+  const title = only && only !== 'new' ? BELL_KINDS.find((k) => k[0] === only)[1] : 'Needs a look';
   useEffect(() => {
-    activity.markSeen();
+    if (showNew) activity.markSeen();
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -48,8 +56,8 @@ export function BellPanel({ activity, attention = [], onClose, onOpenTrip, onSor
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grab" />
-        <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Needs a look</div>
-        {attention.length === 0 ? (
+        {showAttn && <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>{title}</div>}
+        {!showAttn ? null : attention.length === 0 ? (
           <div className="sheet-copy" style={{ marginTop: 4 }}>All clear: nothing overdue, nothing to sort.</div>
         ) : (
           <div className="bell-list">
@@ -65,9 +73,9 @@ export function BellPanel({ activity, attention = [], onClose, onOpenTrip, onSor
           </div>
         )}
 
-        <div className="serif" style={{ fontSize: 22, fontWeight: 600, marginTop: 22 }}>What's new</div>
-        <div className="sheet-copy" style={{ marginTop: 4 }}>Everything that came in to the trips address, newest first.</div>
-        {activity.items.length === 0 ? (
+        {showNew && <div className="serif" style={{ fontSize: 22, fontWeight: 600, marginTop: showAttn ? 22 : 0 }}>What's new</div>}
+        {showNew && <div className="sheet-copy" style={{ marginTop: 4 }}>Everything that came in to the trips address, newest first.</div>}
+        {!showNew ? null : activity.items.length === 0 ? (
           <div className="tv-empty" style={{ marginTop: 16 }}>Nothing yet — forwarded bookings, ideas and photos show up here.</div>
         ) : (
           <div className="bell-list">

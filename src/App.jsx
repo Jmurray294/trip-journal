@@ -144,7 +144,7 @@ export default function App() {
   const travelers = useTravelers(family.household);
   // ---- the bell: what's new from the trips address and the Shortcut ----
   const activity = useActivity(family.household);
-  const [bellOpen, setBellOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false); // true = everything, or one kind from a desktop chip
   // ...and what needs a look: overdue payments, things to sort, document problems, the trip underway
   const attn = attention(trips, { toSort: inbox.items.length, travelers: travelers.list || [] });
   const bellCount = (activity.unread || 0) + urgentCount(attn);
@@ -793,7 +793,7 @@ export default function App() {
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
-          unread={family.household ? bellCount : null} onBell={() => setBellOpen(true)}
+          attention={family.household ? attn : null} newCount={activity.unread || 0} onBell={(kind) => setBellOpen(kind)}
           family={family} onFamily={() => setFamilyOpen(true)}
         />
 
@@ -847,7 +847,7 @@ export default function App() {
         )}
 
         {bellOpen && (
-          <BellPanel activity={activity} attention={attn} onClose={() => setBellOpen(false)}
+          <BellPanel activity={activity} attention={attn} only={bellOpen === true ? null : bellOpen} onClose={() => setBellOpen(false)}
             onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)}
             onOpenItem={(o) => (o.sort ? setSortOpen(true) : go({ tab: 'trips', tripId: o.tripId, view: null, section: o.section || null }))} />
         )}
