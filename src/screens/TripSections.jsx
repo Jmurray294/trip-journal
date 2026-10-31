@@ -179,6 +179,14 @@ export function Budget({ trip, onAddCost, onDeleteCost, onMarkPaid, onEditCost }
         </div>
       )}
 
+      <div className="budget-hint">
+        <div className="budget-hint-title">Card charges add themselves</div>
+        <div className="budget-hint-body">
+          When your card's purchase alert email reaches the trip inbox, any charge made during the trip (Uber, meals, tickets) shows up here within a minute or two, sorted by category.
+          A pending charge switches to paid once it posts. Paid cash? Tap <b>+ Add cost</b>.
+        </div>
+      </div>
+
       {upcoming.length > 0 && (
         <section>
           <div className="mono-label" style={{ margin: '0 2px 9px' }}>Coming up</div>

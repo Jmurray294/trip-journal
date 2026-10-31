@@ -320,3 +320,9 @@ body, .app { background-color: #0F3A70; background-image: var(--blueprint); }
 @media (min-width: 900px) {
   .home-list { display: none; }
 }
+
+/* Budget: how card charges get here */
+.budget-hint { background: #EEF3FC; border: 1px solid #D5E1F7; border-left: 3px solid #1B3FA8; border-radius: 10px; padding: 11px 14px; }
+.budget-hint-title { font-weight: 600; font-size: 13.5px; color: #1340A1; margin-bottom: 3px; }
+.budget-hint-body { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.budget-hint-body b { color: var(--ink); font-weight: 600; }
