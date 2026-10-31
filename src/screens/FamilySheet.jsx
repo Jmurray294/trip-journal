@@ -197,6 +197,7 @@ export default function FamilySheet({ family, onClose, toast }) {
               <button className="btn-share press" onClick={copyInbox}>Copy</button>
             </div>
             <div className="sheet-copy" style={{ marginTop: 8 }}>Forward confirmations, receipts, invoices and trip ideas here from any email account. They're added to the right trip; if we're not sure which, they wait under <strong>To sort</strong>.</div>
+            <div className="sheet-copy" style={{ marginTop: 8 }}>Family code: <strong style={{ userSelect: 'all' }}>{h.inbox_token}</strong> (FAMILY_CODE in the Gmail forwarder)</div>
             {emails.length > 0 && (
               <>
                 <Label top={16}>Recent emails</Label>
