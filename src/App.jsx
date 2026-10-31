@@ -33,6 +33,7 @@ import TabBar from './components/TabBar.jsx';
 import TopBar from './components/TopBar.jsx';
 import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
+import { attention, urgentCount } from './lib/attention.js';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
 
@@ -144,6 +145,9 @@ export default function App() {
   // ---- the bell: what's new from the trips address and the Shortcut ----
   const activity = useActivity(family.household);
   const [bellOpen, setBellOpen] = useState(false);
+  // ...and what needs a look: overdue payments, things to sort, document problems, the trip underway
+  const attn = attention(trips, { toSort: inbox.items.length, travelers: travelers.list || [] });
+  const bellCount = (activity.unread || 0) + urgentCount(attn);
 
   // ---- home base, shared with the family (households.home) so every device has it ----
   const hid = family.household && family.household.id;
@@ -325,7 +329,7 @@ export default function App() {
   const go = (patch) => {
     stopSong(); stopAuto(); stopDictationRef.current();
     setSong((s) => ({ ...s, playing: false, progress: 0, lyricsOpen: false }));
-    setNav((n) => ({ ...n, storyId: null, bookId: null, ...patch }));
+    setNav((n) => ({ ...n, storyId: null, bookId: null, section: null, ...patch }));
     resetScroll();
   };
   const openStory = (id) => {
@@ -714,12 +718,12 @@ export default function App() {
               family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)}
               someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
               onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea}
-              unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
+              unread={family.household ? bellCount : null} onBell={() => setBellOpen(true)}
               view={nav.view} ideaPlace={nav.ideaPlace} onSomeday={showSomeday} onHome={() => go({ view: null, ideaPlace: null })} />
           )}
           {screen === 'detail' && (
             <TripDetail
-              key={trip.id}
+              key={trip.id + (nav.section || '')} initialTab={nav.section}
               trip={trip} song={song} songBusy={songBusy === trip.id} audioBusy={audioBusy}
               household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
               travelers={travelers.list} home={home} onTravelers={() => go({ tab: 'travelers', tripId: null })}
@@ -789,7 +793,7 @@ export default function App() {
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
-          unread={family.household ? activity.unread : null} onBell={() => setBellOpen(true)}
+          unread={family.household ? bellCount : null} onBell={() => setBellOpen(true)}
           family={family} onFamily={() => setFamilyOpen(true)}
         />
 
@@ -843,8 +847,9 @@ export default function App() {
         )}
 
         {bellOpen && (
-          <BellPanel activity={activity} onClose={() => setBellOpen(false)}
-            onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)} />
+          <BellPanel activity={activity} attention={attn} onClose={() => setBellOpen(false)}
+            onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)}
+            onOpenItem={(o) => (o.sort ? setSortOpen(true) : go({ tab: 'trips', tripId: o.tripId, view: null, section: o.section || null }))} />
         )}
         {familyOpen && <FamilySheet family={family} onClose={() => setFamilyOpen(false)} toast={showToast} />}
         {sortOpen && (

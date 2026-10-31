@@ -159,7 +159,7 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 
 export default function TripDetail(p) {
   const { trip } = p;
-  const [tab, setTab] = useState('itinerary');
+  const [tab, setTab] = useState(p.initialTab || 'itinerary');
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
   const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);

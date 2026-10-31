@@ -35,7 +35,7 @@ export function BellButton({ unread, onClick, className = '' }) {
   );
 }
 
-export function BellPanel({ activity, onClose, onOpenTrip, onSort }) {
+export function BellPanel({ activity, attention = [], onClose, onOpenTrip, onSort, onOpenItem }) {
   const [since] = useState(activity.seenAt); // what was new when the panel opened stays marked
   useEffect(() => {
     activity.markSeen();
@@ -48,7 +48,24 @@ export function BellPanel({ activity, onClose, onOpenTrip, onSort }) {
       <div className="sheet-backdrop" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grab" />
-        <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>What's new</div>
+        <div className="serif" style={{ fontSize: 22, fontWeight: 600 }}>Needs a look</div>
+        {attention.length === 0 ? (
+          <div className="sheet-copy" style={{ marginTop: 4 }}>All clear: nothing overdue, nothing to sort.</div>
+        ) : (
+          <div className="bell-list">
+            {attention.map((a) => (
+              <button key={a.key} className={'bell-item attn press-soft ' + a.level} onClick={() => { onOpenItem(a.open); onClose(); }}>
+                <span className={'bell-dot ' + a.level} />
+                <span className="grow">
+                  <span className="bell-subject">{a.text}</span>
+                  {a.sub && <span className="bell-where">{a.sub}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="serif" style={{ fontSize: 22, fontWeight: 600, marginTop: 22 }}>What's new</div>
         <div className="sheet-copy" style={{ marginTop: 4 }}>Everything that came in to the trips address, newest first.</div>
         {activity.items.length === 0 ? (
           <div className="tv-empty" style={{ marginTop: 16 }}>Nothing yet — forwarded bookings, ideas and photos show up here.</div>

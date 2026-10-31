@@ -326,3 +326,9 @@ body, .app { background-color: #0F3A70; background-image: var(--blueprint); }
 .budget-hint-title { font-weight: 600; font-size: 13.5px; color: #1340A1; margin-bottom: 3px; }
 .budget-hint-body { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
 .budget-hint-body b { color: var(--ink); font-weight: 600; }
+
+/* Bell: needs a look */
+.bell-dot.bad { background: #C23A2B; }
+.bell-dot.warn { background: #E2A32B; }
+.bell-dot.info { background: #1B3FA8; }
+.bell-item.attn.bad { background: #FDF0EE; }
