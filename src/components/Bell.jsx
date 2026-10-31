@@ -27,7 +27,7 @@ function line(m) {
 }
 
 // The chips in the desktop band, one per kind of thing that needs a look, plus what's new
-export const BELL_KINDS = [['payments', 'Payments'], ['sort', 'To sort'], ['docs', 'Documents'], ['trips', 'Trips'], ['new', "What's new"]];
+export const BELL_KINDS = [['payments', 'Payments'], ['sort', 'To sort'], ['docs', 'Documents'], ['charges', 'Charges'], ['new', "What's new"]];
 
 export function BellButton({ unread, onClick, className = '' }) {
   return (
