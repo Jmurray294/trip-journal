@@ -83,3 +83,16 @@ export function groupTrips(trips, today = new Date()) {
 }
 
 export const STAGES = [['upcoming', 'Upcoming'], ['possible', 'Possible'], ['past', 'Past']];
+
+// The trip a photo taken on `when` belongs to: the one you're adding to when its dates cover that day
+// (a day either side, for travel days), else the shortest other trip that does, else the one you're adding to.
+export function tripForDay(trips, when, currentId) {
+  if (!when) return currentId;
+  const x = day(when).getTime(), DAY = 86400000;
+  const covers = (t) => { const s = !t.possible && tripSpan(t); return !!s && x >= day(s[0]).getTime() - DAY && x <= day(s[1]).getTime() + DAY; };
+  const cur = trips.find((t) => t.id === currentId);
+  if (cur && covers(cur)) return currentId;
+  const len = (t) => { const s = tripSpan(t); return s[1] - s[0]; };
+  const other = trips.filter(covers).sort((a, b) => len(a) - len(b))[0];
+  return other ? other.id : currentId;
+}

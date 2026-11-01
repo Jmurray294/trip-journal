@@ -34,6 +34,7 @@ import TopBar from './components/TopBar.jsx';
 import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
+import { tripSpan, tripForDay } from './lib/stages.js';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
 
@@ -478,13 +479,27 @@ export default function App() {
       if (!src) continue;
       items.push({ key: photoKey(taken, f.name + '|' + f.size), taken, lat: meta && meta.lat, lon: meta && meta.lon, src });
     }
-    const trip = tripsRef.current.find((t) => t.id === tripId);
-    if (!trip) return;
-    const r = placePhotos(trip, items, newEntryId, new Date());
-    if (!r.added) { showToast(items.length ? 'Those photos are already in this trip' : 'Could not read those photos'); return; }
-    updateTrip(tripId, (t) => ({ ...t, days: sortDays(placePhotos(t, items, newEntryId, new Date()).trip.days) }));
+    if (!tripsRef.current.some((t) => t.id === tripId)) return;
+    // a photo taken during another trip goes to that trip, whichever trip it was added from
+    const groups = new Map();
+    for (const it of items) {
+      const id = tripForDay(tripsRef.current, it.taken, tripId);
+      groups.set(id, [...(groups.get(id) || []), it]);
+    }
+    let added = 0;
+    const elsewhere = [];
+    for (const [id, list] of groups) {
+      const trip = tripsRef.current.find((t) => t.id === id);
+      const r = placePhotos(trip, list, newEntryId, new Date());
+      if (!r.added) continue;
+      added += r.added;
+      if (id !== tripId) elsewhere.push(`${r.added} to ${trip.title}`);
+      updateTrip(id, (t) => ({ ...t, days: sortDays(placePhotos(t, list, newEntryId, new Date()).trip.days) }));
+    }
+    if (!added) { showToast(items.length ? 'Those photos are already in this trip' : 'Could not read those photos'); return; }
     const undated = items.filter((i) => !i.taken).length;
-    showToast(`Added ${r.added} ${r.added === 1 ? 'photo' : 'photos'}` + (undated ? ` — ${undated} had no date and went on today` : ''));
+    showToast(`Added ${added} ${added === 1 ? 'photo' : 'photos'}` + (elsewhere.length ? ` (${elsewhere.join(', ')}, by the date taken)` : '') +
+      (undated ? ` — ${undated} had no date and went on today` : ''));
   };
 
   const saveTrip = ({ title, place, dates, grad }) => {
@@ -529,6 +544,26 @@ export default function App() {
         .map((d, i) => ({ ...d, num: i + 1 })),
     }));
     showToast('Photo removed');
+  };
+
+  // one photo from a memory in one trip to another trip, filed there by the day it was taken
+  const movePhoto = (fromId, dayId, pi, toId) => {
+    const from = tripsRef.current.find((t) => t.id === fromId);
+    const to = tripsRef.current.find((t) => t.id === toId);
+    const d = from && (from.days || []).find((x) => x.id === dayId);
+    const ph = d && (d.photos || [])[pi];
+    if (!ph || !to) return;
+    const { taken, key, ...rest } = ph;
+    const span = tripSpan(to);
+    const item = { ...rest, key: key || photoKey(taken ? new Date(taken) : null, rest.src || rest.path || String(Date.now())), taken: taken ? new Date(taken) : null };
+    updateTrip(fromId, (t) => ({
+      ...t,
+      days: t.days.map((x) => (x.id === dayId ? { ...x, photos: (x.photos || []).filter((_, j) => j !== pi) } : x))
+        .filter((x) => !(x.source === 'photos' && !(x.photos || []).length && !(x.note || '').trim()))
+        .map((x, i) => ({ ...x, num: i + 1 })),
+    }));
+    updateTrip(toId, (t) => ({ ...t, days: sortDays(placePhotos(t, [item], newEntryId, span ? span[0] : new Date()).trip.days) }));
+    showToast('Photo moved to ' + to.title);
   };
 
   const addCost = (tripId, c) => {
@@ -776,7 +811,7 @@ export default function App() {
             />
           )}
           {screen === 'albums' && (
-            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} />
+            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} onMove={movePhoto} />
           )}
           {screen === 'travelers' && (
             <Travelers list={travelers.list} signedIn={!!(supabase && family.household)} toast={showToast}

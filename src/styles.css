@@ -763,3 +763,5 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .viewer-close:hover, .viewer-nav:hover { background: rgba(255,255,255,0.26); }
 .viewer-cap { position: absolute; left: 0; right: 0; bottom: max(18px, env(safe-area-inset-bottom)); text-align: center; color: #fff; font-family: var(--serif); font-size: 16px; padding: 0 16px; }
 .viewer-count { opacity: .7; font-size: 13px; }
+.viewer-move { margin-left: 12px; height: 30px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.35); border-radius: 8px; background: rgba(255,255,255,0.14); color: #fff; font-size: 13px; font-family: inherit; cursor: pointer; vertical-align: middle; }
+.viewer-move option { color: #222; }

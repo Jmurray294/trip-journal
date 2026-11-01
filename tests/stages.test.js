@@ -49,3 +49,17 @@ test('trips are grouped: upcoming soonest first, past most recent first', () => 
   assert.deepEqual(g.past.map((t) => t.id), ['bigsur', 'tofino']);
   assert.deepEqual(g.possible.map((t) => t.id), ['banff']);
 });
+
+test('a photo goes to the trip whose dates cover the day it was taken', async () => {
+  const { tripForDay } = await import('../src/lib/stages.js');
+  const trips = [
+    { id: 'mke', title: 'Milwaukee 2026', dates: 'Oct 31 – Nov 2, 2026' },
+    { id: 'jp', title: 'Japan 2027', dates: 'Apr 2–16, 2027' },
+    { id: 'maybe', title: 'Maybe', possible: true, dates: 'Oct 30 – Nov 5, 2026' },
+  ];
+  assert.equal(tripForDay(trips, new Date(2026, 9, 31, 15), 'jp'), 'mke', 'taken in Milwaukee, added from Japan');
+  assert.equal(tripForDay(trips, new Date(2026, 10, 3), 'jp'), 'mke', 'a day after counts');
+  assert.equal(tripForDay(trips, new Date(2027, 3, 5), 'jp'), 'jp');
+  assert.equal(tripForDay(trips, new Date(2026, 5, 1), 'jp'), 'jp', 'no trip that day: stays where it was added');
+  assert.equal(tripForDay(trips, null, 'jp'), 'jp', 'no date: stays');
+});

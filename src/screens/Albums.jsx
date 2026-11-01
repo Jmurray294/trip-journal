@@ -4,10 +4,10 @@ import { countPhotos, photoBg, photoSrc, short } from '../lib/derive.js';
 
 const HEIGHTS = [150, 205, 175, 228, 158, 196, 168, 186];
 
-export default function Albums({ trips, filter, onFilter }) {
+export default function Albums({ trips, filter, onFilter, onMove }) {
   const all = [];
-  trips.forEach((t) => (t.days || []).forEach((d) => (d.photos || []).forEach((p) => {
-    all.push({ tripId: t.id, trip: t.title, caption: p.label || d.place || d.title, p, h: HEIGHTS[all.length % HEIGHTS.length] });
+  trips.forEach((t) => (t.days || []).forEach((d) => (d.photos || []).forEach((p, pi) => {
+    all.push({ tripId: t.id, trip: t.title, dayId: d.id, pi, caption: p.label || d.place || d.title, p, h: HEIGHTS[all.length % HEIGHTS.length] });
   })));
   const chips = [{ id: 'all', label: 'All' }, ...trips.filter((t) => countPhotos(t) > 0).map((t) => ({ id: t.id, label: short(t.title, 14) }))];
   const shown = all.filter((a) => filter === 'all' || a.tripId === filter);
@@ -39,13 +39,14 @@ export default function Albums({ trips, filter, onFilter }) {
           </button>
         ))}
       </div>
-      {open != null && shown[open] && <PhotoViewer items={shown} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
+      {open != null && shown[open] && <PhotoViewer items={shown} index={open} onIndex={setOpen} onClose={() => setOpen(null)} trips={trips}
+        onMove={onMove && ((a, to) => { setOpen(null); onMove(a.tripId, a.dayId, a.pi, to); })} />}
     </div>
   );
 }
 
 // One photo at full size: arrows (or ← →) step through the others, Esc or a click outside closes it.
-function PhotoViewer({ items, index, onIndex, onClose }) {
+function PhotoViewer({ items, index, onIndex, onClose, trips, onMove }) {
   const a = items[index];
   const step = (n) => onIndex((index + n + items.length) % items.length);
   useEffect(() => {
@@ -68,6 +69,12 @@ function PhotoViewer({ items, index, onIndex, onClose }) {
       <div className="viewer-cap">
         <span className="masonry-trip">{a.trip}</span> {a.caption}
         {items.length > 1 && <span className="viewer-count"> · {index + 1} of {items.length}</span>}
+        {onMove && trips.length > 1 && (
+          <select className="viewer-move" value="" onClick={(e) => e.stopPropagation()} onChange={(e) => e.target.value && onMove(a, e.target.value)} aria-label="Move this photo to another trip">
+            <option value="">Move to trip…</option>
+            {trips.filter((t) => t.id !== a.tripId).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+          </select>
+        )}
       </div>
     </div>
   );
