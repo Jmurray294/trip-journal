@@ -142,7 +142,7 @@ const READING_SCHEMA = {
           title: { type: "string" },
           provider: { type: "string", description: "Airline, hotel, cruise line, rental company, venue..." },
           confirmation: { type: "string", description: "Confirmation / booking / record locator number, or empty" },
-          place: { type: "string", description: "City or place name, short" },
+          place: { type: "string", description: "City or place name, short. For a flight, train or transfer, the city it arrives in (DFW to MKE is 'Milwaukee'), not where it leaves from" },
           address: { type: "string", description: "Street address or terminal/port, or empty" },
           travelers: { type: "string", description: "Names on the booking, comma separated, or empty" },
           loyalty: { type: "string", description: "Frequent flyer / hotel / rental loyalty numbers shown on this reservation, as printed (may be masked), comma separated, or empty" },

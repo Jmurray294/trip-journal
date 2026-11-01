@@ -10,6 +10,7 @@ test('United flight with route and time', () => {
   assert.equal(r.length, 1);
   assert.equal(r[0].kind, 'Flight');
   assert.equal(r[0].title, 'United UA1234 · SEA → SFO');
+  assert.equal(r[0].place, 'SFO');
   assert.equal(r[0].date, 'Aug 8');
   assert.equal(r[0].note, 'Departs 7:45am · From confirmation email');
 });
@@ -18,6 +19,7 @@ test('Delta flight with airport codes in parentheses, deduped', () => {
   const r = parseConfirmation('DL 456 Seattle (SEA) to Los Angeles (LAX) on 2026-03-02 10:05pm. Reminder: DL 456');
   assert.equal(r.length, 1);
   assert.equal(r[0].title, 'Delta DL456 · SEA → LAX');
+  assert.equal(r[0].place, 'LAX');
   assert.equal(r[0].date, 'Mar 2');
 });
 

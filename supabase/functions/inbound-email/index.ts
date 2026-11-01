@@ -93,15 +93,15 @@ function parseConfirmation(raw) {
     const key = code + num;
     if (seenFlights[key]) continue;
     seenFlights[key] = 1;
-    let route = '';
+    let route = ''; let dest = '';
     const near = text.slice(Math.max(0, fm.index - 260), fm.index + 320);
     const pair = near.match(/\b([A-Z]{3})\s*(?:\u2013|-|\u2014|to|\u2192)\s*([A-Z]{3})\b/);
-    if (pair) route = pair[1] + ' \u2192 ' + pair[2];
+    if (pair) { route = pair[1] + ' \u2192 ' + pair[2]; dest = pair[2]; }
     else {
       const codes = []; let am;
       const ar = /\(([A-Z]{3})\)/g;
       while ((am = ar.exec(near))) codes.push(am[1]);
-      if (codes.length >= 2) route = codes[0] + ' \u2192 ' + codes[1];
+      if (codes.length >= 2) { route = codes[0] + ' \u2192 ' + codes[1]; dest = codes[1]; }
     }
     const d = dates.find((x) => Math.abs(x.idx - fm.index) < 400) || dates[0];
     const t = times.find((x) => Math.abs(x.idx - fm.index) < 400);
@@ -109,7 +109,7 @@ function parseConfirmation(raw) {
       kind: 'Flight', sortDate: d ? d.date : null,
       date: d ? fmtDate(d.date) : todayLabel(),
       title: AIRLINES[code] + ' ' + code + num + (route ? ' \u00b7 ' + route : ''),
-      place: route || 'Flight',
+      place: dest || 'Flight', // where it lands, not where it leaves from
       note: [t ? 'Departs ' + t.label : '', 'From confirmation email'].filter(Boolean).join(' \u00b7 ')
     });
   }
@@ -480,7 +480,7 @@ const READING_SCHEMA = {
           title: { type: "string" },
           provider: { type: "string", description: "Airline, hotel, cruise line, rental company, venue..." },
           confirmation: { type: "string", description: "Confirmation / booking / record locator number, or empty" },
-          place: { type: "string", description: "City or place name, short" },
+          place: { type: "string", description: "City or place name, short. For a flight, train or transfer, the city it arrives in (DFW to MKE is 'Milwaukee'), not where it leaves from" },
           address: { type: "string", description: "Street address or terminal/port, or empty" },
           travelers: { type: "string", description: "Names on the booking, comma separated, or empty" },
           loyalty: { type: "string", description: "Frequent flyer / hotel / rental loyalty numbers shown on this reservation, as printed (may be masked), comma separated, or empty" },

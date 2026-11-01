@@ -71,15 +71,15 @@ export function parseConfirmation(raw) {
     const key = code + num;
     if (seenFlights[key]) continue;
     seenFlights[key] = 1;
-    let route = '';
+    let route = ''; let dest = '';
     const near = text.slice(Math.max(0, fm.index - 260), fm.index + 320);
     const pair = near.match(/\b([A-Z]{3})\s*(?:–|-|—|to|→)\s*([A-Z]{3})\b/);
-    if (pair) route = pair[1] + ' → ' + pair[2];
+    if (pair) { route = pair[1] + ' → ' + pair[2]; dest = pair[2]; }
     else {
       const codes = []; let am;
       const ar = /\(([A-Z]{3})\)/g;
       while ((am = ar.exec(near))) codes.push(am[1]);
-      if (codes.length >= 2) route = codes[0] + ' → ' + codes[1];
+      if (codes.length >= 2) { route = codes[0] + ' → ' + codes[1]; dest = codes[1]; }
     }
     const d = dates.find((x) => Math.abs(x.idx - fm.index) < 400) || dates[0];
     const t = times.find((x) => Math.abs(x.idx - fm.index) < 400);
@@ -87,7 +87,7 @@ export function parseConfirmation(raw) {
       kind: 'Flight', sortDate: d ? d.date : null,
       date: d ? fmtDate(d.date) : todayLabel(),
       title: AIRLINES[code] + ' ' + code + num + (route ? ' · ' + route : ''),
-      place: route || 'Flight',
+      place: dest || 'Flight', // where it lands, not where it leaves from
       note: [t ? 'Departs ' + t.label : '', 'From confirmation email'].filter(Boolean).join(' · ')
     });
   }
