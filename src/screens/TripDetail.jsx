@@ -5,6 +5,7 @@ import { fmtTime, activeLine } from '../lib/song.js';
 import { stageLabel, tripStage } from '../lib/stages.js';
 import TripAlerts from '../components/TripAlerts.jsx';
 import Explore from './Explore.jsx';
+import PhotoViewer from '../components/PhotoViewer.jsx';
 
 import { Bookings, Budget, Documents } from './TripSections.jsx';
 
@@ -66,7 +67,7 @@ function addedNote(d) {
   return ' · added ' + l + (a.getFullYear() !== new Date().getFullYear() ? ', ' + a.getFullYear() : '');
 }
 
-const TABS = [['itinerary', 'Itinerary'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
+const TABS = [['itinerary', 'Itinerary'], ['photos', 'Photos'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -163,10 +164,11 @@ export default function TripDetail(p) {
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
   const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);
-  const shown = trip.days.map((d, idx) => ({ d, idx })); // idx: its place in trip.days, for delete
+  // the itinerary is the plan and what you wrote; photos have their own tab (photos-only memories live there)
+  const shown = trip.days.map((d, idx) => ({ d, idx })).filter(({ d }) => d.source !== 'photos'); // idx: its place in trip.days, for delete
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const bookingCount = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind)).length;
-  const counts = { itinerary: trip.days.length, bookings: bookingCount, budget: (trip.costs || []).length };
+  const counts = { itinerary: shown.length, photos: countPhotos(trip), bookings: bookingCount, budget: (trip.costs || []).length };
   return (
     <div className="screen pad-tab">
       <div className="hero detail-hero">
@@ -199,7 +201,7 @@ export default function TripDetail(p) {
       <div className="detail-side">
       <div className="stats-card">
         <div className="row-22">
-          <div><div className="stat-num" style={{ color: '#1F2329' }}>{trip.days.length}</div><div className="stat-label">entries</div></div>
+          <div><div className="stat-num" style={{ color: '#1F2329' }}>{shown.length}</div><div className="stat-label">entries</div></div>
           <div><div className="stat-num" style={{ color: '#1B3FA8' }}>{countPlaces(trip)}</div><div className="stat-label">places</div></div>
           <div><div className="stat-num" style={{ color: '#6B3FA0' }}>{countPhotos(trip)}</div><div className="stat-label">photos</div></div>
         </div>
@@ -235,22 +237,18 @@ export default function TripDetail(p) {
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
           onAsk={p.onAskSuggestions} onAdd={p.onAddSuggestion} onDismiss={p.onDismissSuggestion} />}
+        {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'itinerary' && <>
         <div className="timeline-head">
           <div className="mono-label">{trip.timelineLabel}</div>
           <div className="row-8">
-            {/* many photos at once: each goes to its day and place by when and where it was taken */}
-            <label className="btn-soft-pill press" title="Select a day's or a trip's photos — they're sorted by date and place">
-              <input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.target.files; if (f && f.length) p.onAddPhotos([...f]); e.target.value = ''; }} />
-              <Plus size={13} w={1.8} /> Add photos
-            </label>
             <button className="btn-soft-pill press" onClick={p.onAdd}><Plus size={13} w={1.8} /> Add memory</button>
           </div>
         </div>
 
-        {trip.days.length === 0 && (
+        {shown.length === 0 && (
           <div className="empty-first press" onClick={p.onAdd} role="button" tabIndex={0}>
             <Plus size={26} />
             <div className="empty-title">Add your first memory</div>
@@ -258,7 +256,7 @@ export default function TripDetail(p) {
           </div>
         )}
 
-        {trip.days.length > 1 && (
+        {shown.length > 1 && (
           <div className="order-segs">
             <button className={'seg' + (order === 'newest' ? ' active' : '')} onClick={() => setOrder('newest')}>Newest first</button>
             <button className={'seg' + (order === 'trip' ? ' active' : '')} onClick={() => setOrder('trip')}>Trip order</button>
@@ -280,18 +278,12 @@ export default function TripDetail(p) {
                 <button className="del-btn press" onClick={() => p.onDeleteEntry(idx)} aria-label="Delete memory"><span><Trash /></span></button>
               </div>
               {d.place && <div className="place-row"><span className="olive-dot" />{d.place}</div>}
-              {(d.photos || []).length > 0 && (
-                <div className="photo-strip">
-                  {d.photos.map((ph, i) => (
-                    <div key={i} className="strip-tile">
-                      <div className="fill" style={photoBg(ph)} />
-                      {((ph.label && ph.label.trim()) || ph.by) && <div className="strip-label">{(ph.label && ph.label.trim()) || ph.by}</div>}
-                      <button className="thumb-x strip-x" onClick={() => p.onDeletePhoto(idx, i)} aria-label="Remove photo"><span>×</span></button>
-                    </div>
-                  ))}
-                </div>
-              )}
               {d.note && d.note.trim() && <div className="entry-note">{d.note}</div>}
+              {(d.photos || []).length > 0 && (
+                <button className="link-btn entry-photos" onClick={() => setTab('photos')}>
+                  {d.photos.length} {d.photos.length === 1 ? 'photo' : 'photos'} →
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -301,5 +293,47 @@ export default function TripDetail(p) {
       </div>
       </div>
     </div>
+  );
+}
+
+// A trip's photos, by the day they were taken: tap one to see it full size.
+function TripPhotos({ trip, onAddPhotos, onDeletePhoto }) {
+  const [open, setOpen] = useState(null);
+  const days = new Map(); // date label → { pos, items }
+  (trip.days || []).forEach((d, idx) => (d.photos || []).forEach((ph, pi) => {
+    const k = d.date || 'Undated';
+    if (!days.has(k)) days.set(k, { pos: d.pos ?? 0, items: [] });
+    const g = days.get(k);
+    g.pos = Math.min(g.pos, d.pos ?? 0);
+    g.items.push({ p: ph, idx, pi, caption: (ph.label && ph.label.trim()) || (d.source === 'photos' ? '' : d.title), by: ph.by });
+  }));
+  const groups = [...days.entries()].sort((a, b) => a[1].pos - b[1].pos);
+  const all = groups.flatMap(([, g]) => g.items);
+  return (
+    <>
+      <div className="timeline-head">
+        <div className="mono-label">Photos</div>
+        <label className="btn-soft-pill press" title="Pick a day's or a trip's photos: each goes on the day it was taken">
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.target.files; if (f && f.length) onAddPhotos([...f]); e.target.value = ''; }} />
+          <Plus size={13} w={1.8} /> Add photos
+        </label>
+      </div>
+      {all.length === 0 && <div className="empty-sub" style={{ marginTop: 10 }}>No photos yet. Add them here or with the Photos button; each goes on the day it was taken.</div>}
+      {groups.map(([label, g]) => (
+        <div key={label} className="photo-day">
+          <div className="photo-day-head">{label} <span>· {g.items.length} {g.items.length === 1 ? 'photo' : 'photos'}</span></div>
+          <div className="photo-grid">
+            {g.items.map((it) => (
+              <div key={it.idx + ':' + it.pi} className="photo-cell">
+                <button className="photo-open press-soft" style={photoBg(it.p)} onClick={() => setOpen(all.indexOf(it))} aria-label={'Open photo' + (it.caption ? ': ' + it.caption : '')} />
+                {it.by && <div className="strip-label">{it.by}</div>}
+                <button className="thumb-x strip-x" onClick={() => onDeletePhoto(it.idx, it.pi)} aria-label="Remove photo"><span>×</span></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {open != null && all[open] && <PhotoViewer items={all.map((it) => ({ ...it, trip: '' }))} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
+    </>
   );
 }

@@ -778,3 +778,14 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .capture-btn.mic-btn { background: #1B3FA8; color: #fff; }
 .for-trip { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #EAF0FB; color: #1B3FA8; font-size: 14px; }
 .link-btn { border: none; background: none; color: #1B3FA8; font-weight: 800; font-size: 13.5px; text-decoration: underline; cursor: pointer; padding: 4px; }
+
+/* a trip's Photos tab: the photos by the day they were taken */
+.photo-day { margin-top: 18px; }
+.photo-day-head { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--blue-ink, #1B3FA8); margin-bottom: 8px; }
+.photo-day-head span { opacity: .65; font-weight: 500; }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.photo-cell { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; }
+.photo-open { position: absolute; inset: 0; width: 100%; height: 100%; border: none; padding: 0; background-size: cover; background-position: center; cursor: zoom-in; }
+.entry-photos { display: inline-block; margin-top: 6px; padding-left: 0; text-decoration: none; }
+@media (min-width: 900px) { .photo-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } }
+.photo-cell .strip-label { pointer-events: none; }
