@@ -75,3 +75,13 @@ test('the same shot imported again is skipped; the original trip is untouched', 
   assert.equal(twice.added, 0);
   assert.equal(milwaukee.days.length, 2);
 });
+
+test('on a travel day a photo with no GPS takes the trip\'s place, not where the flight left from', () => {
+  n = 0;
+  const trip = { id: 'mke', place: 'Milwaukee', dates: 'Oct 31 – Nov 2, 2026',
+    days: [{ id: 'f1', date: 'Oct 31', title: 'American Airlines AA2581 · DFW → MKE', place: 'Dallas', kind: 'Flight', photos: [] }] };
+  const r = placePhotos(trip, [{ key: 'k', taken: at('2026-10-31 19:00'), src: 'a' }], id);
+  const ph = r.trip.days.find((d) => d.source === 'photos');
+  assert.equal(ph.place, 'Milwaukee');
+  assert.equal(ph.title, 'Photos in Milwaukee');
+});

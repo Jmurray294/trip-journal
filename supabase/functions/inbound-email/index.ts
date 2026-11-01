@@ -227,6 +227,7 @@ const last4 = (n) => String(n || '').replace(/[^A-Za-z0-9]/g, '').slice(-4).toUp
 const PHOTO_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayLabel_ = (d) => PHOTO_MONTHS[d.getMonth()] + ' ' + d.getDate();
 const NEAR_KM = 25;
+const TRAVEL_KINDS = ['Flight', 'Train', 'Transfer', 'Car'];
 
 function kmBetween(a, b) {
   const R = Math.PI / 180;
@@ -333,7 +334,8 @@ function placePhotos(trip, items, newId, fallbackDay = new Date()) {
       if (best) { place = best.d.place; at = [best.d.lon, best.d.lat]; }
     }
     if (!place) {
-      const same = days.filter((d) => d.date === label && d.place && d.source !== 'photos');
+      // not a flight, train, transfer or car that day: those are filed under where they leave from
+      const same = days.filter((d) => d.date === label && d.place && d.source !== 'photos' && !TRAVEL_KINDS.includes(d.kind));
       place = same.length ? same[same.length - 1].place : '';
     }
     if (!place && !gps) place = trip.place || '';
