@@ -202,6 +202,7 @@ body, .app { background-color: #0F3A70; background-image: var(--blueprint); }
 
 /* ---------- phone tab bar: the navy band ---------- */
 .tabbar { background: rgba(8,31,61,0.94); border-top: 1px solid #9FC9FF; }
+.capture-trip { color: #fff; }
 .nav-btn { color: rgba(255,255,255,0.78); border-radius: 10px; }
 .nav-btn.active { background: #fff; color: var(--blue-ink); }
 .fab { background: var(--primary-grad); border-color: #0F3A70; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }

@@ -34,7 +34,7 @@ import TopBar from './components/TopBar.jsx';
 import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
-import { tripSpan, tripForDay } from './lib/stages.js';
+import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
 
 const AUTO_SPEED = 46; // story auto-scroll, px per second
 
@@ -360,9 +360,15 @@ export default function App() {
   // ---- mutations ----
   const updateTrip = (id, fn) => applyTrips((ts) => ts.map((t) => (t.id === id ? fn(t) : t)));
 
-  const openAddFor = (id, mode = 'memory') => {
-    const fallback = (trips.find((t) => !t.planning) || trips[0] || {}).id;
-    setAdd({ mode, tripId: id || fallback, fromTrip: !!id });
+  // ---- the trip Photos, Dictate and + add to: the one you're in, else the one you last picked (while it's
+  // not over), else the trip happening now or coming up next ----
+  const [addPref, setAddPref] = useState(() => { try { return localStorage.getItem('tj.addTrip') || ''; } catch (e) { return ''; } });
+  const pickAddTrip = (id) => { setAddPref(id); try { localStorage.setItem('tj.addTrip', id); } catch (e) { /* private mode */ } };
+  const prefTrip = trips.find((t) => t.id === addPref && tripStage(t) !== 'past');
+  const addTripId = nav.tripId && trips.some((t) => t.id === nav.tripId) ? nav.tripId : prefTrip ? prefTrip.id : currentTrip(trips);
+
+  const openAddFor = (id, mode = 'memory', extra = {}) => {
+    setAdd({ mode, tripId: id || addTripId, fromTrip: !!(id || addTripId), ...extra });
   };
 
   // a PDF, photo, screenshot or pasted text, read on the family server like a forwarded email;
@@ -399,6 +405,7 @@ export default function App() {
     return true;
   };
 
+  const noteTitle = (n) => { const f = String(n || '').trim().split(/(?<=[.!?])s/)[0]; return f.length > 70 ? f.slice(0, 67).replace(/s+S*$/, '') + '…' : f; };
   const saveMemory = ({ tripId, title, place, note, photos }) => {
     if (!title && !note && !place && photos.length === 0) { showToast('Add a photo or a note first'); return false; }
     const trip = trips.find((t) => t.id === tripId);
@@ -406,7 +413,7 @@ export default function App() {
     const where = (place || trip.place || '').trim();
     const id = newEntryId();
     updateTrip(tripId, (t) => ({
-      ...t, days: [...t.days, { id, pos: Date.now(), added: Date.now(), num: t.days.length + 1, date: todayLabel(), title: title || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
+      ...t, days: [...t.days, { id, pos: Date.now(), added: Date.now(), num: t.days.length + 1, date: todayLabel(), title: title || noteTitle(note) || 'A new moment', place: place || t.place, note: note || '', photos: photos.map((s) => ({ src: s, label: '' })) }]
     }));
     showToast('Memory saved to journal');
     if (where) geocode(where).then((c) => { if (c) setDayCoords(tripId, id, where, c); });
@@ -846,6 +853,12 @@ export default function App() {
           onAlbums={() => go({ tab: 'albums' })}
           onTravelers={() => go({ tab: 'travelers' })}
           onAdd={() => openAddFor(nav.tripId)}
+          capture={trips.length ? {
+            trip: trips.find((t) => t.id === addTripId), trips, fixed: !!(nav.tripId && trips.some((t) => t.id === nav.tripId)),
+            onPick: pickAddTrip,
+            onPhotos: (files) => importPhotos(addTripId, files),
+            onDictate: () => openAddFor(addTripId, 'memory', { dictate: true }),
+          } : null}
         />
 
         {screen === 'story' && (

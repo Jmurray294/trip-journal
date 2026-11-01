@@ -63,3 +63,17 @@ test('a photo goes to the trip whose dates cover the day it was taken', async ()
   assert.equal(tripForDay(trips, new Date(2026, 5, 1), 'jp'), 'jp', 'no trip that day: stays where it was added');
   assert.equal(tripForDay(trips, null, 'jp'), 'jp', 'no date: stays');
 });
+
+test('the phone adds to the trip happening now, else the next one, else the latest', async () => {
+  const { currentTrip } = await import('../src/lib/stages.js');
+  const trips = [
+    { id: 'jp', dates: 'Apr 2–16, 2027' },
+    { id: 'mke', dates: 'Oct 31 – Nov 2, 2026' },
+    { id: 'old', dates: 'Jun 1–5, 2025' },
+    { id: 'maybe', possible: true, dates: 'Nov 1–30, 2026' },
+  ];
+  assert.equal(currentTrip(trips, new Date(2026, 10, 1)), 'mke');
+  assert.equal(currentTrip(trips, new Date(2026, 10, 10)), 'jp');
+  assert.equal(currentTrip(trips, new Date(2027, 5, 1)), 'jp');
+  assert.equal(currentTrip([], new Date()), null);
+});

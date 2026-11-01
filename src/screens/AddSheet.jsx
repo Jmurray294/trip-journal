@@ -50,6 +50,9 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   // where an upload goes: the trip it was opened from, else let the reader choose ('')
   const [uploadTrip, setUploadTrip] = useState(initial.fromTrip ? initial.tripId : '');
   const [listening, setListening] = useState(false);
+  // opened for a known trip (from inside it, or the phone's Dictate): show it, don't make you pick
+  const [choosing, setChoosing] = useState(!initial.fromTrip);
+  const noteBox = useRef(null);
   const rec = useRef(null);
   const baseNote = useRef('');
   const noteRef = useRef(note); noteRef.current = note;
@@ -63,10 +66,11 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   };
   useEffect(() => { registerStopDictation(stopDictation); return () => { stopDictation(); registerStopDictation(() => {}); }; }, []);
 
-  const toggleDictation = () => {
+  // quiet: started by the sheet itself (Dictate), so a browser that wants a tap first just shows the mic button
+  const toggleDictation = (quiet = false) => {
     if (listening) { stopDictation(); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { toast('Use the mic key on your keyboard'); return; }
+    if (!SR) { if (!quiet) toast('Use the mic key on your keyboard'); return; }
     let r;
     try { r = new SR(); } catch (e) { toast('Voice not available here'); return; }
     r.continuous = true; r.interimResults = true; r.lang = 'en-US';
@@ -82,13 +86,20 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
     };
     r.onerror = (e) => {
       setListening(false);
+      if (quiet === true) return;
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Allow mic access in Settings');
       else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('Voice input stopped');
     };
     r.onend = () => { rec.current = null; setListening(false); };
     rec.current = r;
-    try { r.start(); setListening(true); } catch (e) { toast('Voice input unavailable'); }
+    try { r.start(); setListening(true); } catch (e) { if (!quiet) toast('Voice input unavailable'); }
   };
+  // Dictate from the phone's bottom bar: start listening (and focus the notes, for the keyboard's mic)
+  useEffect(() => {
+    if (!initial.dictate) return;
+    if (noteBox.current) noteBox.current.focus();
+    toggleDictation(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pickPhotos = async (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
@@ -137,7 +148,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
       <div className="sheet-backdrop" onClick={close} />
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grab" />
-        <div className="segs">{seg('memory', 'Memory')}{seg('trip', 'New trip')}{seg('import', 'Import')}{canRead && seg('idea', 'Idea')}</div>
+        {!initial.dictate && <div className="segs">{seg('memory', 'Memory')}{seg('trip', 'New trip')}{seg('import', 'Import')}{canRead && seg('idea', 'Idea')}</div>}
 
         {mode === 'idea' && canRead && (
           <>
@@ -173,23 +184,36 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
 
         {mode === 'memory' && (
           <>
-            <Label top={0}>Which trip</Label>
-            <Chips items={chips} active={tripId} onSelect={setTripId} />
+            {choosing ? (
+              <>
+                <Label top={0}>Which trip</Label>
+                <Chips items={chips} active={tripId} onSelect={setTripId} />
+              </>
+            ) : (
+              <div className="for-trip">
+                <span>For <strong>{(trips.find((t) => t.id === tripId) || {}).title}</strong></span>
+                <button className="link-btn" onClick={() => setChoosing(true)}>Change</button>
+              </div>
+            )}
 
-            <Label top={18}>What happened</Label>
-            <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sunrise hike to the ridge" />
+            {!initial.dictate && (
+              <>
+                <Label top={18}>What happened</Label>
+                <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sunrise hike to the ridge" />
 
-            <Label>Where</Label>
-            <input className="field" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Add a place" />
+                <Label>Where</Label>
+                <input className="field" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Add a place" />
+              </>
+            )}
 
             <div className="label-row">
               <div className="field-label" style={{ margin: 0 }}>Notes</div>
-              <button className={'mic' + (listening ? ' on' : '')} onClick={toggleDictation}>
+              <button className={'mic' + (listening ? ' on' : '')} onClick={() => toggleDictation()}>
                 {listening ? <span className="mic-dot" /> : <Mic />}
                 {listening ? 'Listening… tap to stop' : 'Dictate'}
               </button>
             </div>
-            <textarea className="field" style={{ minHeight: 80 }} value={note} onChange={(e) => { setNote(e.target.value); baseNote.current = e.target.value; }} placeholder="Write what happened…" />
+            <textarea ref={noteBox} className="field" style={{ minHeight: initial.dictate ? 140 : 80 }} value={note} onChange={(e) => { setNote(e.target.value); baseNote.current = e.target.value; }} placeholder={initial.dictate ? 'Speak, or type what happened…' : 'Write what happened…'} />
 
             <Label>Photos</Label>
             <div className="thumbs">

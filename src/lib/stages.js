@@ -96,3 +96,16 @@ export function tripForDay(trips, when, currentId) {
   const other = trips.filter(covers).sort((a, b) => len(a) - len(b))[0];
   return other ? other.id : currentId;
 }
+
+// The trip the phone's Photos and Dictate buttons add to when you aren't inside one: the trip happening
+// now, else the next one coming up, else the one that ended most recently.
+export function currentTrip(trips, today = new Date()) {
+  const t0 = day(today);
+  const spans = trips.filter((t) => !t.possible).map((t) => ({ t, s: tripSpan(t) })).filter((x) => x.s);
+  const now = spans.filter((x) => day(x.s[0]) <= t0 && day(x.s[1]) >= t0).sort((a, b) => (a.s[1] - a.s[0]) - (b.s[1] - b.s[0]))[0];
+  if (now) return now.t.id;
+  const next = spans.filter((x) => day(x.s[0]) > t0).sort((a, b) => a.s[0] - b.s[0])[0];
+  if (next) return next.t.id;
+  const last = spans.sort((a, b) => b.s[1] - a.s[1])[0];
+  return last ? last.t.id : (trips[0] || {}).id || null;
+}
