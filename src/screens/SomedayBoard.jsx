@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
+import PhotoViewer from '../components/PhotoViewer.jsx';
 import { searchIdeas, byCountry, partsOf, onlyPlace } from '../lib/someday.js';
 
 // The Trips page's Someday section: saved inspiration by country, then state. "Start planning" turns a
@@ -10,10 +11,16 @@ const SHOW = 3;
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return 'link'; } };
 
 export function Idea({ it, onRemove }) {
+  const [open, setOpen] = useState(false);
   const img = it.image_path ? mediaUrl(it.image_path) : it.image_url;
   return (
     <div className="someday-idea">
-      {img ? <div className="someday-thumb" style={{ backgroundImage: `url("${img}")` }} /> : <div className="someday-thumb empty" />}
+      {img
+        ? <button type="button" className="someday-thumb press" style={{ backgroundImage: `url("${img}")`, border: 0, padding: 0, cursor: 'zoom-in' }}
+            onClick={() => setOpen(true)} aria-label={'Open the picture for ' + it.title} />
+        : <div className="someday-thumb empty" />}
+      {open && <PhotoViewer items={[{ p: it.image_path ? { path: it.image_path } : { src: it.image_url }, caption: it.title }]}
+        index={0} onIndex={() => {}} onClose={() => setOpen(false)} />}
       <div className="grow" style={{ minWidth: 0 }}>
         <div className="someday-title">{it.title}</div>
         {(it.spot || it.note) && <div className="someday-note">{[it.spot && it.spot !== it.title ? it.spot : '', it.note].filter(Boolean).join(' · ')}</div>}
