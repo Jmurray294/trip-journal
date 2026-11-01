@@ -5,7 +5,7 @@ import { tripDocuments, openFile } from '../lib/docs.js';
 import { tripIdeas } from '../lib/someday.js';
 import { Idea } from './SomedayBoard.jsx';
 
-// The trip page's Bookings, Budget and Documents tabs (the Itinerary tab is the timeline in TripDetail).
+// The trip page's Itinerary, Budget and Documents tabs (the Journal and Photos tabs are in TripDetail).
 
 const KIND_ORDER = ['Flight', 'Stay', 'Cruise', 'Train', 'Car', 'Transfer', 'Activity', 'Dining', 'Ticket', 'Insurance', 'Fees', 'Other'];
 const KIND_LABEL = {
@@ -29,9 +29,13 @@ const UploadButton = ({ onUpload, label = 'Upload' }) => (
   onUpload ? <button className="btn-soft-pill press" onClick={onUpload}><Plus size={13} w={1.8} /> {label}</button> : null
 );
 
-// ---------- Bookings ----------
-export function Bookings({ trip, inbox, toast, onUpload }) {
-  const list = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind));
+// What's planned: bookings and planned activities, as opposed to memories (Journal) and photos
+export const isPlan = (d) => d.source !== 'photos' && !!(d.booking || d.kind);
+
+// ---------- Itinerary: the plan, day by day, each booking with its details ----------
+export function Itinerary({ trip, inbox, toast, onUpload, onDelete }) {
+  const list = (trip.days || []).map((d, idx) => ({ ...d, idx })).filter(isPlan)
+    .sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast('Copied ' + text); } catch (e) { toast(text); }
   };
@@ -39,9 +43,9 @@ export function Bookings({ trip, inbox, toast, onUpload }) {
   if (!list.length) {
     return (
       <div className="section-empty">
-        <div className="empty-title">No bookings yet</div>
+        <div className="empty-title">Nothing planned yet</div>
         <div className="empty-sub">
-          Forward flight, hotel, cruise, car and tour confirmations{inbox ? <> to <strong>{inbox}</strong></> : ''} and they'll appear here, grouped by type.
+          Forward flight, hotel, cruise, car and tour confirmations{inbox ? <> to <strong>{inbox}</strong></> : ''} and they'll appear here, day by day.
           {onUpload ? ' Or upload a PDF, photo or screenshot.' : ''}
         </div>
         {onUpload && <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}><UploadButton onUpload={onUpload} label="Upload a booking" /></div>}
@@ -51,10 +55,10 @@ export function Bookings({ trip, inbox, toast, onUpload }) {
 
   return (
     <div className="stack-16">
-      {onUpload && <div className="timeline-head" style={{ margin: 0 }}><div className="mono-label">{list.length} booked</div><UploadButton onUpload={onUpload} label="Upload a booking" /></div>}
-      {groupBy(list, (d) => d.kind || 'Other').map(([kind, items]) => (
-        <section key={kind}>
-          <div className="mono-label" style={{ margin: '0 2px 9px' }}>{KIND_LABEL[kind] || kind} · {items.length}</div>
+      <div className="timeline-head" style={{ margin: 0 }}><div className="mono-label">Itinerary · {list.length}</div><UploadButton onUpload={onUpload} label="Upload a booking" /></div>
+      {byDay(list).map(([date, items]) => (
+        <section key={date}>
+          <div className="mono-label" style={{ margin: '0 2px 9px' }}>{date}</div>
           <div className="stack-9">
             {items.map((d) => {
               const b = d.booking || {};
@@ -63,11 +67,13 @@ export function Bookings({ trip, inbox, toast, onUpload }) {
                 <div key={d.id} className={'booking-card' + (b.status === 'cancelled' ? ' cancelled' : '')}>
                   <div className="booking-top">
                     <div className="grow">
-                      <div className="booking-when">{span(b, d.date)}{b.time ? ' · ' + b.time : ''}</div>
+                      <div className="booking-when">{d.kind && d.kind !== 'Booking' ? (KIND_ONE[d.kind] || d.kind) + ' · ' : ''}{span(b, d.date)}{b.time ? ' · ' + b.time : ''}</div>
                       <div className="booking-title">{d.title}</div>
                     </div>
                     {st && <span className={'booking-status ' + b.status}>{st}</span>}
+                    {onDelete && <button className="del-btn press" onClick={() => onDelete(d.idx)} aria-label={'Delete ' + d.title}><span><Trash /></span></button>}
                   </div>
+                  {d.note && d.note.trim() && <div className="entry-note" style={{ marginTop: 6 }}>{d.note}</div>}
                   <div className="booking-facts">
                     {b.provider && <div><span>With</span>{b.provider}</div>}
                     {b.confirmation && (
@@ -89,6 +95,14 @@ export function Bookings({ trip, inbox, toast, onUpload }) {
     </div>
   );
 }
+
+// in date order, one group per day label ("Oct 31")
+function byDay(list) {
+  const m = new Map();
+  for (const d of list) { const k = d.date || 'Undated'; if (!m.has(k)) m.set(k, []); m.get(k).push(d); }
+  return [...m.entries()];
+}
+const KIND_ONE = { Stay: 'Stay', Car: 'Car rental', Activity: 'Activity', Dining: 'Dining' };
 
 // ---------- Budget ----------
 const CATEGORIES = KIND_ORDER;

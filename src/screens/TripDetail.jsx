@@ -7,7 +7,7 @@ import TripAlerts from '../components/TripAlerts.jsx';
 import Explore from './Explore.jsx';
 import PhotoViewer from '../components/PhotoViewer.jsx';
 
-import { Bookings, Budget, Documents } from './TripSections.jsx';
+import { Itinerary, Budget, Documents, isPlan } from './TripSections.jsx';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
 function CostsCard({ costs, onOpen }) {
@@ -67,7 +67,7 @@ function addedNote(d) {
   return ' · added ' + l + (a.getFullYear() !== new Date().getFullYear() ? ', ' + a.getFullYear() : '');
 }
 
-const TABS = [['itinerary', 'Itinerary'], ['photos', 'Photos'], ['bookings', 'Bookings'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
+const TABS = [['itinerary', 'Itinerary'], ['journal', 'Journal'], ['photos', 'Photos'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -164,11 +164,11 @@ export default function TripDetail(p) {
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
   const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);
-  // the itinerary is the plan and what you wrote; photos have their own tab (photos-only memories live there)
-  const shown = trip.days.map((d, idx) => ({ d, idx })).filter(({ d }) => d.source !== 'photos'); // idx: its place in trip.days, for delete
+  // Itinerary is the plan (bookings, planned activities); Journal is what you wrote or dictated; Photos has the photos
+  const shown = trip.days.map((d, idx) => ({ d, idx })).filter(({ d }) => d.source !== 'photos' && !isPlan(d)); // idx: its place in trip.days, for delete
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
-  const bookingCount = (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind)).length;
-  const counts = { itinerary: shown.length, photos: countPhotos(trip), bookings: bookingCount, budget: (trip.costs || []).length };
+  const planCount = (trip.days || []).filter(isPlan).length;
+  const counts = { itinerary: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
   return (
     <div className="screen pad-tab">
       <div className="hero detail-hero">
@@ -201,7 +201,7 @@ export default function TripDetail(p) {
       <div className="detail-side">
       <div className="stats-card">
         <div className="row-22">
-          <div><div className="stat-num" style={{ color: '#1F2329' }}>{shown.length}</div><div className="stat-label">entries</div></div>
+          <div><div className="stat-num" style={{ color: '#1F2329' }}>{planCount + shown.length}</div><div className="stat-label">entries</div></div>
           <div><div className="stat-num" style={{ color: '#1B3FA8' }}>{countPlaces(trip)}</div><div className="stat-label">places</div></div>
           <div><div className="stat-num" style={{ color: '#6B3FA0' }}>{countPhotos(trip)}</div><div className="stat-label">photos</div></div>
         </div>
@@ -233,16 +233,16 @@ export default function TripDetail(p) {
           ))}
         </div>
 
-        {tab === 'bookings' && <Bookings trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} />}
+        {tab === 'itinerary' && <Itinerary trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} onDelete={p.onDeleteEntry} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
           onAsk={p.onAskSuggestions} onAdd={p.onAddSuggestion} onDismiss={p.onDismissSuggestion} />}
         {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
-        {tab === 'itinerary' && <>
+        {tab === 'journal' && <>
         <div className="timeline-head">
-          <div className="mono-label">{trip.timelineLabel}</div>
+          <div className="mono-label">Journal</div>
           <div className="row-8">
             <button className="btn-soft-pill press" onClick={p.onAdd}><Plus size={13} w={1.8} /> Add memory</button>
           </div>
@@ -252,7 +252,7 @@ export default function TripDetail(p) {
           <div className="empty-first press" onClick={p.onAdd} role="button" tabIndex={0}>
             <Plus size={26} />
             <div className="empty-title">Add your first memory</div>
-            <div className="empty-sub">A photo, a place, and a few words.</div>
+            <div className="empty-sub">What happened, in a few words: type it, or use Dictate.</div>
           </div>
         )}
 

@@ -74,7 +74,7 @@ function Editor({ trip, draft, page, onChange }) {
       {trip.song && <div className="sheet-copy">Your trip song is printed beside it.</div>}</>);
   }
   if (page.type === 'map') return <div className="sheet-copy">The map shows every place in your itinerary that has a location, in trip order.</div>;
-  if (page.type === 'glance') return <div className="sheet-copy">Made from the bookings on this trip — edit them on the trip's Bookings tab.</div>;
+  if (page.type === 'glance') return <div className="sheet-copy">Made from the bookings on this trip — edit them on the trip's Itinerary tab.</div>;
 
   // chapter opener or one of its photo pages: edit the whole chapter
   const ci = page.ci, c = draft.chapters[ci];
