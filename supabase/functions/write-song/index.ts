@@ -23,8 +23,8 @@ const SONG_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string", description: "Song title, 1-5 words" },
-    mood: { type: "string", description: "Musical style in 2-4 words, e.g. 'Warm acoustic folk'" },
-    lines: { type: "array", items: { type: "string" }, description: "12 to 16 short lyric lines" },
+    mood: { type: "string", description: "Musical style in 2-4 words, e.g. 'Bouncy pop jingle'" },
+    lines: { type: "array", items: { type: "string" }, description: "6 to 8 short lyric lines" },
   },
   required: ["title", "mood", "lines"],
   additionalProperties: false,
@@ -68,12 +68,13 @@ Deno.serve(async (req) => {
   }).join("\n");
 
   const prompt =
-    "Write an original short song from this family travel journal.\n\n" +
+    "Write an original, short, funny, catchy jingle from this family travel journal.\n\n" +
     `TRIP: ${clip(t.title, 120)} (${clip(t.place, 120)}, ${clip(t.dates, 60)})\n` +
     `JOURNAL ENTRIES:\n${journal}\n\n` +
-    "Write warm, specific, folk-style lyrics that use the real places, details, names and moments above — " +
-    "the kind of song a family would sing in the car on the way home. Include a hook line that appears twice. " +
-    "12 to 16 short lines. No verse or chorus labels, no quotation marks, no emoji.";
+    "Make it a catchy, upbeat jingle like a TV ad or a radio station ID: bouncy rhythm, simple rhymes, playful jokes " +
+    "about the real places, names and funny moments above (gentle teasing, never mean). " +
+    "The kind of thing the family gets stuck in their heads and sings in the car. Open or close on a short hook that repeats. " +
+    "6 to 8 short lines, under 30 seconds sung. No verse or chorus labels, no quotation marks, no emoji.";
 
   await supabase.from("song_requests").insert({ user_id: user.id });
 
@@ -84,7 +85,7 @@ Deno.serve(async (req) => {
       betas: ["server-side-fallback-2026-07-01"],
       // re-runs on Anthropic's recommended model if a safety classifier declines
       fallbacks: "default",
-      system: "You are a songwriter who turns families' travel journals into songs they will treasure.",
+      system: "You are a jingle writer who turns families' travel journals into short, funny, catchy jingles.",
       messages: [{ role: "user", content: prompt }],
       output_config: { effort: "medium", format: { type: "json_schema", schema: SONG_SCHEMA } },
     } as any);
@@ -97,7 +98,7 @@ Deno.serve(async (req) => {
     const lines = (Array.isArray(song.lines) ? song.lines : []).map((l: unknown) => clip(l, 200)).filter(Boolean).slice(0, 18);
     if (lines.length < 4) return json({ error: "The song came back empty — try again" }, 502);
 
-    return json({ title: clip(song.title, 80) || clip(t.title, 80), mood: clip(song.mood, 60) || "Acoustic folk", lines });
+    return json({ title: clip(song.title, 80) || clip(t.title, 80), mood: clip(song.mood, 60) || "Upbeat jingle", lines });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) return json({ error: "Songwriter is busy — try again in a minute" }, 429);
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "Song service isn't set up (API key)" }, 500);

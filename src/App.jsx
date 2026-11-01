@@ -676,7 +676,7 @@ export default function App() {
       showToast(msg);
       return;
     }
-    finish({ title: data.title, mood: data.mood, lines: data.lines, duration: Math.max(100, Math.min(240, data.lines.length * 13)) });
+    finish({ title: data.title, mood: data.mood, lines: data.lines, duration: Math.max(20, Math.min(60, data.lines.length * 4)) });
   };
 
   const sendToSuno = async (t) => {
