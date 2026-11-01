@@ -4,7 +4,7 @@ import { supabase } from './supabase.js';
 // Someday: places and things saved for a trip one day (supabase/someday.sql). They arrive from the
 // trips address and the app's Save idea, both read by the inbound-email function.
 
-const COLS = 'id, place, spot, title, note, url, image_url, image_path, source, sender, status, trip_id, created_at';
+const COLS = 'id, place, spot, title, note, url, image_url, image_path, files, source, sender, status, trip_id, created_at';
 
 // Open ideas by place: the places with the most saved first, newest ideas first within a place.
 export function groupByPlace(items) {

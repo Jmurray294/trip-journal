@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus } from '../components/Icons.jsx';
 import { mediaUrl } from '../lib/media.js';
 import PhotoViewer from '../components/PhotoViewer.jsx';
+import { openFile } from '../lib/docs.js';
 import { searchIdeas, byCountry, partsOf, onlyPlace } from '../lib/someday.js';
 
 // The Trips page's Someday section: saved inspiration by country, then state. "Start planning" turns a
@@ -25,6 +26,12 @@ export function Idea({ it, onRemove }) {
         <div className="someday-title">{it.title}</div>
         {(it.spot || it.note) && <div className="someday-note">{[it.spot && it.spot !== it.title ? it.spot : '', it.note].filter(Boolean).join(' · ')}</div>}
         {it.url && <a className="someday-link" href={it.url} target="_blank" rel="noopener noreferrer">{host(it.url)} ↗</a>}
+        {(it.files || []).map((f) => (
+          <button key={f.path} type="button" className="someday-link" style={{ display: 'block', border: 0, padding: 0, background: 'none', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
+            onClick={() => openFile(f.path).catch(() => window.alert('Could not open ' + f.name))}>
+            PDF · {f.name} ↗
+          </button>
+        ))}
       </div>
       {onRemove && <button className="thumb-x static" onClick={() => onRemove(it)} aria-label={'Remove ' + it.title}><span>×</span></button>}
     </div>

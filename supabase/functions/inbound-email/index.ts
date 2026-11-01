@@ -1241,13 +1241,14 @@ Deno.serve(async (req) => {
   const savedNames: string[] = [];
   if (read.someday.length) {
     const photo = stored.find((f) => f.type.startsWith("image/"));
+    const pdfs = stored.filter((f) => f.type === "application/pdf").map((f) => ({ name: f.name, path: f.path }));
     const { data: have } = await admin.from("someday").select("title, place").eq("household_id", hid).neq("status", "removed");
     const key = (s: { title: string; place: string }) => (s.place + "|" + s.title).toLowerCase();
     const known = new Set(((have || []) as { title: string; place: string }[]).map(key));
     const rows = read.someday.filter((s) => !known.has(key(s))).map((s) => ({
       household_id: hid, place: s.place, spot: s.spot, title: s.title, note: s.note, url: s.url || null,
       image_url: (previews.find((p) => p.url === s.url) || (previews.length === 1 ? previews[0] : null))?.image || null,
-      image_path: photo ? photo.path : null, source: fromForwarder ? "email" : "app", sender,
+      image_path: photo ? photo.path : null, files: pdfs, source: fromForwarder ? "email" : "app", sender,
     }));
     const { error } = rows.length ? await admin.from("someday").insert(rows) : { error: null };
     if (error) console.error("could not save to someday", error.message);

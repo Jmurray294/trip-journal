@@ -21,6 +21,8 @@ create table if not exists public.someday (
   created_at timestamptz not null default now()
 );
 create index if not exists someday_hh_idx on public.someday (household_id, status, created_at desc);
+-- PDFs that came with the idea (a brochure, an article), saved in the media bucket: [{ name, path }]
+alter table public.someday add column if not exists files jsonb not null default '[]'::jsonb;
 
 alter table public.someday enable row level security;
 drop policy if exists "members read someday" on public.someday;
