@@ -37,6 +37,81 @@ function PageCanvas({ page, size, ctx, onClick, active }) {
   );
 }
 
+// ---------- read it like a book: the cover alone, then two facing pages at a time (one on a phone) ----------
+const VIEW_DPI = 110;
+
+function ViewPage({ page, size, ctx, side }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) drawPage(ref.current, page, size, VIEW_DPI, ctx); }, [page, size, ctx]);
+  return <canvas ref={ref} className={'bv-page ' + side} />;
+}
+
+const spreadsOf = (n, twoUp) => {
+  if (!twoUp) return Array.from({ length: n }, (_, i) => [i]);
+  const out = n ? [[0]] : [];
+  for (let i = 1; i < n; i += 2) out.push(i + 1 < n ? [i, i + 1] : [i]);
+  return out;
+};
+
+function BookViewer({ pages, size, ctx, start = 0, onClose }) {
+  const wide = () => typeof window !== 'undefined' && window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches;
+  const [twoUp, setTwoUp] = useState(wide);
+  const spreads = useMemo(() => spreadsOf(pages.length, twoUp), [pages.length, twoUp]);
+  const [at, setAt] = useState(() => Math.max(0, spreadsOf(pages.length, wide()).findIndex((s) => s.includes(start))));
+  const [dir, setDir] = useState(1);
+  const cur = spreads[Math.min(at, spreads.length - 1)] || [];
+  const go = (d) => setAt((a) => { const n = Math.max(0, Math.min(spreads.length - 1, a + d)); if (n !== a) setDir(d); return n; });
+  const close = () => onClose(cur[0] || 0);
+
+  useEffect(() => {
+    const onResize = () => {
+      const w = wide();
+      if (w === twoUp) return;
+      const first = cur[0] || 0;
+      setTwoUp(w); setAt(Math.max(0, spreadsOf(pages.length, w).findIndex((s) => s.includes(first))));
+    };
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); go(1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+      else if (e.key === 'Escape') close();
+    };
+    window.addEventListener('resize', onResize); window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('keydown', onKey); };
+  }); // eslint-disable-line
+
+  const touch = useRef(null);
+  const onTouchStart = (e) => { touch.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touch.current == null) return;
+    const dx = e.changedTouches[0].clientX - touch.current; touch.current = null;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+  };
+
+  const label = cur.map((i) => (pages[i].n === 1 ? 'Cover' : pages[i].n)).join(' – ');
+  const single = cur.length === 1;
+  // a lone page sits on the side it would be on in a real book (cover and odd pages on the right)
+  const side = (i) => (single ? (twoUp ? (i === 0 || i % 2 === 1 ? 'right' : 'left') : 'solo') : i === cur[0] ? 'left' : 'right');
+
+  return (
+    <div className="bv" role="dialog" aria-label="Photo book" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="bv-top">
+        <span className="bv-count">{label} <span className="bv-of">of {pages.length}</span></span>
+        <button className="btn-muted press" onClick={close}>Close</button>
+      </div>
+      <div className="bv-stage">
+        <button className="bv-arrow" disabled={at === 0} onClick={() => go(-1)} aria-label="Previous pages">‹</button>
+        <div key={at} className={'bv-spread' + (twoUp ? ' two' : '') + (dir > 0 ? ' fwd' : ' back')} style={{ '--ar': `${size.w + 2 * size.bleed} / ${size.h + 2 * size.bleed}`, '--hw': (size.h + 2 * size.bleed) / (size.w + 2 * size.bleed) }}>
+          {twoUp && single && side(cur[0]) === 'right' && <div className="bv-blank left" />}
+          {cur.map((i) => <ViewPage key={i} page={pages[i]} size={size} ctx={ctx} side={side(i)} />)}
+          {twoUp && single && side(cur[0]) === 'left' && <div className="bv-blank right" />}
+        </div>
+        <button className="bv-arrow" disabled={at >= spreads.length - 1} onClick={() => go(1)} aria-label="Next pages">›</button>
+      </div>
+      <div className="bv-hint">{twoUp ? 'Arrow keys turn the pages · Esc closes' : 'Swipe to turn the pages'}</div>
+    </div>
+  );
+}
+
 function Thumb({ photo, on, onClick, label }) {
   const u = photoSrc(photo);
   return (
@@ -136,6 +211,7 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
   const [map, setMap] = useState(null);
   const [fontsReady, setFontsReady] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [viewing, setViewing] = useState(false);
 
   const pages = useMemo(() => buildPages(trip, draft), [trip, draft]);
   const refsKey = pages.flatMap((p) => [p.photo, ...(p.photos || [])]).filter(Boolean).join(',');
@@ -234,8 +310,10 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
             <button className="btn-primary small press" disabled={!!progress} onClick={download}>
               {progress ? `Making page ${progress[0]} of ${progress[1]}…` : size.output === 'images' ? 'Download page images' : 'Download PDF'}
             </button>
+            <button className="btn-muted press" onClick={() => setViewing(true)}>View as book</button>
             <button className="btn-muted press" disabled={!!writing} onClick={write}>{writing ? 'Writing…' : 'Write again'}</button>
           </div>
+          {viewing && <BookViewer pages={pages} size={size} ctx={ctx} start={sel} onClose={(i) => { setViewing(false); setSel(i); }} />}
           {fresh > 0 && (
             <div className="sheet-copy book-note book-fresh">
               {fresh === 1 ? '1 journal entry was' : fresh + ' journal entries were'} written after this book. <button className="btn-link inline" disabled={!!writing} onClick={write}>Write it again</button> to put {fresh === 1 ? 'it' : 'them'} in.

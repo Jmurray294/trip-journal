@@ -791,3 +791,29 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .entry-photos { display: inline-block; margin-top: 6px; padding-left: 0; text-decoration: none; }
 @media (min-width: 900px) { .photo-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; } }
 .photo-cell .strip-label { pointer-events: none; }
+
+/* ---------- photo book: read it like a book ---------- */
+.bv { position: fixed; inset: 0; z-index: 200; background: radial-gradient(ellipse at center, #3a3430 0%, #1c1916 75%); display: flex; flex-direction: column; color: #F3EAD6; padding: calc(var(--safe-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); }
+.bv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bv-count { font-family: var(--mono); font-size: 13px; }
+.bv-of { opacity: 0.6; }
+.bv-stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 0; }
+.bv-arrow { flex: 0 0 auto; width: 44px; height: 64px; border: 0; border-radius: 12px; background: rgba(255,255,255,0.08); color: #F3EAD6; font-size: 34px; line-height: 1; cursor: pointer; }
+.bv-arrow:disabled { opacity: 0.2; cursor: default; }
+.bv-spread { --h: min(76vh, calc((100vw - 150px) * var(--hw))); display: flex; filter: drop-shadow(0 18px 30px rgba(0,0,0,0.55)); }
+.bv-spread.two { --h: min(78vh, calc((100vw - 150px) / 2 * var(--hw))); }
+.bv-page, .bv-blank { display: block; height: var(--h); width: auto; aspect-ratio: var(--ar); }
+.bv-blank { background: #EDE3CF; }
+.bv-page.solo { border-radius: 3px; }
+/* the spine: pages darken toward the fold, like an open book */
+.bv-spread.two { position: relative; }
+.bv-spread.two::after { content: ''; position: absolute; top: 0; bottom: 0; left: calc(50% - 40px); width: 80px; pointer-events: none;
+  background: linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,0.16) 42%, rgba(0,0,0,0.34) 50%, rgba(0,0,0,0.16) 58%, rgba(0,0,0,0) 100%); }
+.bv-spread.fwd { animation: bv-in-fwd 0.32s ease-out; }
+.bv-spread.back { animation: bv-in-back 0.32s ease-out; }
+@keyframes bv-in-fwd { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes bv-in-back { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+.bv-hint { text-align: center; font-size: 12px; opacity: 0.55; }
+@media (max-width: 899px) { .bv-arrow { width: 34px; font-size: 28px; } .bv-spread { --h: min(70vh, calc((100vw - 100px) * var(--hw))); } }
+.bv-page.solo { max-width: calc(100vw - 96px); height: auto; }
+.bv .btn-muted { background: rgba(255,255,255,0.14); color: #F3EAD6; width: auto; flex: 0 0 auto; padding: 9px 18px; }
