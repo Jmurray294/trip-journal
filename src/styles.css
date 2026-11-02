@@ -793,7 +793,7 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .photo-cell .strip-label { pointer-events: none; }
 
 /* ---------- photo book: read it like a book ---------- */
-.bv { position: fixed; inset: 0; z-index: 200; background: radial-gradient(ellipse at center, #3a3430 0%, #1c1916 75%); display: flex; flex-direction: column; color: #F3EAD6; padding: calc(var(--safe-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); }
+.bv { position: fixed; inset: 0; z-index: 1000; background: radial-gradient(ellipse at center, #3a3430 0%, #1c1916 75%); display: flex; flex-direction: column; color: #F3EAD6; padding: calc(var(--safe-top, 0px) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px); }
 .bv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .bv-count { font-family: var(--mono); font-size: 13px; }
 .bv-of { opacity: 0.6; }
@@ -817,3 +817,14 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 @media (max-width: 899px) { .bv-arrow { width: 34px; font-size: 28px; } .bv-spread { --h: min(70vh, calc((100vw - 100px) * var(--hw))); } }
 .bv-page.solo { max-width: calc(100vw - 96px); height: auto; }
 .bv .btn-muted { background: rgba(255,255,255,0.14); color: #F3EAD6; width: auto; flex: 0 0 auto; padding: 9px 18px; }
+/* the halves of the open book are buttons: left goes back, right turns forward */
+.bv-spread { position: relative; }
+.bv-hot { position: absolute; top: 0; bottom: 0; width: 50%; border: 0; padding: 0; background: transparent; cursor: pointer; display: flex; align-items: center; -webkit-tap-highlight-color: transparent; }
+.bv-hot.prev { left: 0; justify-content: flex-start; }
+.bv-hot.next { right: 0; justify-content: flex-end; }
+.bv-hot:disabled { cursor: default; }
+.bv-hot span { margin: 0 14px; width: 46px; height: 46px; border-radius: 50%; background: rgba(28,25,22,0.55); color: #fff; font-size: 30px; line-height: 44px; text-align: center; opacity: 0; transition: opacity 0.15s; }
+.bv-hot:not(:disabled):hover span, .bv-hot:not(:disabled):focus-visible span { opacity: 1; }
+.bv-hot.next:not(:disabled):hover { background: linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0) 22%); }
+.bv-hot.prev:not(:disabled):hover { background: linear-gradient(to right, rgba(0,0,0,0.10), rgba(0,0,0,0) 22%); }
+@media (hover: none) { .bv-hot:not(:disabled) span { opacity: 0.55; } }

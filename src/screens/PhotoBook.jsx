@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Chevron } from '../components/Icons.jsx';
 import { supabase } from '../lib/supabase.js';
 import { photoSrc, src as assetSrc } from '../lib/derive.js';
@@ -79,6 +80,12 @@ function BookViewer({ pages, size, ctx, start = 0, onClose }) {
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('keydown', onKey); };
   }); // eslint-disable-line
 
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const touch = useRef(null);
   const onTouchStart = (e) => { touch.current = e.touches[0].clientX; };
   const onTouchEnd = (e) => {
@@ -92,7 +99,9 @@ function BookViewer({ pages, size, ctx, start = 0, onClose }) {
   // a lone page sits on the side it would be on in a real book (cover and odd pages on the right)
   const side = (i) => (single ? (twoUp ? (i === 0 || i % 2 === 1 ? 'right' : 'left') : 'solo') : i === cur[0] ? 'left' : 'right');
 
-  return (
+  const first = at === 0, last = at >= spreads.length - 1;
+  // drawn on top of the whole app (not inside the page area), with the app behind it held still
+  return createPortal(
     <div className="bv" role="dialog" aria-label="Photo book" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="bv-top">
         <span className="bv-count">{label} <span className="bv-of">of {pages.length}</span></span>
@@ -104,11 +113,15 @@ function BookViewer({ pages, size, ctx, start = 0, onClose }) {
           {twoUp && single && side(cur[0]) === 'right' && <div className="bv-blank left" />}
           {cur.map((i) => <ViewPage key={i} page={pages[i]} size={size} ctx={ctx} side={side(i)} />)}
           {twoUp && single && side(cur[0]) === 'left' && <div className="bv-blank right" />}
+          {/* click the left half to go back, the right half to go forward */}
+          <button className="bv-hot prev" disabled={first} onClick={() => go(-1)} aria-label="Previous page"><span>‹</span></button>
+          <button className="bv-hot next" disabled={last} onClick={() => go(1)} aria-label="Next page"><span>›</span></button>
         </div>
-        <button className="bv-arrow" disabled={at >= spreads.length - 1} onClick={() => go(1)} aria-label="Next pages">›</button>
+        <button className="bv-arrow" disabled={last} onClick={() => go(1)} aria-label="Next pages">›</button>
       </div>
-      <div className="bv-hint">{twoUp ? 'Arrow keys turn the pages · Esc closes' : 'Swipe to turn the pages'}</div>
-    </div>
+      <div className="bv-hint">{twoUp ? 'Click the right page to turn forward, the left page to go back · arrow keys work too · Esc closes' : 'Tap the right side for the next page, the left side to go back — or swipe'}</div>
+    </div>,
+    document.body
   );
 }
 
