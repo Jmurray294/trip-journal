@@ -472,6 +472,8 @@ h1 { margin: 0; font-weight: 600; }
 .book-facts { display: flex; gap: 16px; margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--terra); }
 .book-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px; }
 .book-bar .book-size { flex: 1 1 220px; height: 46px; }
+.book-bar .book-style { flex: 0 1 150px; height: 46px; }
+.book-fresh { color: var(--terra); font-weight: 500; }
 .book-bar .btn-primary.small { flex: 1 1 180px; }
 .book-bar .btn-muted { flex: 0 0 auto; }
 .book-note { padding: 0 18px; margin-top: 8px; }

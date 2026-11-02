@@ -40,10 +40,11 @@ const BOOK_SCHEMA = {
           when: { type: "string", description: "Day or dates, e.g. 'Day 3 · Apr 15' or 'Apr 15–17'" },
           place: { type: "string" },
           story: { type: "string", description: "The chapter, 1-3 paragraphs separated by a blank line, about 80-220 words" },
+          quote: { type: "string", description: "A short line copied word for word from one of this chapter's JOURNAL notes (5-25 words), printed as a handwritten note; empty if there is none" },
           hero_photo: { type: "string", description: "id of the photo that opens the chapter, or empty" },
           photos: { type: "array", items: { type: "string" }, description: "ids of the other photos for this chapter, best first" },
         },
-        required: ["heading", "when", "place", "story", "hero_photo", "photos"],
+        required: ["heading", "when", "place", "story", "quote", "hero_photo", "photos"],
         additionalProperties: false,
       },
     },
@@ -67,7 +68,7 @@ const workspace = Deno.env.get("ANTHROPIC_WORKSPACE_ID");
 const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
 
 type Photo = { id?: string; data?: string; entry?: number; label?: string };
-type Day = { date?: string; title?: string; place?: string; note?: string; kind?: string };
+type Day = { date?: string; title?: string; place?: string; note?: string; kind?: string; type?: string };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -97,9 +98,11 @@ Deno.serve(async (req) => {
   const photos = (body.photos ?? []).filter((p) => p.id && p.data).slice(0, MAX_PHOTOS);
   if (!days.length && !photos.length) return json({ error: "Add some memories or photos first" }, 400);
 
+  // 'journal' = what the family wrote or dictated; 'booking' = the plan; 'photos' = an album import
+  const kindOf = (d: Day) => (d.type === "booking" || d.type === "photos" || d.type === "journal" ? d.type : d.kind ? "booking" : "journal");
   const journal = days.map((d, i) => {
-    const head = [`#${i}`, clip(d.date, 40), clip(d.kind, 20), clip(d.title, 140), clip(d.place, 120)].filter(Boolean).join(" | ");
-    const note = clip(d.note, 2000);
+    const head = [`#${i}`, kindOf(d).toUpperCase(), clip(d.date, 40), clip(d.kind, 20), clip(d.title, 140), clip(d.place, 120)].filter(Boolean).join(" | ");
+    const note = clip(d.note, 4000);
     const pics = photos.filter((p) => p.entry === i).map((p) => p.id + (p.label ? ` ("${clip(p.label, 80)}")` : ""));
     return "- " + head + (note ? "\n  " + note : "") + (pics.length ? "\n  photos: " + pics.join(", ") : "");
   }).join("\n");
@@ -115,8 +118,12 @@ Deno.serve(async (req) => {
     text:
       "Write a printed photo book of this family trip, to be laid out as a landscape hardcover.\n\n" +
       `TRIP: ${clip(t.title, 120)} — ${clip(t.place, 120)}, ${clip(t.dates, 60)}${t.companions ? `, with ${clip(t.companions, 200)}` : ""}\n\n` +
-      `JOURNAL (in order; '#n' is the entry, then its photos by id):\n${journal || "(no written entries)"}\n\n` +
+      `ENTRIES (in order; '#n' is the entry, then JOURNAL, BOOKING or PHOTOS, then its photos by id):\n${journal || "(no entries)"}\n\n` +
       (bookings ? `BOOKINGS (for dates and where we stayed, travelled and ate):\n${bookings}\n\n` : "") +
+      "The JOURNAL entries are the heart of the book: what the family wrote or dictated while travelling. Read every one closely " +
+      "and build the chapters from them — what happened, who was there, what was said, how it felt, the jokes and small details. " +
+      "Keep their own phrases where you can, and give each chapter a quote: a short line copied exactly from its journal notes " +
+      "(empty if the chapter has no journal note). BOOKING entries only tell you where and when; PHOTOS entries are just pictures. " +
       "Write in the family's voice ('we'), warm and specific, built from their own notes and what the photos show — real places, " +
       "names, meals and moments. Don't invent events, people or facts that the notes and photos don't support; where an entry is " +
       "thin, keep that chapter short rather than padding it. One chapter per day or per place, in trip order; merge entries that " +
@@ -149,12 +156,19 @@ Deno.serve(async (req) => {
     const used = new Set<string>();
     const take = (v: unknown) => { const s = pid(v); if (!s || used.has(s)) return ""; used.add(s); return s; };
 
+    // a chapter's quote must really be the family's words: keep it only if it appears in a journal note
+    const squash = (v: unknown) => String(v ?? "").toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9']+/g, " ").trim();
+    const notes = " " + squash(days.filter((d) => kindOf(d) === "journal").map((d) => d.note).join(" ")) + " ";
+    const realQuote = (v: unknown) => {
+      const q = clip(v, 240).replace(/^["“]+|["”]+$/g, "").trim();
+      return q && squash(q).length >= 8 && notes.includes(" " + squash(q) + " ") ? q : "";
+    };
     const cover = pid(raw.cover_photo);
     const chapters = (Array.isArray(raw.chapters) ? raw.chapters : []).slice(0, 60).map((c: Record<string, unknown>) => {
       const hero = take(c.hero_photo);
       return {
         heading: clip(c.heading, 80), when: clip(c.when, 60), place: clip(c.place, 100),
-        story: String(c.story ?? "").trim().slice(0, 3000), hero,
+        story: String(c.story ?? "").trim().slice(0, 3000), quote: realQuote(c.quote), hero,
         photos: (Array.isArray(c.photos) ? c.photos : []).map(take).filter(Boolean),
       };
     }).filter((c: { heading: string; story: string }) => c.heading || c.story);

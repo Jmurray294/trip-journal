@@ -16,6 +16,8 @@ import '@fontsource/spectral/500-italic.css';
 import '@fontsource/hanken-grotesk/500.css';
 import '@fontsource/hanken-grotesk/600.css';
 import '@fontsource/spline-sans-mono/500.css';
+import '@fontsource/caveat/500.css';
+import '@fontsource/caveat/700.css';
 import './styles.css';
 import './navy.css';
 import App from './App.jsx';

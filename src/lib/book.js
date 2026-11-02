@@ -19,6 +19,16 @@ export const MIN_PAGES = { shutterfly: 20, lulu: 24, blurb: 20, home: 0 };
 
 export const photoRef = (entry, i) => `${entry.id}#${i}`;
 
+// what an entry is, for the writer: 'journal' (what you wrote or dictated — the heart of the book),
+// 'booking' (the plan, same test as the Itinerary tab) or 'photos' (an album import)
+export const entryType = (d) => (d.source === 'photos' ? 'photos' : d.booking || d.kind ? 'booking' : 'journal');
+
+// journal entries written since the book was (so the app can offer to write it again)
+export function newSinceWritten(trip, draft) {
+  if (!draft || !draft.written) return 0;
+  return (trip.days || []).filter((d) => entryType(d) === 'journal' && typeof d.added === 'number' && d.added > draft.written).length;
+}
+
 // every photo in the trip, in itinerary order
 export function collectPhotos(trip) {
   const out = [];
@@ -68,7 +78,7 @@ export function buildPages(trip, draft) {
   if ((draft.intro || '').trim()) pages.push({ type: 'text', eyebrow: trip.place || 'Our trip', heading: draft.title || trip.title, body: draft.intro });
   if (located(trip).length >= 2) pages.push({ type: 'map' });
   (draft.chapters || []).forEach((c, ci) => {
-    pages.push({ type: 'chapter', ci, heading: c.heading, when: c.when, place: c.place, story: c.story, photo: exists(c.hero) ? c.hero : '' });
+    pages.push({ type: 'chapter', ci, heading: c.heading, when: c.when, place: c.place, story: c.story, quote: c.quote || '', photo: exists(c.hero) ? c.hero : '' });
     for (const group of chunkPhotos((c.photos || []).filter(exists))) pages.push({ type: 'photos', ci, photos: group });
   });
   const lines = bookingLines(trip);
@@ -93,7 +103,7 @@ export function draftFromWriter(answer, sentRefs) {
   return {
     title: answer.title || '', subtitle: answer.subtitle || '', cover: ref(answer.cover), intro: answer.intro || '',
     chapters: (answer.chapters || []).map((c) => ({
-      heading: c.heading || '', when: c.when || '', place: c.place || '', story: c.story || '',
+      heading: c.heading || '', when: c.when || '', place: c.place || '', story: c.story || '', quote: c.quote || '',
       hero: ref(c.hero), photos: (c.photos || []).map(ref).filter(Boolean),
     })),
     captions, closing: answer.closing || '', written: Date.now(),

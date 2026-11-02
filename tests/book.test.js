@@ -54,3 +54,21 @@ test('a photo deleted from the trip drops out of the book', () => {
   assert.equal(ch.photo, '');
   assert.deepEqual(pages.find((p) => p.type === 'photos').photos, ['a#1']);
 });
+
+test('journal entries are told apart from bookings and photo imports, and new ones are noticed', async () => {
+  const { entryType, newSinceWritten } = await import('../src/lib/book.js');
+  assert.equal(entryType({ note: 'We ate cheese curds' }), 'journal');
+  assert.equal(entryType({ kind: 'Flight' }), 'booking');
+  assert.equal(entryType({ booking: { provider: 'Hilton' } }), 'booking');
+  assert.equal(entryType({ source: 'photos' }), 'photos');
+  const t = { days: [{ id: 'a', note: 'old', added: 100 }, { id: 'b', note: 'new', added: 300 }, { id: 'c', kind: 'Flight', added: 400 }] };
+  assert.equal(newSinceWritten(t, { written: 200 }), 1);
+  assert.equal(newSinceWritten(t, null), 0);
+});
+
+test('a chapter keeps its journal quote through to the page', () => {
+  const draft = draftFromWriter({ title: 'T', chapters: [{ heading: 'H', story: 'S', quote: 'best curds ever', hero: '', photos: [] }] }, {});
+  assert.equal(draft.chapters[0].quote, 'best curds ever');
+  const pages = buildPages({ title: 'T', days: [] }, draft);
+  assert.equal(pages.find((p) => p.type === 'chapter').quote, 'best curds ever');
+});

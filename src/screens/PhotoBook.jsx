@@ -3,8 +3,8 @@ import { Chevron } from '../components/Icons.jsx';
 import { supabase } from '../lib/supabase.js';
 import { photoSrc, src as assetSrc } from '../lib/derive.js';
 import { ensureMedia } from '../lib/media.js';
-import { SIZES, MIN_PAGES, buildPages, collectPhotos, bookingLines, draftFromWriter, unusedPhotos, photoByRef } from '../lib/book.js';
-import { drawPage, ensureFonts, loadImages, mapData, exportBook } from '../lib/bookRender.js';
+import { SIZES, MIN_PAGES, buildPages, collectPhotos, bookingLines, draftFromWriter, unusedPhotos, photoByRef, entryType, newSinceWritten } from '../lib/book.js';
+import { drawPage, ensureFonts, loadImages, mapData, exportBook, STYLES } from '../lib/bookRender.js';
 
 // A trip as a printable photo book: Claude writes it (title, intro, a chapter per day or place,
 // captions, closing), you edit it, then download a PDF (Lulu, Blurb, home) or page images (Shutterfly).
@@ -92,6 +92,8 @@ function Editor({ trip, draft, page, onChange }) {
       </div>
       <div className="field-label" style={{ marginTop: 12 }}>Story</div>
       <textarea className="field book-text" value={c.story} onChange={(e) => setChapter(ci, { story: e.target.value })} />
+      <div className="field-label" style={{ marginTop: 12 }}>From the journal</div>
+      <textarea className="field" style={{ minHeight: 64 }} value={c.quote || ''} onChange={(e) => setChapter(ci, { quote: e.target.value })} placeholder="A line in your own words, printed as a handwritten note" />
 
       <div className="field-label" style={{ marginTop: 14 }}>Photos in this chapter</div>
       <div className="stack-9">
@@ -126,6 +128,7 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
   const book = trip.book || {};
   const draft = book.draft || null;
   const sizeKey = SIZES[book.size] ? book.size : 'shutterfly';
+  const style = STYLES[book.style] ? book.style : 'scrapbook';
   const size = SIZES[sizeKey];
   const [writing, setWriting] = useState('');
   const [sel, setSel] = useState(0);
@@ -140,10 +143,12 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
   useEffect(() => { ensureFonts().then(() => setFontsReady(true)); mapData(trip).then(setMap); }, [trip.id]); // eslint-disable-line
   useEffect(() => { let live = true; loadImages(trip, pages).then((m) => { if (live) setImages(m); }); return () => { live = false; }; }, [refsKey]); // eslint-disable-line
 
-  const ctx = useMemo(() => ({ trip, images, map, captions: (draft && draft.captions) || {}, fontsReady }), [trip, images, map, draft, fontsReady]);
+  const ctx = useMemo(() => ({ trip, images, map, captions: (draft && draft.captions) || {}, style, fontsReady }), [trip, images, map, draft, style, fontsReady]);
   const save = (patch) => onSave({ ...book, ...patch });
   const page = pages[Math.min(sel, pages.length - 1)];
   const photoCount = collectPhotos(trip).length;
+  const journalCount = (trip.days || []).filter((d) => entryType(d) === 'journal' && (d.note || '').trim()).length;
+  const fresh = newSinceWritten(trip, draft);
   const canWrite = !!(supabase && family.household);
 
   const write = async () => {
@@ -162,7 +167,7 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
       setWriting('Writing your book… this takes a minute or two.');
       const { data, error } = await supabase.functions.invoke('write-book', {
         body: {
-          trip: { title: trip.title, place: trip.place, dates: trip.dates, companions: trip.companions || '', days: (trip.days || []).map((d) => ({ date: d.date, title: d.title, place: d.place, note: d.note, kind: d.kind })) },
+          trip: { title: trip.title, place: trip.place, dates: trip.dates, companions: trip.companions || '', days: (trip.days || []).map((d) => ({ date: d.date, title: d.title, place: d.place, note: d.note, kind: d.kind, type: entryType(d) })) },
           photos, bookings: bookingLines(trip),
         },
       });
@@ -181,7 +186,7 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
 
   const download = async () => {
     setProgress([0, pages.length]);
-    try { await exportBook({ trip, pages, size, images, map, captions: draft.captions || {}, onProgress: (i, n) => setProgress([i, n]) }); }
+    try { await exportBook({ trip, pages, size, images, map, captions: draft.captions || {}, style, onProgress: (i, n) => setProgress([i, n]) }); }
     catch (e) { toast('Could not make the file — try again'); }
     finally { setProgress(null); }
   };
@@ -202,11 +207,12 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
         <div className="book-start">
           <div className="serif" style={{ fontSize: 24, fontWeight: 600 }}>Turn this trip into a book</div>
           <div className="sheet-copy" style={{ fontSize: 14.5 }}>
-            Claude reads your memories, notes, bookings and photos and writes the book: a cover, an introduction, a chapter for each
-            day or place with your photos and captions, a map, and a closing. Then you look it over, change anything, and download it to print.
+            Claude reads every journal entry you wrote or dictated, plus your bookings and photos, and turns them into a scrapbook: a cover,
+            an introduction, a chapter for each day or place told from your journal (with a line in your own words on a handwritten note),
+            your photos taped in with captions, a map, and a closing. Then you look it over, change anything, and download it to print.
           </div>
           <div className="book-facts">
-            <span>{(trip.days || []).length} memories</span><span>{photoCount} photos</span>
+            <span>{journalCount} journal entries</span><span>{photoCount} photos</span>
           </div>
           {photoCount === 0 && <div className="sheet-copy">There are no photos on this trip yet — the book will be words only. Add photos to your memories for a real photo book.</div>}
           {!canWrite && <div className="sheet-copy"><strong>Sign in</strong> (the people icon) to have the book written.</div>}
@@ -222,11 +228,19 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
             <select className="field book-size" value={sizeKey} onChange={(e) => save({ size: e.target.value })} aria-label="Book size">
               {Object.entries(SIZES).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
             </select>
+            <select className="field book-style" value={style} onChange={(e) => save({ style: e.target.value })} aria-label="Look">
+              {Object.entries(STYLES).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
             <button className="btn-primary small press" disabled={!!progress} onClick={download}>
               {progress ? `Making page ${progress[0]} of ${progress[1]}…` : size.output === 'images' ? 'Download page images' : 'Download PDF'}
             </button>
             <button className="btn-muted press" disabled={!!writing} onClick={write}>{writing ? 'Writing…' : 'Write again'}</button>
           </div>
+          {fresh > 0 && (
+            <div className="sheet-copy book-note book-fresh">
+              {fresh === 1 ? '1 journal entry was' : fresh + ' journal entries were'} written after this book. <button className="btn-link inline" disabled={!!writing} onClick={write}>Write it again</button> to put {fresh === 1 ? 'it' : 'them'} in.
+            </div>
+          )}
           <div className="sheet-copy book-note">
             {pages.length} pages.{min && pages.length < min ? ` ${size.label.split(' ·')[0]} books need at least ${min} pages — add memories and photos, or they'll add blank pages at the end.` : ''}
             {size.output === 'images'
