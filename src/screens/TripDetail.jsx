@@ -33,63 +33,65 @@ function CostsCard({ costs, onOpen }) {
   );
 }
 
-// The trip link for fellow travelers: they see the plan and add photos and notes, no account.
-function TripLinkCard({ trip, link, onMake, onSend, onCopy, onStop }) {
+// an on/off switch with its label and one line saying what it means
+function ShareRow({ title, sub, on, onToggle, children }) {
   return (
-    <div className="trip-link-card">
-      <div className="mono-label">Trip link</div>
-      <div className="sheet-copy">
-        {trip.shareToken
-          ? 'Anyone with the link can see the plan and add their photos and notes. Costs, confirmation numbers and travel documents stay private.'
-          : 'Send the people you travel with a link. They can see the plan and add their photos and notes for the story and album, no account needed.'}
-      </div>
-      {trip.shareToken ? (<>
-        <div className="trip-link-url">{link}</div>
-        <div className="row-8" style={{ marginTop: 10 }}>
-          <button className="btn-primary small press" onClick={onSend}><Share /> Send link</button>
-          <button className="btn-muted press" onClick={onCopy}>Copy</button>
-          <button className="btn-muted press" onClick={onStop}>Turn off</button>
+    <div className={'share-row' + (on ? ' on' : '')}>
+      <div className="share-row-head">
+        <div className="grow">
+          <div className="share-row-title">{title}</div>
+          <div className="share-row-sub">{sub}</div>
         </div>
-      </>) : (
-        <button className="btn-secondary press" onClick={onMake}>Create trip link</button>
-      )}
+        <button className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={title} onClick={onToggle}><span /></button>
+      </div>
+      {on && children && <div className="share-row-more">{children}</div>}
     </div>
   );
 }
 
-// Followers (family and friends in the portal) see this trip only when it's switched on here.
-function FollowersCard({ trip, followers, onChange, onAnnounce, onManage, onPreview }) {
-  const on = !!trip.followers;
-  const n = followers.followers.length + followers.invites.length;
+// Who can see this trip, in one place: followers (family at home, in the portal: read only) and the
+// travel crew (people on the trip, by link: they add their photos and notes). Neither ever sees costs,
+// confirmation numbers or documents.
+function SharingCard({ trip, followers, link, p }) {
+  const fOn = !!trip.followers;
+  const n = followers ? followers.followers.length + followers.invites.length : 0;
   const book = !!(trip.book && trip.book.draft);
   const song = !!(trip.song && (trip.song.audioPath || trip.song.audio));
   return (
-    <div className="trip-link-card">
-      <div className="mono-label">Followers</div>
-      <div className="segs" style={{ marginTop: 8 }}>
-        <button className={'seg' + (!on ? ' active' : '')} onClick={() => onChange({ followers: false })}>Private</button>
-        <button className={'seg' + (on ? ' active' : '')} onClick={() => onChange({ followers: true })}>Followers can see it</button>
-      </div>
-      <div className="sheet-copy">
-        {on
-          ? (trip.followersLater
-            ? 'Followers see the journal and photos a day after you post them, plus the photo book and song.'
-            : 'Followers see the journal and photos as you post them, plus the photo book and song. Never costs or booking details.')
-          : 'Only your family sees this trip.'}
-        {' '}{n ? `${n} ${n === 1 ? 'follower' : 'followers'}.` : 'No followers yet.'} <button className="btn-link inline" onClick={onManage}>{n ? 'Manage' : 'Invite someone'}</button>
-      </div>
-      {on && (<>
-        <button className="btn-link inline" onClick={() => onChange({ followersLater: !trip.followersLater })}>
-          {trip.followersLater ? 'Post live instead' : 'Post a day late (for safety while away)'}
-        </button>
-        {onPreview && <button className="btn-link inline" style={{ marginLeft: 14 }} onClick={onPreview}>See what followers see</button>}
-        {(book || song) && n > 0 && (
-          <div className="stack-9" style={{ marginTop: 10 }}>
-            {book && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onAnnounce('book')}>Email followers: the book is ready</button>}
-            {song && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onAnnounce('song')}>Email followers: the song is ready</button>}
+    <div className="trip-link-card share-card">
+      <div className="mono-label">Sharing</div>
+      {followers && (
+        <ShareRow title="Followers" sub={fOn ? 'Family at home can follow this trip: journal, photos, book and song.' : 'Family at home can’t see this trip.'}
+          on={fOn} onToggle={() => p.onFollowers({ followers: !fOn })}>
+          <div className="share-links">
+            <span>{n ? `${n} following` : 'No one invited yet'}</span>
+            <button className="btn-link inline" onClick={p.onManageFollowers}>{n ? 'Manage' : 'Invite'}</button>
+            <button className="btn-link inline" onClick={p.onPreviewFollowers}>Preview</button>
           </div>
-        )}
-      </>)}
+          <label className="share-select">
+            <span>Posting</span>
+            <select value={trip.followersLater ? 'later' : 'live'} onChange={(e) => p.onFollowers({ followersLater: e.target.value === 'later' })}>
+              <option value="live">Live, as you post</option>
+              <option value="later">A day late (safer while away)</option>
+            </select>
+          </label>
+          {(book || song) && n > 0 && (
+            <div className="stack-9" style={{ marginTop: 10 }}>
+              {book && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => p.onAnnounce('book')}>Email followers: the book is ready</button>}
+              {song && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => p.onAnnounce('song')}>Email followers: the song is ready</button>}
+            </div>
+          )}
+        </ShareRow>
+      )}
+      <ShareRow title="Travel crew" sub={trip.shareToken ? 'Anyone with the link can see the plan and add their photos and notes.' : 'Send the people on this trip a link to add their photos and notes.'}
+        on={!!trip.shareToken} onToggle={() => (trip.shareToken ? p.onStopLink() : p.onMakeLink())}>
+        <div className="row-8">
+          <button className="btn-primary small press" onClick={p.onSendLink}><Share /> Send link</button>
+          <button className="btn-muted press" onClick={p.onCopyLink}>Copy link</button>
+        </div>
+        <div className="trip-link-url">{link}</div>
+      </ShareRow>
+      <button className="btn-link inline share-copy" onClick={p.onShare}>Copy itinerary as text</button>
     </div>
   );
 }
@@ -258,11 +260,9 @@ export default function TripDetail(p) {
           <div><div className="stat-num" style={{ color: '#1B3FA8' }}>{countPlaces(trip)}</div><div className="stat-label">places</div></div>
           <div><div className="stat-num" style={{ color: '#6B3FA0' }}>{countPhotos(trip)}</div><div className="stat-label">photos</div></div>
         </div>
-        <button className="btn-share press" onClick={p.onShare}><Share /> Share</button>
       </div>
 
-      {p.household && <TripLinkCard trip={trip} link={p.tripLink} onMake={p.onMakeLink} onSend={p.onSendLink} onCopy={p.onCopyLink} onStop={p.onStopLink} />}
-      {p.household && p.followers && <FollowersCard trip={trip} followers={p.followers} onChange={p.onFollowers} onAnnounce={p.onAnnounce} onManage={p.onManageFollowers} onPreview={p.onPreviewFollowers} />}
+      {p.household && <SharingCard trip={trip} followers={p.followers} link={p.tripLink} p={p} />}
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
       <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>
