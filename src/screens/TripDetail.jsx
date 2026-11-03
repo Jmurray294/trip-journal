@@ -214,7 +214,10 @@ export default function TripDetail(p) {
       {/* just the trip name: the page is about what's below it */}
       <div className="trip-head">
         <button className="back-btn static press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
-        <h1 className="trip-head-title">{trip.title}</h1>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <h1 className="trip-head-title">{trip.title}</h1>
+          {trip.dates && <div className="trip-head-dates">{trip.dates}</div>}
+        </div>
       </div>
 
       <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />

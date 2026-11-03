@@ -904,3 +904,4 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
   .trip-head-title { font-size: 26px; }
   .trip-head ~ .detail-body .detail-side { margin-top: 0; }
 }
+.trip-head-dates { font-size: 13.5px; color: var(--on-navy-sub, #CFE0F7); margin-top: 2px; }
