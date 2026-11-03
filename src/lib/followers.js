@@ -65,10 +65,14 @@ export function announceEmail(trip, what, emails, familyName) {
 }
 
 // ---------- for followers: the portal ----------
-export async function loadPortal(displayName = '') {
-  await supabase.rpc('accept_follow_invites', { p_display_name: displayName });
-  const { data, error } = await supabase.rpc('follower_portal');
-  if (error) throw new Error(/function|does not exist/i.test(error.message) ? 'The family portal isn’t set up yet' : error.message);
+// `preview`: a member looking at their own family's portal, through the same filter followers get
+export async function loadPortal(displayName = '', { preview = false } = {}) {
+  if (!preview) await supabase.rpc('accept_follow_invites', { p_display_name: displayName });
+  const { data, error } = await supabase.rpc(preview ? 'follower_preview' : 'follower_portal');
+  if (error) {
+    const missing = /function|does not exist|schema cache/i.test(error.message);
+    throw new Error(missing ? (preview ? 'Preview needs a one-time setup: run the follower_preview part of supabase/followers.sql' : 'The family portal isn’t set up yet') : error.message);
+  }
   return (data || []).map((f) => ({ ...f, trips: (f.trips || []).map((t) => ({ ...t, days: t.days || [] })) }));
 }
 

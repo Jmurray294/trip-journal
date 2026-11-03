@@ -36,7 +36,7 @@ function PasswordField({ value, onChange, placeholder = 'Password', autoComplete
   );
 }
 
-export default function FamilySheet({ family, followers, onClose, toast }) {
+export default function FamilySheet({ family, followers, onPreview, onClose, toast }) {
   const [view, setView] = useState('signin'); // signin | signup | forgot
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -228,6 +228,7 @@ export default function FamilySheet({ family, followers, onClose, toast }) {
             <input className="field" type="email" inputMode="email" value={followEmail} onChange={(e) => setFollowEmail(e.target.value)} placeholder="their@email.com" />
             <button className="btn-share press" disabled={busy || !followEmail.includes('@')} onClick={addFollower}>Invite</button>
           </div>
+          {onPreview && <button className="btn-secondary press" onClick={onPreview}>See what followers see</button>}
         </>)}
 
         {inbox && (

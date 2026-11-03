@@ -137,3 +137,17 @@ revoke all on function public.follower_can_read(text) from public, anon;
 grant execute on function public.accept_follow_invites(text) to authenticated;
 grant execute on function public.follower_portal() to authenticated;
 grant execute on function public.follower_can_read(text) to authenticated;
+
+-- a member's preview of the portal: their own family, exactly as a follower gets it
+create or replace function public.follower_preview() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', h.id, 'name', h.name,
+    'trips', (select coalesce(jsonb_agg(public.follower_trip(t.household_id, t.id, t.doc) order by t.updated_at desc), '[]'::jsonb)
+      from trips t where t.household_id = h.id and not t.deleted and t.doc->>'followers' = 'true')
+  ) order by m.joined_at), '[]'::jsonb)
+  from household_members m join households h on h.id = m.household_id
+  where m.user_id = auth.uid();
+$$;
+revoke all on function public.follower_preview() from public, anon;
+grant execute on function public.follower_preview() to authenticated;

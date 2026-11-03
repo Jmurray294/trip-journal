@@ -57,7 +57,7 @@ function TripLinkCard({ trip, link, onMake, onSend, onCopy, onStop }) {
 }
 
 // Followers (family and friends in the portal) see this trip only when it's switched on here.
-function FollowersCard({ trip, followers, onChange, onAnnounce, onManage }) {
+function FollowersCard({ trip, followers, onChange, onAnnounce, onManage, onPreview }) {
   const on = !!trip.followers;
   const n = followers.followers.length + followers.invites.length;
   const book = !!(trip.book && trip.book.draft);
@@ -81,6 +81,7 @@ function FollowersCard({ trip, followers, onChange, onAnnounce, onManage }) {
         <button className="btn-link inline" onClick={() => onChange({ followersLater: !trip.followersLater })}>
           {trip.followersLater ? 'Post live instead' : 'Post a day late (for safety while away)'}
         </button>
+        {onPreview && <button className="btn-link inline" style={{ marginLeft: 14 }} onClick={onPreview}>See what followers see</button>}
         {(book || song) && n > 0 && (
           <div className="stack-9" style={{ marginTop: 10 }}>
             {book && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onAnnounce('book')}>Email followers: the book is ready</button>}
@@ -245,7 +246,7 @@ export default function TripDetail(p) {
       </div>
 
       {p.household && <TripLinkCard trip={trip} link={p.tripLink} onMake={p.onMakeLink} onSend={p.onSendLink} onCopy={p.onCopyLink} onStop={p.onStopLink} />}
-      {p.household && p.followers && <FollowersCard trip={trip} followers={p.followers} onChange={p.onFollowers} onAnnounce={p.onAnnounce} onManage={p.onManageFollowers} />}
+      {p.household && p.followers && <FollowersCard trip={trip} followers={p.followers} onChange={p.onFollowers} onAnnounce={p.onAnnounce} onManage={p.onManageFollowers} onPreview={p.onPreviewFollowers} />}
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
       <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>

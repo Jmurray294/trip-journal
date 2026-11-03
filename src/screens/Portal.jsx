@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { coverBg, photoBg, songAudioSrc } from '../lib/derive.js';
 import { onMediaReady } from '../lib/media.js';
@@ -12,6 +12,7 @@ import '../portal.css';
 // 6-digit code, then see the trips the family shared — what's happening now on a trip underway
 // (refreshed every minute), what's coming up, and past trips with their photo book and song.
 // Read only. What a follower can see is decided in supabase/followers.sql.
+// `preview`: a member's look at their own family's portal (opened over the journal), with a Close button.
 
 const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ''; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private window */ } return v || ''; };
 const REFRESH_MS = 60000;
@@ -158,7 +159,8 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   );
 }
 
-export default function Portal() {
+export default function Portal({ preview = false, onClose }) {
+  const root = useRef(null);
   const [session, setSession] = useState(undefined); // undefined while reading the saved session
   const [families, setFamilies] = useState(null);
   const [error, setError] = useState('');
@@ -178,15 +180,16 @@ export default function Portal() {
 
   const load = useCallback(async () => {
     try {
-      const f = await loadPortal(store('followName'));
+      const f = await loadPortal(store('followName'), { preview });
       setFamilies(f); setError('');
+      if (preview) return;
       if (f.length) store('portal', '1');
       else {
         const { data } = await supabase.from('household_members').select('household_id').limit(1);
         setIsMember(!!(data && data.length));
       }
     } catch (e) { setError(e.message || 'Could not load — try again'); setFamilies((f) => f || []); }
-  }, []);
+  }, [preview]);
 
   useEffect(() => { if (session) load(); }, [session, load]);
 
@@ -202,7 +205,13 @@ export default function Portal() {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', onShow); };
   }, [sections.live.length, load]);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [open]);
+  useEffect(() => { window.scrollTo(0, 0); if (root.current) root.current.scrollTop = 0; }, [open]);
+  useEffect(() => {
+    if (!preview) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape' && !reading && !viewer) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const signOut = async () => { store('portal', null); await supabase.auth.signOut(); setFamilies(null); setOpen(null); };
   const openJournal = () => { store('portal', null); window.location.href = import.meta.env.BASE_URL; };
@@ -224,7 +233,18 @@ export default function Portal() {
 
   let body;
   if (families === null) body = <div className="loading"><div className="spinner" /></div>;
-  else if (!families.length) {
+  else if (!families.length && preview) {
+    body = (
+      <div className="pt-signin">
+        <div className="pt-card pt-signin-card">
+          <h1 className="pt-h1">Nothing shared yet</h1>
+          <p className="pt-p">Followers see only the trips you switch on. Open a trip and set its Followers card to “Followers can see it”.</p>
+          {error && <div className="pt-msg">{error}</div>}
+          <button className="btn-primary press" onClick={onClose}>Close preview</button>
+        </div>
+      </div>
+    );
+  } else if (!families.length) {
     body = (
       <div className="pt-signin">
         <div className="pt-card pt-signin-card">
@@ -250,7 +270,7 @@ export default function Portal() {
             <div className="pt-eyebrow">Following along</div>
             <h1 className="pt-title">{title}</h1>
           </div>
-          <button className="pt-signout" onClick={signOut}>Sign out</button>
+          {preview ? <button className="pt-signout" onClick={onClose}>Close</button> : <button className="pt-signout" onClick={signOut}>Sign out</button>}
         </div>
         {error && <div className="pt-card pt-msg">{error}</div>}
 
@@ -296,7 +316,13 @@ export default function Portal() {
   }
 
   return (
-    <div className="pt-root">
+    <div ref={root} className={'pt-root' + (preview ? ' pt-preview' : '')} role={preview ? 'dialog' : undefined} aria-label={preview ? 'Follower preview' : undefined}>
+      {preview && (
+        <div className="pt-preview-bar">
+          <span><strong>Preview:</strong> this is what your followers see</span>
+          <button onClick={onClose}>Close</button>
+        </div>
+      )}
       {body}
       {readingTrip && <BookReader trip={readingTrip} onClose={() => setReading(null)} />}
       {viewer && <PhotoViewer items={viewer.items} index={viewer.index} onIndex={(i) => setViewer((v) => ({ ...v, index: i }))} onClose={() => setViewer(null)} />}
