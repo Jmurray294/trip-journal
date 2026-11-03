@@ -8,7 +8,9 @@ const HEIGHTS = [150, 205, 175, 228, 158, 196, 168, 186];
 export default function Albums({ trips, filter, onFilter, onMove, onCaption }) {
   const all = [];
   trips.forEach((t) => (t.days || []).forEach((d) => (d.photos || []).forEach((p, pi) => {
-    all.push({ tripId: t.id, trip: t.title, dayId: d.id, pi, caption: p.label || d.place || d.title, p, h: HEIGHTS[all.length % HEIGHTS.length] });
+    // `label`: the caption someone wrote; `where`: the place, shown small when there's no caption yet
+    const label = (p.label || '').trim();
+    all.push({ tripId: t.id, trip: t.title, dayId: d.id, pi, label, where: d.place || (d.source === 'photos' ? '' : d.title) || '', caption: label || d.place || d.title, p, h: HEIGHTS[all.length % HEIGHTS.length] });
   })));
   const chips = [{ id: 'all', label: 'All' }, ...trips.filter((t) => countPhotos(t) > 0).map((t) => ({ id: t.id, label: short(t.title, 14) }))];
   const shown = all.filter((a) => filter === 'all' || a.tripId === filter);
@@ -34,8 +36,8 @@ export default function Albums({ trips, filter, onFilter, onMove, onCaption }) {
             <div style={{ ...photoBg(a.p), height: a.h, width: '100%' }} />
             <div className="fill" style={{ background: 'linear-gradient(to top, rgba(26,22,18,0.52), transparent 52%)' }} />
             <div className="masonry-text">
-              <div className="masonry-trip">{a.trip}</div>
-              <div className="masonry-cap">{a.caption}</div>
+              <div className="masonry-trip">{a.trip}{!a.label && a.where ? ' · ' + a.where : ''}</div>
+              {a.label && <div className="masonry-cap captioned">{a.label}</div>}
             </div>
           </button>
         ))}
