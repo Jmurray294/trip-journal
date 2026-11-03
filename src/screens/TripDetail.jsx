@@ -107,7 +107,7 @@ function addedNote(d) {
   return ' · added ' + l + (a.getFullYear() !== new Date().getFullYear() ? ', ' + a.getFullYear() : '');
 }
 
-const TABS = [['itinerary', 'Itinerary'], ['journal', 'Journal'], ['photos', 'Photos'], ['budget', 'Budget'], ['explore', 'Explore'], ['documents', 'Documents']];
+const TABS = [['photos', 'Photos'], ['journal', 'Journal'], ['explore', 'Explore'], ['itinerary', 'Itinerary'], ['budget', 'Budget'], ['documents', 'Documents']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -200,7 +200,7 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 
 export default function TripDetail(p) {
   const { trip } = p;
-  const [tab, setTab] = useState(p.initialTab || 'itinerary');
+  const [tab, setTab] = useState(p.initialTab || TABS[0][0]);
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
   const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);
