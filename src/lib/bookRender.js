@@ -58,6 +58,15 @@ function cover(ctx, img, x, y, w, h) {
   ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
 }
 
+// the whole photo, as large as fits in the box and centred; returns the rect it was drawn in
+function contain(ctx, img, x, y, w, h) {
+  if (!img || !img.naturalWidth) { cover(ctx, img, x, y, w, h); return { x, y, w, h }; }
+  const s = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+  const dw = img.naturalWidth * s, dh = img.naturalHeight * s, dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
+  ctx.drawImage(img, dx, dy, dw, dh);
+  return { x: dx, y: dy, w: dw, h: dh };
+}
+
 function wrap(ctx, text, maxW) {
   const lines = [];
   for (const para of String(text || '').split(/\n\s*\n/)) {
@@ -170,8 +179,8 @@ export function drawPage(canvas, page, size, dpi, { images, map, captions = {}, 
   };
 
   if (page.type === 'cover') {
-    if (page.photo) cover(ctx, img(page.photo), full.x, full.y, full.w, full.h);
-    else { ctx.fillStyle = '#5E7E78'; ctx.fillRect(0, 0, full.w, full.h); }
+    ctx.fillStyle = page.photo ? '#1A1612' : '#5E7E78'; ctx.fillRect(0, 0, full.w, full.h);
+    if (page.photo) contain(ctx, img(page.photo), full.x, full.y, full.w, full.h);
     const g = ctx.createLinearGradient(0, full.h, 0, full.h * 0.35);
     g.addColorStop(0, 'rgba(26,22,18,0.78)'); g.addColorStop(1, 'rgba(26,22,18,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, full.w, full.h);
@@ -198,7 +207,7 @@ export function drawPage(canvas, page, size, dpi, { images, map, captions = {}, 
 
   if (page.type === 'chapter') {
     const textX = page.photo ? W / 2 + 0.45 : 1.6, textW = page.photo ? W / 2 - 0.45 - m : W - 3.2;
-    if (page.photo) cover(ctx, img(page.photo), 0, 0, X(W / 2), full.h);
+    if (page.photo) contain(ctx, img(page.photo), X(m), X(m), L(W / 2 - m), L(H - 2 * m));
     let y = 1.0;
     line(ctx, String(page.when || '').toUpperCase(), X(textX), X(y), `500 ${P(9.5)}px ${MONO}`, ACCENT, 'left', L(textW));
     y += 0.3;
@@ -217,9 +226,9 @@ export function drawPage(canvas, page, size, dpi, { images, map, captions = {}, 
     const refs = page.photos, cap = 0.32;
     photoBoxes(refs.length, W, H, m, cap).forEach(([bx, by, bw, bh], i) => {
       const ref = refs[i];
-      cover(ctx, img(ref), X(bx), X(by), L(bw), L(bh));
+      const r = contain(ctx, img(ref), X(bx), X(by), L(bw), L(bh));
       const c = captions[ref];
-      if (c) textBox(ctx, c, { x: X(bx), y: X(by + bh + 0.08), w: L(bw), h: L(cap - 0.06), font: (s) => `italic 500 ${s}px ${SERIF}`, startPt: 10, minPt: 7.5, lead: 1.2, color: MUTED }, P);
+      if (c) textBox(ctx, c, { x: X(bx), y: r.y + r.h + L(0.08), w: L(bw), h: L(cap - 0.06), font: (s) => `italic 500 ${s}px ${SERIF}`, startPt: 10, minPt: 7.5, lead: 1.2, color: MUTED }, P);
     });
     folio(); return;
   }
