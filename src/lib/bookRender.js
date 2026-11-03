@@ -318,6 +318,11 @@ function piece(ctx, S, { cx, cy, w, h, angle = 0, color = CARD, tapes = 0, seed 
 // a printed snapshot with a white border; with a caption the bottom border is deeper and handwritten on
 function snapshot(ctx, S, image, { cx, cy, w, h, angle, caption = '', seed, tapes = 2 }) {
   const { L, P } = S, border = Math.max(0.1, Math.min(0.18, w * 0.035)), foot = caption ? Math.max(0.42, h * 0.1) : border;
+  // shrink the print to the photo's own shape so nothing is cropped off
+  if (image && image.naturalWidth && image.naturalHeight) {
+    const ar = image.naturalWidth / image.naturalHeight;
+    if (w / h > ar) w = h * ar; else h = w / ar;
+  }
   piece(ctx, S, { cx, cy, w: w + 2 * border, h: h + border + foot, angle, color: '#FFFEFA', tapes, seed }, (left, top) => {
     cover(ctx, image, left + L(border), top + L(border), L(w), L(h));
     if (caption) textBox(ctx, caption, { x: left + L(border), y: top + L(border + h + 0.05), w: L(w), h: L(foot - 0.08), font: (s) => `500 ${s}px ${HAND}`, startPt: Math.min(20, 10 + w * 2), minPt: 11, lead: 1.0, color: PEN, align: 'center' }, P);
