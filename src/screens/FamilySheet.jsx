@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { forwardingAddress } from '../lib/inbox.js';
+import { portalLink } from '../lib/followers.js';
 
 // Account & sharing: sign in with email + password, share the journal with people by email,
 // the forwarding address for bookings, and the recent emails it has read.
@@ -35,7 +36,7 @@ function PasswordField({ value, onChange, placeholder = 'Password', autoComplete
   );
 }
 
-export default function FamilySheet({ family, onClose, toast }) {
+export default function FamilySheet({ family, followers, onClose, toast }) {
   const [view, setView] = useState('signin'); // signin | signup | forgot
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +44,7 @@ export default function FamilySheet({ family, onClose, toast }) {
   const [newPw, setNewPw] = useState('');
   const [changingPw, setChangingPw] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
+  const [followEmail, setFollowEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [, tick] = useState(0);
 
@@ -88,6 +90,18 @@ export default function FamilySheet({ family, onClose, toast }) {
     const to = shareEmail.trim().toLowerCase();
     const ok = await act(() => family.invite(to).then(() => true), `Shared with ${to}`);
     if (ok) { setShareEmail(''); tellThem(to); }
+  };
+
+  // a follower gets the portal link and signs in with an emailed code: no account to set up
+  const tellFollower = async (to) => {
+    const text = `Follow along with our trips! See where we are, our photos, our photo books and trip songs.\n\n1. Open ${portalLink()}\n2. Sign in with this email: ${to}\n3. Enter the 6-digit code we email you (no password)`;
+    if (navigator.share) { try { await navigator.share({ title: 'Follow our trips', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(text); toast('Invite copied: paste it in a text or email'); } catch (e) { toast('Send them: ' + portalLink()); }
+  };
+  const addFollower = async () => {
+    const to = followEmail.trim().toLowerCase();
+    const ok = await act(() => followers.invite(to).then(() => true), `${to} can follow along`);
+    if (ok) { setFollowEmail(''); tellFollower(to); }
   };
 
   const pwOk = password.length >= 6;
@@ -188,6 +202,33 @@ export default function FamilySheet({ family, onClose, toast }) {
           <button className="btn-share press" disabled={busy || !shareEmail.includes('@')} onClick={share}>Share</button>
         </div>
         <div className="sheet-copy" style={{ marginTop: 8 }}>They create an account with that email and see all your trips. You can remove them any time.</div>
+
+        {followers && (<>
+          <Label top={22}>Followers</Label>
+          <div className="sheet-copy" style={{ marginTop: 0, marginBottom: 8 }}>Family and friends who follow along. They see the trips you switch on for followers (on each trip's page): the journal, photos, photo book and song. Never costs, booking details, documents or ideas, and they can't change anything.</div>
+          {!followers.ready && <div className="sheet-copy">One-time setup needed: run supabase/followers.sql in Supabase.</div>}
+          <div className="members">
+            {followers.followers.map((f) => (
+              <div key={f.user_id} className="member">
+                <span className="member-dot">{(f.display_name || f.email || '?').charAt(0).toUpperCase()}</span>
+                <span className="grow">{f.display_name || f.email}{f.display_name && f.display_name !== f.email ? <span className="member-sub"> · {f.email}</span> : null}</span>
+                <button className="btn-link inline" disabled={busy} onClick={() => { if (window.confirm(`Stop ${f.display_name || f.email} following your trips?`)) act(() => followers.remove(f.user_id), 'Removed'); }}>Remove</button>
+              </div>
+            ))}
+            {followers.invites.map((i) => (
+              <div key={i.email} className="member">
+                <span className="member-dot wait">{i.email.charAt(0).toUpperCase()}</span>
+                <span className="grow">{i.email}<span className="member-sub"> · hasn't signed in yet</span></span>
+                <button className="btn-link inline" onClick={() => tellFollower(i.email)}>Resend</button>
+                <button className="btn-link inline" disabled={busy} onClick={() => act(() => followers.cancel(i.email), 'Invite cancelled')}>Cancel</button>
+              </div>
+            ))}
+          </div>
+          <div className="invite-row" style={{ marginTop: 8 }}>
+            <input className="field" type="email" inputMode="email" value={followEmail} onChange={(e) => setFollowEmail(e.target.value)} placeholder="their@email.com" />
+            <button className="btn-share press" disabled={busy || !followEmail.includes('@')} onClick={addFollower}>Invite</button>
+          </div>
+        </>)}
 
         {inbox && (
           <>

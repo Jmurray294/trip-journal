@@ -1,0 +1,65 @@
+/* The family portal (screens/Portal.jsx): white cards on the app's navy blueprint. */
+
+.pt-root { min-height: 100%; background-color: #0F3A70; background-image: var(--blueprint); color: var(--ink); overflow-y: auto; height: 100%; }
+.pt-root .loading { min-height: 60vh; }
+.pt-page { max-width: 880px; margin: 0 auto; padding: calc(var(--safe-top) + 10px) 16px calc(40px + var(--safe-bottom-extra)); display: flex; flex-direction: column; gap: 14px; }
+.pt-card { background: #fff; border: 1px solid var(--line, #E6E9EE); border-radius: 13px; padding: 16px; text-align: left; font: inherit; color: inherit; width: 100%; }
+.pt-sub { color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.pt-msg { color: #B3261E; font-size: 13.5px; margin-top: 10px; }
+
+/* sign in */
+.pt-signin { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: calc(var(--safe-top) + 20px) 16px 40px; }
+.pt-signin-card { max-width: 400px; display: flex; flex-direction: column; padding: 24px 22px; }
+.pt-logo { border-radius: 12px; margin-bottom: 14px; }
+.pt-h1 { font-size: 26px; font-weight: 700; margin: 0; }
+.pt-p { color: var(--muted); font-size: 14.5px; line-height: 1.5; margin: 8px 0 6px; }
+.pt-code { font-family: var(--mono); font-size: 22px; letter-spacing: 6px; }
+
+/* home */
+.pt-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; color: var(--on-navy, #fff); padding: 6px 2px 4px; }
+.pt-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--on-navy-muted, #9FB8DC); }
+.pt-title { font-size: 30px; font-weight: 700; margin: 2px 0 0; color: #fff; }
+.pt-signout { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 999px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+.pt-section { color: #fff; font-weight: 700; font-size: 18px; margin: 10px 2px -2px; }
+.pt-tag { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase; background: #fff; color: var(--terra); border-radius: 999px; padding: 4px 9px; font-weight: 600; }
+.pt-tag.live { background: #E8F5EC; color: #1E7A3C; }
+.pt-tag.live::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #2DA44E; margin-right: 6px; vertical-align: 1px; animation: pt-pulse 1.6s ease-in-out infinite; }
+@keyframes pt-pulse { 50% { opacity: 0.3; } }
+.pt-live-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.pt-next { cursor: pointer; }
+.pt-trip-title { font-weight: 700; font-size: 16px; }
+.pt-trip-title.big { font-size: 21px; margin-top: 4px; }
+
+.pt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.pt-trip { background: #fff; border: 1px solid var(--line, #E6E9EE); border-radius: 13px; overflow: hidden; padding: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.pt-trip-cover { height: 130px; position: relative; }
+.pt-trip-cover .pt-tag { position: absolute; left: 10px; top: 10px; }
+.pt-trip-body { padding: 12px 14px 14px; }
+.pt-badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.pt-badge { font-size: 11.5px; font-weight: 600; color: var(--terra); background: #EEF2FB; border-radius: 999px; padding: 3px 9px; }
+
+/* journal moments */
+.pt-moment { border-top: 1px solid var(--line, #E6E9EE); padding-top: 12px; margin-top: 12px; }
+.pt-when { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
+.pt-mtitle { font-weight: 600; margin-top: 4px; }
+.pt-note { white-space: pre-wrap; line-height: 1.55; font-size: 15px; margin-top: 6px; }
+.pt-photos { display: grid; gap: 6px; margin-top: 10px; grid-template-columns: repeat(2, 1fr); }
+.pt-photos.n1 { grid-template-columns: 1fr; }
+.pt-photos.n3, .pt-photos.n4 { grid-template-columns: repeat(3, 1fr); }
+.pt-photo { aspect-ratio: 1; border: none; border-radius: 8px; cursor: zoom-in; padding: 0; }
+.pt-photos.n1 .pt-photo { aspect-ratio: 4 / 3; }
+.pt-plan { font-size: 13.5px; color: var(--secondary); padding: 8px 0 0; }
+
+/* a trip */
+.pt-back { align-self: flex-start; background: none; border: none; color: #fff; font-size: 15px; cursor: pointer; padding: 4px 0; }
+.pt-hero { border-radius: 13px; min-height: 190px; display: flex; align-items: flex-end; overflow: hidden; }
+.pt-hero-text { width: 100%; padding: 18px; background: linear-gradient(0deg, rgba(10,20,40,0.72), rgba(10,20,40,0)); color: #fff; }
+.pt-hero-title { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.pt-hero-sub { font-size: 14px; opacity: 0.9; }
+.pt-keeps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.pt-bookcard { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.pt-song { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.pt-song-title { font-weight: 700; font-size: 17px; }
+.pt-audio { width: 100%; }
+.pt-lyrics { white-space: pre-wrap; line-height: 1.5; font-size: 14.5px; color: var(--secondary); }
+.pt-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }

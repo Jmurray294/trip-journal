@@ -11,6 +11,7 @@ import { resizePhoto } from './lib/resize.js';
 import { placeKey, mergeSuggestions } from './lib/explore.js';
 import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
+import { useFollowers, announceEmail } from './lib/followers.js';
 import { useActivity } from './lib/activity.js';
 import { BellPanel } from './components/Bell.jsx';
 import Travelers from './screens/Travelers.jsx';
@@ -143,6 +144,7 @@ export default function App() {
   const someday = useSomeday(family.household);
   // ---- travelers: documents, loyalty programs, preferences ----
   const travelers = useTravelers(family.household);
+  const followers = useFollowers(family.household);
   // ---- the bell: what's new from the trips address and the Shortcut ----
   const activity = useActivity(family.household);
   const [bellOpen, setBellOpen] = useState(false); // true = everything, or one kind from a desktop chip
@@ -768,6 +770,10 @@ export default function App() {
               key={trip.id + (nav.section || '')} initialTab={nav.section}
               trip={trip} song={song} songBusy={songBusy === trip.id} audioBusy={audioBusy}
               household={family.household} inbox={forwardingAddress(family.household)} toast={showToast}
+              followers={followers}
+              onFollowers={(patch) => updateTrip(trip.id, (t) => ({ ...t, ...patch }))}
+              onAnnounce={(what) => { window.location.href = announceEmail(trip, what, followers.emails, family.household && family.household.name); }}
+              onManageFollowers={() => setFamilyOpen(true)}
               travelers={travelers.list} home={home} onTravelers={() => go({ tab: 'travelers', tripId: null })}
               onAddCost={(c) => addCost(trip.id, c)}
               onUpload={() => openAddFor(trip.id, 'import')}
@@ -899,7 +905,7 @@ export default function App() {
             onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)}
             onOpenItem={(o) => (o.sort ? setSortOpen(true) : go({ tab: 'trips', tripId: o.tripId, view: null, section: o.section || null }))} />
         )}
-        {familyOpen && <FamilySheet family={family} onClose={() => setFamilyOpen(false)} toast={showToast} />}
+        {familyOpen && <FamilySheet family={family} followers={followers} onClose={() => setFamilyOpen(false)} toast={showToast} />}
         {sortOpen && (
           <SortSheet items={inbox.items} trips={trips} onFile={fileInboxItem} onDismiss={dismissInboxItem} onClose={closeSort} />
         )}

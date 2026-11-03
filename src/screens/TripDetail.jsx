@@ -56,6 +56,42 @@ function TripLinkCard({ trip, link, onMake, onSend, onCopy, onStop }) {
   );
 }
 
+// Followers (family and friends in the portal) see this trip only when it's switched on here.
+function FollowersCard({ trip, followers, onChange, onAnnounce, onManage }) {
+  const on = !!trip.followers;
+  const n = followers.followers.length + followers.invites.length;
+  const book = !!(trip.book && trip.book.draft);
+  const song = !!(trip.song && (trip.song.audioPath || trip.song.audio));
+  return (
+    <div className="trip-link-card">
+      <div className="mono-label">Followers</div>
+      <div className="segs" style={{ marginTop: 8 }}>
+        <button className={'seg' + (!on ? ' active' : '')} onClick={() => onChange({ followers: false })}>Private</button>
+        <button className={'seg' + (on ? ' active' : '')} onClick={() => onChange({ followers: true })}>Followers can see it</button>
+      </div>
+      <div className="sheet-copy">
+        {on
+          ? (trip.followersLater
+            ? 'Followers see the journal and photos a day after you post them, plus the photo book and song.'
+            : 'Followers see the journal and photos as you post them, plus the photo book and song. Never costs or booking details.')
+          : 'Only your family sees this trip.'}
+        {' '}{n ? `${n} ${n === 1 ? 'follower' : 'followers'}.` : 'No followers yet.'} <button className="btn-link inline" onClick={onManage}>{n ? 'Manage' : 'Invite someone'}</button>
+      </div>
+      {on && (<>
+        <button className="btn-link inline" onClick={() => onChange({ followersLater: !trip.followersLater })}>
+          {trip.followersLater ? 'Post live instead' : 'Post a day late (for safety while away)'}
+        </button>
+        {(book || song) && n > 0 && (
+          <div className="stack-9" style={{ marginTop: 10 }}>
+            {book && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onAnnounce('book')}>Email followers: the book is ready</button>}
+            {song && <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onAnnounce('song')}>Email followers: the song is ready</button>}
+          </div>
+        )}
+      </>)}
+    </div>
+  );
+}
+
 // " · added Oct 22" when an item went into the journal on a different day from the one it's about
 // (with the year when it isn't this one)
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -209,6 +245,7 @@ export default function TripDetail(p) {
       </div>
 
       {p.household && <TripLinkCard trip={trip} link={p.tripLink} onMake={p.onMakeLink} onSend={p.onSendLink} onCopy={p.onCopyLink} onStop={p.onStopLink} />}
+      {p.household && p.followers && <FollowersCard trip={trip} followers={p.followers} onChange={p.onFollowers} onAnnounce={p.onAnnounce} onManage={p.onManageFollowers} />}
 
       <button className="btn-story press" onClick={p.onStory}><Book /> View trip story</button>
       <button className="btn-story press" onClick={p.onBook}><Book /> {trip.book && trip.book.draft ? 'Open photo book' : 'Make a photo book'}</button>

@@ -125,6 +125,28 @@ function BookViewer({ pages, size, ctx, start = 0, onClose }) {
   );
 }
 
+// Just the book, read full screen (the family portal opens it for followers): no editor, no downloads.
+export function BookReader({ trip, onClose }) {
+  const book = trip.book || {};
+  const draft = book.draft || null;
+  const size = SIZES[book.size] || SIZES.shutterfly;
+  const style = STYLES[book.style] ? book.style : 'scrapbook';
+  const pages = useMemo(() => buildPages(trip, draft), [trip, draft]);
+  const [images, setImages] = useState(new Map());
+  const [map, setMap] = useState(null);
+  const [fontsReady, setFontsReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    ensureFonts().then(() => live && setFontsReady(true));
+    mapData(trip).then((m) => live && setMap(m));
+    loadImages(trip, pages).then((m) => live && setImages(m));
+    return () => { live = false; };
+  }, [trip.id]); // eslint-disable-line
+  const ctx = useMemo(() => ({ trip, images, map, captions: (draft && draft.captions) || {}, style, fontsReady }), [trip, images, map, draft, style, fontsReady]);
+  if (!draft) return null;
+  return <BookViewer pages={pages} size={size} ctx={ctx} start={0} onClose={onClose} />;
+}
+
 function Thumb({ photo, on, onClick, label }) {
   const u = photoSrc(photo);
   return (
