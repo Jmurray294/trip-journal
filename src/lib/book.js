@@ -17,6 +17,27 @@ export const SIZES = {
 // fewest pages the printers accept for a hardcover photo book
 export const MIN_PAGES = { shutterfly: 20, lulu: 24, blurb: 20, home: 0 };
 
+import { tripSpan } from './stages.js';
+
+const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// "Nov 2" → "Mon Nov 2", with the year taken from the trip's span, so the writer never has to guess the
+// day of the week. Text it can't read, or that already names a weekday, comes back unchanged.
+export function withWeekday(text, trip) {
+  const s = String(text || '').trim();
+  const m = /^([a-z]{3})[a-z]*\.?\s+(\d{1,2})\b/i.exec(s);
+  if (!m || /\b(sun|mon|tue|wed|thu|fri|sat)/i.test(s)) return s;
+  const mo = MON.indexOf(m[1].toLowerCase());
+  if (mo < 0) return s;
+  const span = tripSpan(trip || {});
+  const years = span ? [...new Set([span[0].getFullYear(), span[1].getFullYear()])] : [new Date().getFullYear()];
+  const week = 7 * 86400000;
+  const dates = years.map((y) => new Date(y, mo, +m[2]));
+  const d = (span && dates.find((x) => x >= +span[0] - week && x <= +span[1] + week)) || dates[0];
+  return WEEKDAYS[d.getDay()] + ' ' + s;
+}
+
 export const photoRef = (entry, i) => `${entry.id}#${i}`;
 
 // what an entry is, for the writer: 'journal' (what you wrote or dictated — the heart of the book),
@@ -45,10 +66,10 @@ export function photoByRef(trip, ref) {
 }
 
 // itinerary bookings as short lines (for the writer, and the "at a glance" page)
-export function bookingLines(trip) {
+export function bookingLines(trip, { weekdays = false } = {}) {
   return (trip.days || []).filter((d) => d.booking || (d.source === 'email' && d.kind)).map((d) => {
     const b = d.booking || {};
-    return [d.kind, d.date, d.title, b.provider && b.provider !== d.title ? b.provider : '', d.place].filter(Boolean).join(' · ');
+    return [d.kind, weekdays ? withWeekday(d.date, trip) : d.date, d.title, b.provider && b.provider !== d.title ? b.provider : '', d.place].filter(Boolean).join(' · ');
   });
 }
 

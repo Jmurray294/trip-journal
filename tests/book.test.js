@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPages, chunkPhotos, draftFromWriter, unusedPhotos, collectPhotos } from '../src/lib/book.js';
+import { buildPages, chunkPhotos, draftFromWriter, unusedPhotos, collectPhotos, withWeekday } from '../src/lib/book.js';
+
+test('entry dates get their weekday from the trip year', () => {
+  const t = { dates: 'Oct 30 – Nov 2, 2026', days: [] };
+  assert.equal(withWeekday('Nov 1', t), 'Sun Nov 1');
+  assert.equal(withWeekday('Nov 2', t), 'Mon Nov 2');
+  assert.equal(withWeekday('Jan 2', { dates: 'Dec 28 – Jan 3, 2027', days: [] }), 'Sat Jan 2');
+  assert.equal(withWeekday('Mon Nov 2', t), 'Mon Nov 2');
+  assert.equal(withWeekday('someday', t), 'someday');
+});
 
 const photo = (label = '') => ({ src: 'data:image/jpeg;base64,AAA', label });
 const trip = {

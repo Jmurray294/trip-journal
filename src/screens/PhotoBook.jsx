@@ -4,7 +4,7 @@ import { Chevron } from '../components/Icons.jsx';
 import { supabase } from '../lib/supabase.js';
 import { photoSrc, src as assetSrc } from '../lib/derive.js';
 import { ensureMedia } from '../lib/media.js';
-import { SIZES, MIN_PAGES, buildPages, collectPhotos, bookingLines, draftFromWriter, unusedPhotos, photoByRef, entryType, newSinceWritten } from '../lib/book.js';
+import { SIZES, MIN_PAGES, buildPages, collectPhotos, bookingLines, draftFromWriter, unusedPhotos, photoByRef, entryType, newSinceWritten, withWeekday } from '../lib/book.js';
 import { drawPage, ensureFonts, loadImages, mapData, exportBook, STYLES } from '../lib/bookRender.js';
 
 // A trip as a printable photo book: Claude writes it (title, intro, a chapter per day or place,
@@ -256,8 +256,8 @@ export default function PhotoBook({ trip, family, onClose, onSave, toast }) {
       setWriting('Writing your book… this takes a minute or two.');
       const { data, error } = await supabase.functions.invoke('write-book', {
         body: {
-          trip: { title: trip.title, place: trip.place, dates: trip.dates, companions: trip.companions || '', days: (trip.days || []).map((d) => ({ date: d.date, title: d.title, place: d.place, note: d.note, kind: d.kind, type: entryType(d) })) },
-          photos, bookings: bookingLines(trip),
+          trip: { title: trip.title, place: trip.place, dates: trip.dates, companions: trip.companions || '', days: (trip.days || []).map((d) => ({ date: withWeekday(d.date, trip), title: d.title, place: d.place, note: d.note, kind: d.kind, type: entryType(d) })) },
+          photos, bookings: bookingLines(trip, { weekdays: true }),
         },
       });
       if (error || !data) {
