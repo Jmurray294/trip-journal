@@ -33,6 +33,15 @@ function CostsCard({ costs, onOpen }) {
   );
 }
 
+// the whole photo, never cropped: a blurred, dimmed copy of it fills the space around a tall shot
+function WholePhoto({ p }) {
+  const bg = photoBg(p);
+  return (<>
+    <span className="whole-blur" style={bg} />
+    <span className="whole-img" style={{ ...bg, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
+  </>);
+}
+
 // an on/off switch with its label and one line saying what it means
 function ShareRow({ title, sub, on, onToggle, children }) {
   return (
@@ -219,15 +228,16 @@ export default function TripDetail(p) {
           // the cover big on the left, more of the trip's photos beside it; any tile opens the Photos tab
           <div className={'fill hero-collage n' + collage.length}>
             {collage.map((c, i) => (
-              <button key={c.ref} className={'hero-tile' + (i === 0 ? ' main' : '')} style={photoBg(c.p)} onClick={() => setTab('photos')}
+              <button key={c.ref} className={'hero-tile' + (i === 0 ? ' main' : '')} style={i === 0 ? undefined : photoBg(c.p)} onClick={() => setTab('photos')}
                 aria-label={i === 0 ? 'Trip photos' : 'More photos'} tabIndex={i === 0 ? 0 : -1}>
+                {i === 0 && <WholePhoto p={c.p} />}
                 {/* phones show three tiles, wider screens all of them: each counts what's left */}
                 {i === 2 && photoCount > 3 && <span className="hero-more ph">+{photoCount - 3}</span>}
                 {i === collage.length - 1 && extra > 0 && <span className="hero-more wd">+{extra}</span>}
               </button>
             ))}
           </div>
-        ) : <div className="fill" style={coverBg(trip)} />}
+        ) : !trip.coverSrc && collage.length ? <div className="fill"><WholePhoto p={collage[0].p} /></div> : <div className="fill" style={coverBg(trip)} />}
         <div className="fill hero-shade" style={{ background: 'linear-gradient(to top, rgba(10,18,32,0.82) 0%, rgba(10,18,32,0.10) 52%, rgba(10,18,32,0.18) 100%)' }} />
         <button className="back-btn press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
         <div className="hero-text">

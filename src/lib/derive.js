@@ -60,7 +60,8 @@ export function coverBg(t) {
   if (t && t.coverSrc) return { backgroundImage: `url("${src(t.coverSrc)}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
   const c = coverPhoto(t);
   const u = c && photoSrc(c.p);
-  if (u) return { backgroundImage: `url("${u}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  // cropped to fill a card: keep the upper part, where faces usually are
+  if (u) return { backgroundImage: `url("${u}")`, backgroundSize: 'cover', backgroundPosition: 'center 28%' };
   return { background: STRIPE + ', ' + (t ? t.grad : SAND) };
 }
 

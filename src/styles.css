@@ -887,3 +887,9 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .switch.on span { transform: translateX(18px); }
 .switch:focus-visible { outline: 2px solid var(--terra); outline-offset: 2px; }
 .share-row .row-8 .btn-primary.small, .share-row .row-8 .btn-muted { white-space: nowrap; }
+
+/* trip header photos: the cover shows whole (blurred copy behind it); small tiles keep the top, where faces are */
+.whole-blur, .whole-img { position: absolute; inset: 0; display: block; }
+.whole-blur { filter: blur(22px) brightness(0.6) saturate(1.15); transform: scale(1.15); }
+.hero-tile.main, .detail-hero .fill { overflow: hidden; }
+.hero-tile:not(.main) { background-position: center 28% !important; }
