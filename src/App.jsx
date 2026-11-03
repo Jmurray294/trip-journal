@@ -29,7 +29,6 @@ import TripsHome from './screens/TripsHome.jsx';
 import TripDetail from './screens/TripDetail.jsx';
 import MapView from './screens/MapView.jsx';
 import Albums from './screens/Albums.jsx';
-import Story, { StoryPrint } from './screens/Story.jsx';
 import PhotoBook from './screens/PhotoBook.jsx';
 import AddSheet from './screens/AddSheet.jsx';
 import TabBar from './components/TabBar.jsx';
@@ -39,7 +38,6 @@ import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
 import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
 
-const AUTO_SPEED = 46; // story auto-scroll, px per second
 
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (e) {
@@ -59,7 +57,7 @@ export default function App() {
   const [trips, setTrips] = useState([]);
   const [home, setHome] = useState({ home: '', homeLon: null, homeLat: null });
   // view: null is the Trips home (the trip up next); 'someday' is the ideas board
-  const [nav, setNav] = useState({ tab: 'trips', tripId: null, view: null, ideaPlace: null, storyId: null, bookId: null });
+  const [nav, setNav] = useState({ tab: 'trips', tripId: null, view: null, ideaPlace: null, bookId: null });
   // 'all': every trip on one map; a trip id: that trip's route
   const [mapSel, setMapSel] = useState({ tripId: 'all', stop: 0 });
   const [albumFilter, setAlbumFilter] = useState('all');
@@ -67,7 +65,6 @@ export default function App() {
   const [song, setSong] = useState({ playing: false, progress: 0, lyricsOpen: false, audioDur: 0 });
   const [songBusy, setSongBusy] = useState(null);
   const [audioBusy, setAudioBusy] = useState(false);
-  const [autoScroll, setAutoScroll] = useState(false);
   const [toast, setToast] = useState(null);
 
   const scroller = useRef(null);
@@ -86,7 +83,6 @@ export default function App() {
   const songT = useRef(null);
   const audio = useRef(null);
   const audioSrc = useRef(null);
-  const auto = useRef({ on: false, raf: null, start: null });
   const stopDictationRef = useRef(() => {});
 
   const [updateReady, setUpdateReady] = useState(false);
@@ -296,57 +292,18 @@ export default function App() {
     }, 1000);
   };
 
-  // ---- story auto-scroll ----
-  const stopAuto = useCallback(() => {
-    auto.current.on = false;
-    if (auto.current.raf) { cancelAnimationFrame(auto.current.raf); auto.current.raf = null; }
-    clearTimeout(auto.current.start);
-    setAutoScroll(false);
-  }, []);
-  const startAuto = useCallback(() => {
-    if (auto.current.on) return;
-    auto.current.on = true; setAutoScroll(true);
-    let last = 0, carry = 0;
-    const step = (now) => {
-      if (!auto.current.on) { auto.current.raf = null; return; }
-      const el = scroller.current;
-      if (!el) { auto.current.raf = requestAnimationFrame(step); return; }
-      let dt = last ? now - last : 16.7;
-      if (!(dt > 0 && dt < 200)) dt = 16.7; // ignore tab-throttled gaps
-      last = now;
-      carry += (dt / 1000) * AUTO_SPEED;
-      const px = Math.floor(carry);
-      if (px) { el.scrollTop += px; carry -= px; }
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) { stopAuto(); return; }
-      auto.current.raf = requestAnimationFrame(step);
-    };
-    auto.current.raf = requestAnimationFrame(step);
-  }, [stopAuto]);
-  const toggleAuto = () => {
-    clearTimeout(auto.current.start);
-    if (auto.current.on) { stopAuto(); return; }
-    const el = scroller.current;
-    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 2) el.scrollTop = 0;
-    startAuto();
-  };
-
   // ---- navigation ----
   const resetScroll = () => requestAnimationFrame(() => { if (scroller.current) scroller.current.scrollTop = 0; });
   const go = (patch) => {
-    stopSong(); stopAuto(); stopDictationRef.current();
+    stopSong(); stopDictationRef.current();
     setSong((s) => ({ ...s, playing: false, progress: 0, lyricsOpen: false }));
-    setNav((n) => ({ ...n, storyId: null, bookId: null, section: null, ...patch }));
+    setNav((n) => ({ ...n, bookId: null, section: null, ...patch }));
     resetScroll();
   };
-  const openStory = (id) => {
-    go({ storyId: id });
-    auto.current.start = setTimeout(() => { if (navRef.current.storyId === id) startAuto(); }, 1100);
-  };
-  const closeStory = () => go({ storyId: null });
 
   // Android back button / browser back: step back through the app instead of leaving it.
   useEffect(() => {
-    const depth = (nav.view && nav.tab === 'trips' ? 1 : 0) + (nav.tripId && nav.tab === 'trips' ? 1 : 0) + (nav.storyId || nav.bookId ? 1 : 0);
+    const depth = (nav.view && nav.tab === 'trips' ? 1 : 0) + (nav.tripId && nav.tab === 'trips' ? 1 : 0) + (nav.bookId ? 1 : 0);
     const cur = (history.state && history.state.tj) || 0;
     if (depth > cur) history.pushState({ tj: depth }, '');
     else if (depth < cur) history.replaceState({ tj: depth }, '');
@@ -354,7 +311,7 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       const n = navRef.current;
-      if (n.storyId || n.bookId) go({ storyId: null, bookId: null });
+      if (n.bookId) go({ bookId: null });
       else if (n.tripId) go({ tripId: null });
       else if (n.view) go({ view: null });
     };
@@ -750,7 +707,7 @@ export default function App() {
   };
 
   // stop timers on unmount
-  useEffect(() => () => { stopSong(); stopAuto(); clearTimeout(toastT.current); }, [stopSong, stopAuto]);
+  useEffect(() => () => { stopSong(); clearTimeout(toastT.current); }, [stopSong]);
 
   if (!loaded) {
     return (
@@ -767,13 +724,12 @@ export default function App() {
   }
 
   const trip = trips.find((t) => t.id === nav.tripId);
-  const storyTrip = trips.find((t) => t.id === nav.storyId);
   const bookTrip = trips.find((t) => t.id === nav.bookId);
-  const screen = storyTrip ? 'story' : bookTrip ? 'book' : nav.tab === 'trips' ? (trip ? 'detail' : 'list') : nav.tab;
+  const screen = bookTrip ? 'book' : nav.tab === 'trips' ? (trip ? 'detail' : 'list') : nav.tab;
 
   return (
     <>
-      <div className="app" data-print-hide="1">
+      <div className="app">
         <div className="scroller" ref={scroller}>
           {screen === 'list' && (
             <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
@@ -833,7 +789,6 @@ export default function App() {
               onClose={() => go({ bookId: null })}
               onSave={(book) => updateTrip(bookTrip.id, (t) => ({ ...t, book }))} />
           )}
-          {screen === 'story' && <Story trip={storyTrip} onClose={closeStory} onPrint={() => setTimeout(() => window.print(), 60)} />}
           {screen === 'map' && (
             <MapView
               trips={trips} home={home} sel={mapSel}
@@ -855,7 +810,7 @@ export default function App() {
 
         <TopBar
           tab={nav.tab}
-          crumb={storyTrip ? storyTrip.title + ' · Story' : bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: nav.view === 'someday' ? 'Someday ideas' + (nav.ideaPlace ? ' · ' + nav.ideaPlace : '') : 'Up next', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
+          crumb={bookTrip ? bookTrip.title + ' · Photo book' : trip && nav.tab === 'trips' ? trip.title : { trips: nav.view === 'someday' ? 'Someday ideas' + (nav.ideaPlace ? ' · ' + nav.ideaPlace : '') : 'Up next', map: 'Every trip on the map', albums: 'All photos', travelers: 'Documents & loyalty' }[nav.tab]}
           onTrips={() => go({ tab: 'trips', tripId: null, view: null })}
           onMap={() => go({ tab: 'map' })}
           onAlbums={() => go({ tab: 'albums' })}
@@ -886,17 +841,6 @@ export default function App() {
             onDictate: () => openAddFor(addTripId, 'memory', { dictate: true }),
           } : null}
         />
-
-        {screen === 'story' && (
-          <div className="story-pill-wrap">
-            <button className="story-pill press" onClick={toggleAuto}>
-              {autoScroll
-                ? <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="1.5" width="2.8" height="9" rx="0.9" fill="#FBF6EC" /><rect x="6.7" y="1.5" width="2.8" height="9" rx="0.9" fill="#FBF6EC" /></svg>
-                : <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6l7 4.4-7 4.4z" fill="#FBF6EC" /></svg>}
-              {autoScroll ? 'Pause' : 'Play story'}
-            </button>
-          </div>
-        )}
 
         {toast && <div className="toast" role="status">{toast}</div>}
 
@@ -931,7 +875,6 @@ export default function App() {
           <SortSheet items={inbox.items} trips={trips} onFile={fileInboxItem} onDismiss={dismissInboxItem} onClose={closeSort} />
         )}
       </div>
-      {storyTrip && <StoryPrint trip={storyTrip} />}
     </>
   );
 }
