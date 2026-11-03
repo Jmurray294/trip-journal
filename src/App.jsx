@@ -13,6 +13,7 @@ import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
 import { useFollowers, announceEmail } from './lib/followers.js';
 import Portal from './screens/Portal.jsx';
+import { coverRef } from './lib/cover.js';
 import { useActivity } from './lib/activity.js';
 import { BellPanel } from './components/Bell.jsx';
 import Travelers from './screens/Travelers.jsx';
@@ -557,6 +558,12 @@ export default function App() {
     showToast('Photo removed');
   };
 
+  // the photo that stands for the trip: its page header, its card, the portal (lib/cover.js)
+  const setTripCover = (tripId, dayId, pi) => {
+    updateTrip(tripId, (t) => ({ ...t, cover: coverRef(dayId, pi) }));
+    showToast('Trip cover set');
+  };
+
   // a photo's caption (its label): shown under it everywhere, in the photo book and the portal
   const setPhotoCaption = (tripId, dayId, pi, text) => {
     updateTrip(tripId, (t) => ({
@@ -808,6 +815,7 @@ export default function App() {
               onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
+              onSetCover={(dayId, pi) => setTripCover(trip.id, dayId, pi)}
               onPhotoCaption={(i, pi, text) => trip.days[i] && setPhotoCaption(trip.id, trip.days[i].id, pi, text)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onMarkPaid={(cid) => markPaid(trip.id, cid)}
@@ -837,7 +845,7 @@ export default function App() {
             />
           )}
           {screen === 'albums' && (
-            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} onMove={movePhoto} onCaption={setPhotoCaption} />
+            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} onMove={movePhoto} onCaption={setPhotoCaption} onCover={setTripCover} />
           )}
           {screen === 'travelers' && (
             <Travelers list={travelers.list} signedIn={!!(supabase && family.household)} toast={showToast}

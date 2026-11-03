@@ -3,6 +3,7 @@ import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, R
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
 import { stageLabel, tripStage } from '../lib/stages.js';
+import { collagePhotos, coverRef, isCover } from '../lib/cover.js';
 import TripAlerts from '../components/TripAlerts.jsx';
 import Explore from './Explore.jsx';
 import PhotoViewer from '../components/PhotoViewer.jsx';
@@ -206,16 +207,31 @@ export default function TripDetail(p) {
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const planCount = (trip.days || []).filter(isPlan).length;
   const counts = { itinerary: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
+  const photoCount = counts.photos;
+  const collage = trip.coverSrc ? [] : collagePhotos(trip, 5);
+  const extra = photoCount - collage.length;
   return (
     <div className="screen pad-tab">
-      <div className="hero detail-hero">
-        <div className="fill" style={coverBg(trip)} />
-        <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.82) 0%, rgba(48,26,14,0.10) 52%, rgba(30,20,14,0.22) 100%)' }} />
+      <div className={'hero detail-hero' + (!collage.length && !trip.coverSrc ? ' short' : '') + (collage.length >= 3 ? ' collage' : '')}>
+        {collage.length >= 3 ? (
+          // the cover big on the left, more of the trip's photos beside it; any tile opens the Photos tab
+          <div className={'fill hero-collage n' + collage.length}>
+            {collage.map((c, i) => (
+              <button key={c.ref} className={'hero-tile' + (i === 0 ? ' main' : '')} style={photoBg(c.p)} onClick={() => setTab('photos')}
+                aria-label={i === 0 ? 'Trip photos' : 'More photos'} tabIndex={i === 0 ? 0 : -1}>
+                {/* phones show three tiles, wider screens all of them: each counts what's left */}
+                {i === 2 && photoCount > 3 && <span className="hero-more ph">+{photoCount - 3}</span>}
+                {i === collage.length - 1 && extra > 0 && <span className="hero-more wd">+{extra}</span>}
+              </button>
+            ))}
+          </div>
+        ) : <div className="fill" style={coverBg(trip)} />}
+        <div className="fill hero-shade" style={{ background: 'linear-gradient(to top, rgba(10,18,32,0.82) 0%, rgba(10,18,32,0.10) 52%, rgba(10,18,32,0.18) 100%)' }} />
         <button className="back-btn press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
         <div className="hero-text">
           <div className="status-chip">{stageLabel(trip)}</div>
           <div className="hero-title">{trip.title}</div>
-          <div className="meta-row" style={{ marginTop: 8 }}><span>{trip.place}</span><span className="dot-sep">·</span><span>{trip.dates}</span></div>
+          <div className="meta-row" style={{ marginTop: 8 }}><span>{trip.place}</span><span className="dot-sep">·</span><span>{trip.dates}</span>{photoCount > 0 && <><span className="dot-sep">·</span><span>{photoCount} {photoCount === 1 ? 'photo' : 'photos'}</span></>}</div>
         </div>
       </div>
 
@@ -275,7 +291,7 @@ export default function TripDetail(p) {
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
           onAsk={p.onAskSuggestions} onAdd={p.onAddSuggestion} onDismiss={p.onDismissSuggestion} />}
-        {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} onCaption={p.onPhotoCaption} />}
+        {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} onCaption={p.onPhotoCaption} onCover={p.onSetCover} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'journal' && <>
@@ -335,7 +351,7 @@ export default function TripDetail(p) {
 }
 
 // A trip's photos, by the day they were taken: tap one to see it full size.
-function TripPhotos({ trip, onAddPhotos, onDeletePhoto, onCaption }) {
+function TripPhotos({ trip, onAddPhotos, onDeletePhoto, onCaption, onCover }) {
   const [open, setOpen] = useState(null);
   const days = new Map(); // date label → { pos, items }
   (trip.days || []).forEach((d, idx) => (d.photos || []).forEach((ph, pi) => {
@@ -374,7 +390,9 @@ function TripPhotos({ trip, onAddPhotos, onDeletePhoto, onCaption }) {
         </div>
       ))}
       {open != null && all[open] && <PhotoViewer items={all.map((it) => ({ ...it, trip: '' }))} index={open} onIndex={setOpen} onClose={() => setOpen(null)}
-        onCaption={onCaption && ((it, text) => onCaption(it.idx, it.pi, text))} />}
+        onCaption={onCaption && ((it, text) => onCaption(it.idx, it.pi, text))}
+        onCover={onCover && ((it) => trip.days[it.idx] && onCover(trip.days[it.idx].id, it.pi))}
+        isCover={(it) => !!trip.days[it.idx] && isCover(trip, trip.days[it.idx].id, it.pi)} />}
     </>
   );
 }

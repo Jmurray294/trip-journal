@@ -2,10 +2,11 @@ import { useState } from 'react';
 import Chips from '../components/Chips.jsx';
 import { countPhotos, photoBg, short } from '../lib/derive.js';
 import PhotoViewer from '../components/PhotoViewer.jsx';
+import { isCover } from '../lib/cover.js';
 
 const HEIGHTS = [150, 205, 175, 228, 158, 196, 168, 186];
 
-export default function Albums({ trips, filter, onFilter, onMove, onCaption }) {
+export default function Albums({ trips, filter, onFilter, onMove, onCaption, onCover }) {
   const all = [];
   trips.forEach((t) => (t.days || []).forEach((d) => (d.photos || []).forEach((p, pi) => {
     // `label`: the caption someone wrote; `where`: the place, shown small when there's no caption yet
@@ -44,7 +45,9 @@ export default function Albums({ trips, filter, onFilter, onMove, onCaption }) {
       </div>
       {open != null && shown[open] && <PhotoViewer items={shown} index={open} onIndex={setOpen} onClose={() => setOpen(null)} trips={trips}
         onMove={onMove && ((a, to) => { setOpen(null); onMove(a.tripId, a.dayId, a.pi, to); })}
-        onCaption={onCaption && ((a, text) => onCaption(a.tripId, a.dayId, a.pi, text))} />}
+        onCaption={onCaption && ((a, text) => onCaption(a.tripId, a.dayId, a.pi, text))}
+        onCover={onCover && ((a) => onCover(a.tripId, a.dayId, a.pi))}
+        isCover={(a) => { const t = trips.find((x) => x.id === a.tripId); return !!t && isCover(t, a.dayId, a.pi); }} />}
     </div>
   );
 }

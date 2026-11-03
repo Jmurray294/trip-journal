@@ -1,4 +1,5 @@
 import { mediaUrl } from './media.js';
+import { coverPhoto } from './cover.js';
 
 // Values derived from trips, never stored.
 
@@ -54,8 +55,12 @@ const SAND = '#D8BE97';
 // Seed photos are relative paths served from /public; user photos are data URLs.
 export const src = (p) => (p && !p.startsWith('data:') && !p.startsWith('/') && !p.startsWith('http') ? import.meta.env.BASE_URL + p : p);
 
+// the trip's picture: a bundled sample cover, else its cover photo (lib/cover.js), else its colour
 export function coverBg(t) {
   if (t && t.coverSrc) return { backgroundImage: `url("${src(t.coverSrc)}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  const c = coverPhoto(t);
+  const u = c && photoSrc(c.p);
+  if (u) return { backgroundImage: `url("${u}")`, backgroundSize: 'cover', backgroundPosition: 'center' };
   return { background: STRIPE + ', ' + (t ? t.grad : SAND) };
 }
 

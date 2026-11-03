@@ -82,7 +82,7 @@ language sql stable security definer set search_path = public as $$
   select jsonb_strip_nulls(jsonb_build_object(
     'id', p_id, 'title', p_doc->'title', 'place', p_doc->'place', 'dates', p_doc->'dates', 'grad', p_doc->'grad',
     'coverSrc', case when p_doc->>'coverSrc' like 'data:%' then null else p_doc->'coverSrc' end,
-    'companions', p_doc->'companions', 'possible', p_doc->'possible', 'planning', p_doc->'planning',
+    'companions', p_doc->'companions', 'possible', p_doc->'possible', 'planning', p_doc->'planning', 'cover', p_doc->'cover',
     'book', case when jsonb_typeof(p_doc->'book'->'draft') = 'object' then jsonb_build_object(
       'draft', p_doc->'book'->'draft', 'size', p_doc->'book'->'size', 'style', p_doc->'book'->'style') end,
     'song', case when jsonb_typeof(p_doc->'song') = 'object' then jsonb_build_object(

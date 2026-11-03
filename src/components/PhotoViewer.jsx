@@ -3,8 +3,9 @@ import { photoBg, photoSrc } from '../lib/derive.js';
 
 // One photo at full size: arrows (or ← →) step through the others, Esc or a click outside closes it.
 // items: [{ p (the photo), trip?, caption?, tripId? }]; onMove (optional) gets (item, toTripId);
-// onCaption (optional) gets (item, text) and shows a box to write the photo's caption.
-export default function PhotoViewer({ items, index, onIndex, onClose, trips, onMove, onCaption }) {
+// onCaption (optional) gets (item, text) and shows a box to write the photo's caption;
+// onCover (optional) gets (item) to make it the trip's cover, and isCover(item) says if it already is.
+export default function PhotoViewer({ items, index, onIndex, onClose, trips, onMove, onCaption, onCover, isCover }) {
   const a = items[index];
   const step = (n) => onIndex((index + n + items.length) % items.length);
   const saved = (a.p && a.p.label) || '';
@@ -47,6 +48,9 @@ export default function PhotoViewer({ items, index, onIndex, onClose, trips, onM
             {trips.filter((t) => t.id !== a.tripId).map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
           </select>
         )}
+        {onCover && (isCover && isCover(a)
+          ? <span className="viewer-move viewer-cover on">★ Trip cover</span>
+          : <button className="viewer-move viewer-cover" onClick={() => onCover(a)}>☆ Use as trip cover</button>)}
       </div>
     </div>
   );
