@@ -905,3 +905,6 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
   .trip-head ~ .detail-body .detail-side { margin-top: 0; }
 }
 .trip-head-dates { font-size: 13.5px; color: var(--on-navy-sub, #CFE0F7); margin-top: 2px; }
+/* the fade and padding sit on .photo-cap; the two-line cut happens on the text itself, so no third line peeks out */
+.photo-cap { display: block; -webkit-line-clamp: unset; }
+.photo-cap-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

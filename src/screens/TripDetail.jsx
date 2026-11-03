@@ -364,7 +364,7 @@ function TripPhotos({ trip, onAddPhotos, onDeletePhoto, onCaption, onCover }) {
               <div key={it.idx + ':' + it.pi} className="photo-cell">
                 <button className="photo-open press-soft" style={photoBg(it.p)} onClick={() => setOpen(all.indexOf(it))} aria-label={'Open photo' + (it.caption ? ': ' + it.caption : '')} />
                 {(it.p.label || '').trim()
-                  ? <div className="photo-cap">{it.by && <span className="photo-cap-by">{it.by}</span>}{it.p.label.trim()}</div>
+                  ? <div className="photo-cap"><span className="photo-cap-text">{it.by && <span className="photo-cap-by">{it.by}</span>}{it.p.label.trim()}</span></div>
                   : it.by && <div className="strip-label">{it.by}</div>}
                 <button className="thumb-x strip-x" onClick={() => onDeletePhoto(it.idx, it.pi)} aria-label="Remove photo"><span>×</span></button>
               </div>
