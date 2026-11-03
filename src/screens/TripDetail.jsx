@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
-import { stageLabel, tripStage } from '../lib/stages.js';
-import { collagePhotos, coverRef, isCover } from '../lib/cover.js';
+import { tripStage } from '../lib/stages.js';
+import { isCover } from '../lib/cover.js';
 import TripAlerts from '../components/TripAlerts.jsx';
 import Explore from './Explore.jsx';
 import PhotoViewer from '../components/PhotoViewer.jsx';
@@ -31,15 +31,6 @@ function CostsCard({ costs, onOpen }) {
       <div className="costs-more">See budget →</div>
     </button>
   );
-}
-
-// the whole photo, never cropped: a blurred, dimmed copy of it fills the space around a tall shot
-function WholePhoto({ p }) {
-  const bg = photoBg(p);
-  return (<>
-    <span className="whole-blur" style={bg} />
-    <span className="whole-img" style={{ ...bg, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
-  </>);
 }
 
 // an on/off switch with its label and one line saying what it means
@@ -218,33 +209,12 @@ export default function TripDetail(p) {
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const planCount = (trip.days || []).filter(isPlan).length;
   const counts = { itinerary: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
-  const photoCount = counts.photos;
-  const collage = trip.coverSrc ? [] : collagePhotos(trip, 5);
-  const extra = photoCount - collage.length;
   return (
     <div className="screen pad-tab">
-      <div className={'hero detail-hero' + (!collage.length && !trip.coverSrc ? ' short' : '') + (collage.length >= 3 ? ' collage' : '')}>
-        {collage.length >= 3 ? (
-          // the cover big on the left, more of the trip's photos beside it; any tile opens the Photos tab
-          <div className={'fill hero-collage n' + collage.length}>
-            {collage.map((c, i) => (
-              <button key={c.ref} className={'hero-tile' + (i === 0 ? ' main' : '')} style={i === 0 ? undefined : photoBg(c.p)} onClick={() => setTab('photos')}
-                aria-label={i === 0 ? 'Trip photos' : 'More photos'} tabIndex={i === 0 ? 0 : -1}>
-                {i === 0 && <WholePhoto p={c.p} />}
-                {/* phones show three tiles, wider screens all of them: each counts what's left */}
-                {i === 2 && photoCount > 3 && <span className="hero-more ph">+{photoCount - 3}</span>}
-                {i === collage.length - 1 && extra > 0 && <span className="hero-more wd">+{extra}</span>}
-              </button>
-            ))}
-          </div>
-        ) : !trip.coverSrc && collage.length ? <div className="fill"><WholePhoto p={collage[0].p} /></div> : <div className="fill" style={coverBg(trip)} />}
-        <div className="fill hero-shade" style={{ background: 'linear-gradient(to top, rgba(10,18,32,0.82) 0%, rgba(10,18,32,0.10) 52%, rgba(10,18,32,0.18) 100%)' }} />
-        <button className="back-btn press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
-        <div className="hero-text">
-          <div className="status-chip">{stageLabel(trip)}</div>
-          <div className="hero-title">{trip.title}</div>
-          <div className="meta-row" style={{ marginTop: 8 }}><span>{trip.place}</span><span className="dot-sep">·</span><span>{trip.dates}</span>{photoCount > 0 && <><span className="dot-sep">·</span><span>{photoCount} {photoCount === 1 ? 'photo' : 'photos'}</span></>}</div>
-        </div>
+      {/* just the trip name: the page is about what's below it */}
+      <div className="trip-head">
+        <button className="back-btn static press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
+        <h1 className="trip-head-title">{trip.title}</h1>
       </div>
 
       <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />

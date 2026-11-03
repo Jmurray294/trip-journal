@@ -893,3 +893,14 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .whole-blur { filter: blur(22px) brightness(0.6) saturate(1.15); transform: scale(1.15); }
 .hero-tile.main, .detail-hero .fill { overflow: hidden; }
 .hero-tile:not(.main) { background-position: center 28% !important; }
+
+/* trip page: a slim bar with just the trip's name (no photo header) */
+.trip-head { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 4px) 16px 10px; }
+.trip-head .back-btn { width: 38px; height: 38px; }
+.trip-head-title { font-size: 22px; font-weight: 700; line-height: 1.15; margin: 0; color: var(--on-navy, #fff); min-width: 0; overflow-wrap: anywhere; }
+.trip-head + * .stats-card, .trip-head ~ .detail-body .stats-card { margin-top: 0; }
+@media (min-width: 900px) {
+  .trip-head { padding: 18px var(--gutter) 14px; }
+  .trip-head-title { font-size: 26px; }
+  .trip-head ~ .detail-body .detail-side { margin-top: 0; }
+}
