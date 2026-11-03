@@ -5,7 +5,7 @@ import PhotoViewer from '../components/PhotoViewer.jsx';
 
 const HEIGHTS = [150, 205, 175, 228, 158, 196, 168, 186];
 
-export default function Albums({ trips, filter, onFilter, onMove }) {
+export default function Albums({ trips, filter, onFilter, onMove, onCaption }) {
   const all = [];
   trips.forEach((t) => (t.days || []).forEach((d) => (d.photos || []).forEach((p, pi) => {
     all.push({ tripId: t.id, trip: t.title, dayId: d.id, pi, caption: p.label || d.place || d.title, p, h: HEIGHTS[all.length % HEIGHTS.length] });
@@ -41,7 +41,8 @@ export default function Albums({ trips, filter, onFilter, onMove }) {
         ))}
       </div>
       {open != null && shown[open] && <PhotoViewer items={shown} index={open} onIndex={setOpen} onClose={() => setOpen(null)} trips={trips}
-        onMove={onMove && ((a, to) => { setOpen(null); onMove(a.tripId, a.dayId, a.pi, to); })} />}
+        onMove={onMove && ((a, to) => { setOpen(null); onMove(a.tripId, a.dayId, a.pi, to); })}
+        onCaption={onCaption && ((a, text) => onCaption(a.tripId, a.dayId, a.pi, text))} />}
     </div>
   );
 }

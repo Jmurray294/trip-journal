@@ -828,3 +828,9 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .bv-hot.next:not(:disabled):hover { background: linear-gradient(to left, rgba(0,0,0,0.10), rgba(0,0,0,0) 22%); }
 .bv-hot.prev:not(:disabled):hover { background: linear-gradient(to right, rgba(0,0,0,0.10), rgba(0,0,0,0) 22%); }
 @media (hover: none) { .bv-hot:not(:disabled) span { opacity: 0.55; } }
+
+/* writing a photo's caption in the full-size viewer */
+.viewer-caption-row { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; vertical-align: middle; }
+.viewer-caption { width: min(460px, 70vw); height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12); color: #fff; font: inherit; font-size: 15px; }
+.viewer-caption::placeholder { color: rgba(255,255,255,0.6); }
+.viewer-caption:focus { outline: none; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.7); }

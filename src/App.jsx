@@ -557,6 +557,15 @@ export default function App() {
     showToast('Photo removed');
   };
 
+  // a photo's caption (its label): shown under it everywhere, in the photo book and the portal
+  const setPhotoCaption = (tripId, dayId, pi, text) => {
+    updateTrip(tripId, (t) => ({
+      ...t,
+      days: t.days.map((x) => (x.id === dayId ? { ...x, photos: (x.photos || []).map((p, j) => (j === pi ? { ...p, label: text } : p)) } : x)),
+    }));
+    showToast(text ? 'Caption saved' : 'Caption removed');
+  };
+
   // one photo from a memory in one trip to another trip, filed there by the day it was taken
   const movePhoto = (fromId, dayId, pi, toId) => {
     const from = tripsRef.current.find((t) => t.id === fromId);
@@ -799,6 +808,7 @@ export default function App() {
               onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
               onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
+              onPhotoCaption={(i, pi, text) => trip.days[i] && setPhotoCaption(trip.id, trip.days[i].id, pi, text)}
               onDeleteCost={(cid) => deleteCost(trip.id, cid)}
               onMarkPaid={(cid) => markPaid(trip.id, cid)}
               onEditCost={(cid, f) => editCost(trip.id, cid, f)}
@@ -827,7 +837,7 @@ export default function App() {
             />
           )}
           {screen === 'albums' && (
-            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} onMove={movePhoto} />
+            <Albums trips={trips} filter={albumFilter} onFilter={setAlbumFilter} onMove={movePhoto} onCaption={setPhotoCaption} />
           )}
           {screen === 'travelers' && (
             <Travelers list={travelers.list} signedIn={!!(supabase && family.household)} toast={showToast}

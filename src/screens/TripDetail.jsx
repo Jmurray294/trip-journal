@@ -275,7 +275,7 @@ export default function TripDetail(p) {
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
           onAsk={p.onAskSuggestions} onAdd={p.onAddSuggestion} onDismiss={p.onDismissSuggestion} />}
-        {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} />}
+        {tab === 'photos' && <TripPhotos trip={trip} onAddPhotos={p.onAddPhotos} onDeletePhoto={p.onDeletePhoto} onCaption={p.onPhotoCaption} />}
         {tab === 'documents' && <Documents trip={trip} household={p.household} inbox={p.inbox} toast={p.toast} onUpload={p.onUpload} />}
 
         {tab === 'journal' && <>
@@ -335,7 +335,7 @@ export default function TripDetail(p) {
 }
 
 // A trip's photos, by the day they were taken: tap one to see it full size.
-function TripPhotos({ trip, onAddPhotos, onDeletePhoto }) {
+function TripPhotos({ trip, onAddPhotos, onDeletePhoto, onCaption }) {
   const [open, setOpen] = useState(null);
   const days = new Map(); // date label → { pos, items }
   (trip.days || []).forEach((d, idx) => (d.photos || []).forEach((ph, pi) => {
@@ -371,7 +371,8 @@ function TripPhotos({ trip, onAddPhotos, onDeletePhoto }) {
           </div>
         </div>
       ))}
-      {open != null && all[open] && <PhotoViewer items={all.map((it) => ({ ...it, trip: '' }))} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
+      {open != null && all[open] && <PhotoViewer items={all.map((it) => ({ ...it, trip: '' }))} index={open} onIndex={setOpen} onClose={() => setOpen(null)}
+        onCaption={onCaption && ((it, text) => onCaption(it.idx, it.pi, text))} />}
     </>
   );
 }
