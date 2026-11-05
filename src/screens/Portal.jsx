@@ -149,9 +149,12 @@ function TripCard({ trip, onOpen, tag }) {
   );
 }
 
+// the title the app gives an entry saved with nothing written; followers don't see those
+const BLANK_TITLE = 'A new moment';
+
 function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   // the journal: written entries and bookings; photo-only days live under Photos
-  const days = (trip.days || []).filter((d) => d.booking || d.kind || (d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim()));
+  const days = (trip.days || []).filter((d) => d.booking || d.kind || (d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim() && d.title.trim() !== BLANK_TITLE));
   const groups = photoGroups(trip);
   return (
     <div className="pt-page">
