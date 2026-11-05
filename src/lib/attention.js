@@ -43,7 +43,7 @@ export function attention(trips, { toSort = 0, travelers = [], today = new Date(
     }
 
     // documents and loyalty numbers, for trips in the next six months
-    if (until !== null && until <= 180 && travelers.length) {
+    if (until !== null && until <= 180 && travelers.length && !t.gathering) { // a gathering at home needs no passports
       [...tripDocAlerts(t, travelers, false, today), ...loyaltyAlerts(t, travelers, today)]
         .filter((a) => a.level !== 'info')
         .forEach((a, i) => out.push({ key: `doc:${t.id}:${i}`, kind: 'docs', level: a.level, text: a.text, sub: t.title, open: { tripId: t.id } }));

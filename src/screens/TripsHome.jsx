@@ -1,14 +1,15 @@
 import { Plus, People, Chevron } from '../components/Icons.jsx';
 import { coverBg } from '../lib/derive.js';
 import { groupTrips, countdown } from '../lib/stages.js';
+import { isGathering } from '../lib/gathering.js';
 import SomedayBoard from './SomedayBoard.jsx';
 import Sidebar from '../components/Sidebar.jsx';
 import { BellButton } from '../components/Bell.jsx';
 
 // The Trips home is the trip up next. On a computer the Your trips card beside it lists the rest; on a
 // phone that same list follows below. Someday ideas have their own page (view 'someday').
-export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell, view, ideaPlace, onSomeday, onHome }) {
-  const [featured] = groupTrips(trips).upcoming;
+export default function TripsHome({ trips, onOpen, onNewTrip, onNewGathering, family, onFamily, toSort = 0, onSort, someday, address, onSaveIdea, onPlanPlace, onRemoveIdea, unread, onBell, view, ideaPlace, onSomeday, onHome }) {
+  const [featured] = groupTrips(trips.filter((t) => !isGathering(t))).upcoming;
 
   if (view === 'someday') {
     return (
@@ -70,7 +71,7 @@ export default function TripsHome({ trips, onOpen, onNewTrip, family, onFamily, 
       </section>
 
       <section className="sec home-list">
-        <Sidebar inline tab="trips" tripId={null} trips={trips} onOpenTrip={onOpen} onNewTrip={onNewTrip}
+        <Sidebar inline tab="trips" tripId={null} trips={trips} onOpenTrip={onOpen} onNewTrip={onNewTrip} onNewGathering={onNewGathering}
           someday={someday || []} onSomeday={onSomeday} />
       </section>
     </div>

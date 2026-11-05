@@ -1038,6 +1038,9 @@ async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, tr
 //       or loyalty numbers, and nothing from the family's other trips.
 // POST { action: "photo", name, image, taken, lat?, lon? } adds a photo; { action: "note", name, text, when }
 //       a note on that day. Both are marked with who sent them. Turning the link off in the app ends it.
+//       On a gathering, guests also change the plan: { action: "plan-add", name, planType, text, time?, who? },
+//       { action: "plan-edit", name, id, text, time?, who? }, { action: "plan-remove", name, id }
+//       (plan entries only; the same rules as src/lib/gathering.js).
 const noConf = (s: string) => s.replace(/\s*(\u00b7\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^\u00b7\s*/, "");
 async function sharedTrip(req: Request, url: URL) {
   const token = String(url.searchParams.get("share") || "");
@@ -1061,6 +1064,7 @@ async function sharedTrip(req: Request, url: URL) {
     const out = days.map(({ id, doc: d }) => ({
       id, date: String(d.date || ""), title: String(d.title || ""), place: String(d.place || ""), kind: String(d.kind || ""),
       pos: Number(d.pos) || 0, by: String(d.by || ""), cancelled: d.booking?.status === "cancelled",
+      ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0 } : {}),
       // a booking shows when and where, not its confirmation number or who holds it
       note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
       photos: (d.photos || []).map((p: Record<string, any>) => ({
@@ -1068,7 +1072,7 @@ async function sharedTrip(req: Request, url: URL) {
         label: String(p.label || ""), by: String(p.by || ""),
       })).filter((p: { url: string }) => p.url),
     })).sort((a, b) => a.pos - b.pos);
-    return ok({ trip: { title: t.doc.title || "Our trip", place: t.doc.place || "", dates: t.doc.dates || "", grad: t.doc.grad || "" }, days: out });
+    return ok({ trip: { title: t.doc.title || "Our trip", place: t.doc.place || "", dates: t.doc.dates || "", grad: t.doc.grad || "", gathering: !!t.doc.gathering }, days: out });
   }
 
   let body: Record<string, unknown>;
@@ -1076,6 +1080,7 @@ async function sharedTrip(req: Request, url: URL) {
   const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 40);
   if (!name) return ok({ error: "Add your name first" }, 400);
   if (body.action === "photo") return await filePhoto(admin, hid, trip, body, parsePhotoTime(String(body.taken || "")) || new Date(), name);
+  if (String(body.action || "").startsWith("plan-")) return await guestPlan(admin, hid, t, body, name);
   if (body.action !== "note") return ok({ error: "unknown action" }, 400);
 
   const text = String(body.text || "").trim().slice(0, 3000);
@@ -1095,6 +1100,52 @@ async function sharedTrip(req: Request, url: URL) {
     reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
   });
   return ok({ added: 1 });
+}
+
+// a guest adds to, changes or takes something off a gathering's plan (entries with kind "Plan")
+const planClean = (v: unknown, n: number) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+// deno-lint-ignore no-explicit-any
+async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<string, any> }, body: Record<string, unknown>, name: string) {
+  if (!t.doc.gathering) return ok({ error: "This trip has no plan to change" }, 400);
+  const text = planClean(body.text, 120);
+  const fields = (type: string) => ({
+    ...(type === "time" && planClean(body.time, 20) ? { time: planClean(body.time, 20) } : {}),
+    ...(type === "bring" && planClean(body.who, 40) ? { who: planClean(body.who, 40) } : {}),
+  });
+  if (body.action === "plan-add") {
+    if (!text) return ok({ error: "Write something first" }, 400);
+    const type = ["time", "bring", "coming"].includes(String(body.planType)) ? String(body.planType) : "time";
+    const r = tripRange(String(t.doc.dates || ""));
+    const id = "plan-" + crypto.randomUUID().slice(0, 13);
+    const now = Date.now();
+    const doc = { id, kind: "Plan", planType: type, title: text, date: r ? label(r[0]) : label(new Date()), place: String(t.doc.place || ""),
+      ...fields(type), by: name, photos: [], source: "plan", pos: now, added: now };
+    const { error } = await admin.from("entries").upsert({ household_id: hid, id, trip_id: t.id, deleted: false, doc }, { onConflict: "household_id,id" });
+    if (error) return ok({ error: error.message }, 500);
+    const what = type === "coming" ? `${name}: ${text} is coming` : type === "bring" ? `${name}: ${text}${doc.who ? " (" + doc.who + ")" : ""} for the plan` : `${name} added to the plan: ${text}`;
+    await admin.from("inbound_emails").insert({
+      household_id: hid, sender: name, subject: what.slice(0, 120), items: 1, status: "added",
+      reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
+    });
+    return ok({ added: 1, id });
+  }
+  const id = String(body.id || "");
+  const { data: rows } = await admin.from("entries").select("doc").eq("household_id", hid).eq("trip_id", t.id).eq("id", id).eq("deleted", false).limit(1);
+  const cur = ((rows || []) as { doc: Record<string, any> }[])[0];
+  if (!cur || cur.doc.kind !== "Plan") return ok({ error: "That's no longer on the plan" }, 404);
+  if (body.action === "plan-remove") {
+    const { error } = await admin.from("entries").update({ deleted: true }).eq("household_id", hid).eq("id", id);
+    if (error) return ok({ error: error.message }, 500);
+    return ok({ removed: 1 });
+  }
+  if (body.action !== "plan-edit") return ok({ error: "unknown action" }, 400);
+  if (!text) return ok({ error: "Write something first" }, 400);
+  const type = String(cur.doc.planType || "time");
+  const { time: _t, who: _w, ...rest } = cur.doc;
+  const doc = { ...rest, title: text, ...fields(type) };
+  const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
+  if (error) return ok({ error: error.message }, 500);
+  return ok({ edited: 1 });
 }
 
 // ---- webhook (the Gmail forwarder, with ?key=) and uploads from the app (a signed-in family member) ----

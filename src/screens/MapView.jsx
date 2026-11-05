@@ -41,7 +41,8 @@ function useSomedaySpots(groups) {
 function AllTrips({ trips, home, someday, active, onSelect, onOpenTrip, onSomeday }) {
   const carousel = useRef(null);
   const spots = useSomedaySpots(someday);
-  const g = groupTrips(trips);
+  // the map is for travel: gatherings at home stay off it
+  const g = groupTrips(trips.filter((t) => !t.gathering));
   const marks = [];
   const missing = [];
   for (const kind of ['upcoming', 'past', 'possible']) {

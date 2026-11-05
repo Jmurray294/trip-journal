@@ -9,6 +9,8 @@ import Explore from './Explore.jsx';
 import PhotoViewer from '../components/PhotoViewer.jsx';
 
 import { Itinerary, Budget, Documents, isPlan } from './TripSections.jsx';
+import GatheringPlan from './GatheringPlan.jsx';
+import { isGathering, planLists } from '../lib/gathering.js';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
 function CostsCard({ costs, onOpen }) {
@@ -54,6 +56,7 @@ function ShareRow({ title, sub, on, onToggle, children }) {
 // confirmation numbers or documents.
 function SharingCard({ trip, followers, link, p }) {
   const fOn = !!trip.followers;
+  const g = isGathering(trip);
   const n = followers ? followers.followers.length + followers.invites.length : 0;
   const book = !!(trip.book && trip.book.draft);
   const song = !!(trip.song && (trip.song.audioPath || trip.song.audio));
@@ -83,7 +86,9 @@ function SharingCard({ trip, followers, link, p }) {
           )}
         </ShareRow>
       )}
-      <ShareRow title="Travel crew" sub={trip.shareToken ? 'Anyone with the link can see the plan and add their photos and notes.' : 'Send the people on this trip a link to add their photos and notes.'}
+      <ShareRow title={g ? 'Guests' : 'Travel crew'} sub={g
+        ? (trip.shareToken ? 'Anyone with the link can see and change the plan, and add their photos and notes.' : 'Send the people coming a link to add to the plan, and their photos and notes.')
+        : (trip.shareToken ? 'Anyone with the link can see the plan and add their photos and notes.' : 'Send the people on this trip a link to add their photos and notes.')}
         on={!!trip.shareToken} onToggle={() => (trip.shareToken ? p.onStopLink() : p.onMakeLink())}>
         <div className="row-8">
           <button className="btn-primary small press" onClick={p.onSendLink}><Share /> Send link</button>
@@ -91,7 +96,7 @@ function SharingCard({ trip, followers, link, p }) {
         </div>
         <div className="trip-link-url">{link}</div>
       </ShareRow>
-      <button className="btn-link inline share-copy" onClick={p.onShare}>Copy itinerary as text</button>
+      <button className="btn-link inline share-copy" onClick={p.onShare}>{g ? 'Copy the plan as text' : 'Copy itinerary as text'}</button>
     </div>
   );
 }
@@ -108,6 +113,8 @@ function addedNote(d) {
 }
 
 const TABS = [['photos', 'Photos'], ['journal', 'Journal'], ['explore', 'Explore'], ['itinerary', 'Itinerary'], ['budget', 'Budget'], ['documents', 'Documents']];
+// a gathering (at home or nearby) has a plan instead of bookings, and nothing to explore or pay for
+const GATHERING_TABS = [['photos', 'Photos'], ['journal', 'Journal'], ['plan', 'Plan']];
 
 function Spinner({ size = 16 }) {
   return <span className="spin-sm" style={{ width: size, height: size }} />;
@@ -200,7 +207,9 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 
 export default function TripDetail(p) {
   const { trip } = p;
-  const [tab, setTab] = useState(p.initialTab || TABS[0][0]);
+  const gathering = isGathering(trip);
+  const tabs = gathering ? GATHERING_TABS : TABS;
+  const [tab, setTab] = useState(tabs.some(([k]) => k === p.initialTab) ? p.initialTab : tabs[0][0]);
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
   const when = (d) => (typeof d.added === 'number' ? d.added : d.pos ?? 0);
@@ -208,7 +217,7 @@ export default function TripDetail(p) {
   const shown = trip.days.map((d, idx) => ({ d, idx })).filter(({ d }) => d.source !== 'photos' && !isPlan(d)); // idx: its place in trip.days, for delete
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const planCount = (trip.days || []).filter(isPlan).length;
-  const counts = { itinerary: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
+  const counts = { itinerary: planCount, plan: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
   return (
     <div className="screen pad-tab">
       {/* just the trip name: the page is about what's below it */}
@@ -216,11 +225,11 @@ export default function TripDetail(p) {
         <button className="back-btn static press" onClick={p.onBack} aria-label="Back"><Chevron /></button>
         <div className="grow" style={{ minWidth: 0 }}>
           <h1 className="trip-head-title">{trip.title}</h1>
-          {trip.dates && <div className="trip-head-dates">{trip.dates}</div>}
+          {(trip.dates || gathering) && <div className="trip-head-dates">{[gathering && 'Gathering', trip.dates, gathering && trip.place].filter(Boolean).join(' · ')}</div>}
         </div>
       </div>
 
-      <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />
+      {!gathering && <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />}
 
       {trip.possible && (
         <div className="possible-banner">
@@ -262,13 +271,14 @@ export default function TripDetail(p) {
 
       <div className="detail-main">
         <div className="trip-tabs" role="tablist" aria-label="Trip sections">
-          {TABS.map(([k, label]) => (
+          {tabs.map(([k, label]) => (
             <button key={k} role="tab" aria-selected={tab === k} className={'trip-tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>
               {label}{counts[k] ? <span className="trip-tab-n">{counts[k]}</span> : null}
             </button>
           ))}
         </div>
 
+        {tab === 'plan' && <GatheringPlan lists={planLists(trip)} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} />}
         {tab === 'itinerary' && <Itinerary trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} onDelete={p.onDeleteEntry} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}
@@ -325,7 +335,7 @@ export default function TripDetail(p) {
         ))}
         </>}
 
-        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#9E1B1B" /> Delete this trip</button>
+        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#9E1B1B" /> {gathering ? 'Delete this gathering' : 'Delete this trip'}</button>
       </div>
       </div>
     </div>

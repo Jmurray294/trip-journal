@@ -911,3 +911,33 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .memory-kind span { font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 .memory-pick { display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .memory-back { display: block; margin: 14px auto 0; }
+
+/* a gathering that has happened, in the sidebar list */
+.side-trip.side-past { opacity: 0.72; }
+
+/* a gathering's plan: the schedule, who's bringing what, who's coming (GatheringPlan.jsx) */
+.plan { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.plan-sec { background: #fff; border: 1px solid rgba(27,63,168,0.12); border-radius: 14px; padding: 14px; }
+.plan-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.plan-count { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 4px; }
+.plan-empty { font-size: 13.5px; color: var(--muted); padding: 4px 0 2px; }
+.plan-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid rgba(42,37,32,0.08); padding: 10px 2px; font: inherit; color: var(--ink); cursor: pointer; }
+.plan-row:first-of-type { border-top: none; }
+.plan-row:hover .plan-text { color: #1B3FA8; }
+.plan-time { font-family: var(--mono); font-size: 13px; color: #1B3FA8; min-width: 64px; }
+.plan-text { font-size: 15px; font-weight: 500; flex: 1; min-width: 0; }
+.plan-who { font-size: 14px; color: var(--secondary); font-weight: 600; }
+.plan-by { flex-basis: 100%; font-size: 11.5px; color: var(--muted); }
+.plan-add { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; align-items: center; }
+.plan-sec:nth-child(2) .plan-add { grid-template-columns: minmax(0, 1fr) 120px auto; }
+.plan-add.one { grid-template-columns: minmax(0, 1fr) auto; }
+.plan-add .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; }
+.plan-btn { flex: none; min-height: 42px; padding: 0 16px; }
+.plan-edit { border-top: 1px solid rgba(42,37,32,0.08); padding: 10px 0; }
+.plan-edit-btns { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+.plan-edit-btns .btn-primary.small, .plan-edit-btns .btn-muted { flex: none; width: auto; min-height: 40px; padding: 0 18px; margin: 0; }
+.plan-btn { width: auto !important; }
+.plan-remove { color: #9E1B1B !important; margin-left: auto !important; }
+@media (max-width: 420px) {
+  .plan-add, .plan-sec:nth-child(2) .plan-add, .plan-add.one { grid-template-columns: minmax(0, 1fr); }
+}

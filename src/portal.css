@@ -104,3 +104,8 @@
   .pt-top.has-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
   .pt-top.has-side .pt-hero { min-height: 420px; }
 }
+/* a gathering's plan in the left column */
+.pt-plan-group { border-top: 1px solid var(--line, #E6E9EE); margin-top: 10px; padding-top: 10px; }
+.pt-plan-head { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.pt-plan-line { padding: 4px 0; font-size: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.pt-plan-line .pt-plan-title { font-weight: 500; margin: 0; }

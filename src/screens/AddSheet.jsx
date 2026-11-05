@@ -43,7 +43,8 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   const [note, setNote] = useState('');
   // a memory is either photos (filed by the day each was taken) or a journal entry (words)
   const [kind, setKind] = useState(initial.dictate ? 'journal' : (initial.kind || null));
-  const [newTrip, setNewTrip] = useState({ title: '', place: '', dates: '', grad: GRADIENTS[0] });
+  // a trip, or a gathering (a get-together at home or nearby: a plan instead of bookings)
+  const [newTrip, setNewTrip] = useState({ title: '', place: '', dates: '', grad: GRADIENTS[0], gathering: !!initial.gathering });
   const [paste, setPaste] = useState('');
   const [parsed, setParsed] = useState([]);
   const [files, setFiles] = useState([]);
@@ -149,7 +150,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
       <div className="sheet-backdrop" onClick={close} />
       <div className="sheet" role="dialog" aria-modal="true">
         <div className="grab" />
-        {!initial.dictate && <div className="segs">{seg('memory', 'Memory')}{seg('trip', 'New trip')}{seg('import', 'Import')}{canRead && seg('idea', 'Idea')}</div>}
+        {!initial.dictate && <div className="segs">{seg('memory', 'Memory')}{seg('trip', newTrip.gathering ? 'New gathering' : 'New trip')}{seg('import', 'Import')}{canRead && seg('idea', 'Idea')}</div>}
 
         {mode === 'idea' && canRead && (
           <>
@@ -247,12 +248,17 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
 
         {mode === 'trip' && (
           <>
-            <Label top={0}>Trip name</Label>
-            <input className="field" value={newTrip.title} onChange={(e) => setNewTrip({ ...newTrip, title: e.target.value })} placeholder="e.g. Lake District 2026" />
-            <Label>Place</Label>
-            <input className="field" value={newTrip.place} onChange={(e) => setNewTrip({ ...newTrip, place: e.target.value })} placeholder="Where to?" />
-            <Label>Dates</Label>
-            <input className="field" value={newTrip.dates} onChange={(e) => setNewTrip({ ...newTrip, dates: e.target.value })} placeholder="e.g. Aug 2026" />
+            <div className="order-segs" style={{ marginTop: 0, marginBottom: 6 }}>
+              <button className={'seg' + (!newTrip.gathering ? ' active' : '')} onClick={() => setNewTrip({ ...newTrip, gathering: false })}>Trip</button>
+              <button className={'seg' + (newTrip.gathering ? ' active' : '')} onClick={() => setNewTrip({ ...newTrip, gathering: true })}>Gathering</button>
+            </div>
+            {newTrip.gathering && <div className="sheet-copy" style={{ marginTop: 4 }}>A get-together at home or nearby. It has a plan (the schedule, who’s bringing what, who’s coming) instead of bookings, and its own list.</div>}
+            <Label top={newTrip.gathering ? 14 : 8}>{newTrip.gathering ? 'Name' : 'Trip name'}</Label>
+            <input className="field" value={newTrip.title} onChange={(e) => setNewTrip({ ...newTrip, title: e.target.value })} placeholder={newTrip.gathering ? 'e.g. Thanksgiving 2026' : 'e.g. Lake District 2026'} />
+            <Label>{newTrip.gathering ? 'Where' : 'Place'}</Label>
+            <input className="field" value={newTrip.place} onChange={(e) => setNewTrip({ ...newTrip, place: e.target.value })} placeholder={newTrip.gathering ? 'Home' : 'Where to?'} />
+            <Label>{newTrip.gathering ? 'Date' : 'Dates'}</Label>
+            <input className="field" value={newTrip.dates} onChange={(e) => setNewTrip({ ...newTrip, dates: e.target.value })} placeholder={newTrip.gathering ? 'e.g. Nov 26, 2026 (or Nov 26–28)' : 'e.g. Aug 2026'} />
             <Label>Cover</Label>
             <div className="swatches">
               {GRADIENTS.map((g) => (
@@ -260,7 +266,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
                   style={{ background: g, border: newTrip.grad === g ? '3px solid #1B3FA8' : '3px solid transparent' }} />
               ))}
             </div>
-            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => onSaveTrip(newTrip)}>Create trip</button>
+            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => onSaveTrip(newTrip)}>{newTrip.gathering ? 'Create gathering' : 'Create trip'}</button>
           </>
         )}
 

@@ -37,6 +37,7 @@ import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
 import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
+import { makePlanItem, editPlanItem, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
 
 
 async function copyText(text) {
@@ -471,16 +472,16 @@ export default function App() {
       (undated ? ` — ${undated} had no date and went on today` : ''));
   };
 
-  const saveTrip = ({ title, place, dates, grad }) => {
-    if (!title.trim()) { showToast('Give your trip a name'); return false; }
-    const trip = { id: newTripId(), title: title.trim(), place: place.trim(), dates: dates.trim() || todayLabel(), grad, planning: false, statusLabel: 'My trip', timelineLabel: 'Timeline', members: FAMILY, song: null, days: [] };
+  const saveTrip = ({ title, place, dates, grad, gathering }) => {
+    if (!title.trim()) { showToast(gathering ? 'Give your gathering a name' : 'Give your trip a name'); return false; }
+    const trip = { id: newTripId(), title: title.trim(), place: place.trim() || (gathering ? 'Home' : ''), dates: dates.trim() || todayLabel(), grad, planning: false, statusLabel: 'My trip', timelineLabel: 'Timeline', members: FAMILY, song: null, days: [], ...(gathering ? { gathering: true } : {}) };
     applyTrips((ts) => {
       const next = [...ts]; const idx = next.findIndex((t) => !t.planning);
       if (idx < 0) next.push(trip); else next.splice(idx, 0, trip);
       return next;
     });
-    go({ tab: 'trips', tripId: trip.id });
-    showToast('Trip created');
+    go({ tab: 'trips', tripId: trip.id, ...(gathering ? { section: 'plan' } : {}) });
+    showToast(gathering ? 'Gathering created' : 'Trip created');
     return true;
   };
 
@@ -496,6 +497,21 @@ export default function App() {
     showToast(n + (n === 1 ? ' item added' : ' items added'));
     return true;
   };
+
+  // ---- a gathering's plan (gathering.js): the schedule, who's bringing what, who's coming ----
+  const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const addPlan = (tripId, item) => {
+    if (!String(item.text || '').trim()) return false;
+    updateTrip(tripId, (t) => {
+      const sp = tripSpan(t);
+      const first = sp ? MON3[sp[0].getMonth()] + ' ' + sp[0].getDate() : todayLabel();
+      const d = makePlanItem(item, { id: newEntryId(), first, place: t.place, now: Date.now() });
+      return { ...t, days: sortDays([...(t.days || []), d]) };
+    });
+    return true;
+  };
+  const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? editPlanItem(d, changes) : d)) }));
+  const removePlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: sortDays(t.days.filter((d) => d.id !== id)) }));
 
   const deleteEntry = (tripId, idx) => {
     if (!window.confirm('Delete this memory?')) return;
@@ -598,7 +614,11 @@ export default function App() {
 
   const shareTrip = async (t) => {
     const lines = [t.title, [t.place, t.dates].filter(Boolean).join(' · '), ''];
-    t.days.forEach((d) => lines.push(`${d.date} — ${d.title}${d.place ? ' (' + d.place + ')' : ''}`));
+    if (t.gathering) {
+      // a gathering: its plan, list by list
+      const l = planLists(t);
+      for (const [k, title] of PLAN_SECTIONS) if (l[k].length) lines.push(title, ...l[k].map((d) => '• ' + planLine(d)), '');
+    } else t.days.forEach((d) => lines.push(`${d.date} — ${d.title}${d.place ? ' (' + d.place + ')' : ''}`));
     const text = lines.join('\n');
     if (navigator.share) {
       try { await navigator.share({ title: t.title, text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -732,7 +752,7 @@ export default function App() {
       <div className="app">
         <div className="scroller" ref={scroller}>
           {screen === 'list' && (
-            <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')}
+            <TripsHome trips={trips} onOpen={(id) => go({ tab: 'trips', tripId: id })} onNewTrip={() => openAddFor(null, 'trip')} onNewGathering={() => openAddFor(null, 'trip', { gathering: true })}
               family={family} onFamily={() => setFamilyOpen(true)} toSort={inbox.items.length} onSort={() => setSortOpen(true)}
               someday={family.household ? someday.groups : null} address={forwardingAddress(family.household)}
               onSaveIdea={() => openAddFor(null, 'idea')} onPlanPlace={planPlace} onRemoveIdea={removeIdea}
@@ -769,6 +789,9 @@ export default function App() {
               onAddSuggestion={(stop, item) => addSuggestion(trip.id, stop, item)}
               onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
+              onAddPlan={(item) => addPlan(trip.id, item)}
+              onEditPlan={(id, changes) => editPlan(trip.id, id, changes)}
+              onRemovePlan={(id) => removePlan(trip.id, id)}
               onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
               onSetCover={(dayId, pi) => setTripCover(trip.id, dayId, pi)}
               onPhotoCaption={(i, pi, text) => trip.days[i] && setPhotoCaption(trip.id, trip.days[i].id, pi, text)}
@@ -823,6 +846,7 @@ export default function App() {
         <Sidebar
           tab={nav.tab} trips={trips} tripId={nav.tripId}
           onNewTrip={() => openAddFor(null, 'trip')}
+          onNewGathering={() => openAddFor(null, 'trip', { gathering: true })}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
           someday={family.household ? someday.groups : []} onSomeday={showSomeday}
         />

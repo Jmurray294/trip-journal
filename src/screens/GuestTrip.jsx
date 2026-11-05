@@ -4,6 +4,8 @@ import { parseExif } from '../lib/photos.js';
 import { resizePhoto } from '../lib/resize.js';
 import { onUpdateReady, applyUpdate } from '../lib/update.js';
 import { Plus, Note } from '../components/Icons.jsx';
+import GatheringPlan from './GatheringPlan.jsx';
+import { planLists } from '../lib/gathering.js';
 
 // A trip opened from its shared link (jcmurraytrips.com/?t=<token>): fellow travelers see the plan
 // and everyone's photos and notes, and add their own — no account, just a name. Everything goes
@@ -95,6 +97,13 @@ export default function GuestTrip({ token }) {
     load();
   };
 
+  // a gathering's plan: guests add to it, change it and take things off, under their name
+  const planCall = async (body, msg) => {
+    if (!name) { say('Add your name at the top first'); return false; }
+    setBusy('Saving…');
+    try { await call(token, { ...body, name }); if (msg) say(msg); await load(); return true; } catch (e) { say(e.message); return false; } finally { setBusy(''); }
+  };
+
   const addNote = async () => {
     const text = noteText.trim();
     if (!text) return;
@@ -117,7 +126,10 @@ export default function GuestTrip({ token }) {
   }
   if (!data) return <div className="app"><div className="scroller"><div className="empty-block"><span className="spin-sm" /></div></div></div>;
 
-  const { trip, days } = data;
+  const { trip } = data;
+  const gathering = !!trip.gathering;
+  const plan = gathering ? planLists({ days: data.days }) : null;
+  const days = data.days.filter((d) => d.kind !== 'Plan');
   return (
     <div className="app">
       <div className="scroller">
@@ -126,7 +138,7 @@ export default function GuestTrip({ token }) {
             <div className="fill" style={coverBg(trip)} />
             <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.82) 0%, rgba(48,26,14,0.10) 52%, rgba(30,20,14,0.22) 100%)' }} />
             <div className="hero-text">
-              <div className="status-chip">Shared trip</div>
+              <div className="status-chip">{gathering ? 'Gathering' : 'Shared trip'}</div>
               <div className="hero-title">{trip.title}</div>
               <div className="meta-row" style={{ marginTop: 8 }}>
                 {trip.place && <span>{trip.place}</span>}
@@ -141,16 +153,18 @@ export default function GuestTrip({ token }) {
               <>
                 <div className="field-label">Who's this?</div>
                 <div className="sheet-copy" style={{ marginTop: 0, marginBottom: 12 }}>
-                  Add your name so everyone knows whose photos and notes are whose.
+                  {gathering ? 'Add your name so everyone knows who added what to the plan, and whose photos and notes are whose.' : 'Add your name so everyone knows whose photos and notes are whose.'}
                 </div>
                 <input className="field" placeholder="Your first name" value={draft} autoComplete="given-name"
                   onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') join(); }} />
-                <button className="btn-primary" style={{ marginTop: 12 }} disabled={!draft.trim()} onClick={join}>Join the trip</button>
+                <button className="btn-primary" style={{ marginTop: 12 }} disabled={!draft.trim()} onClick={join}>{gathering ? 'Join' : 'Join the trip'}</button>
               </>
             ) : (
               <>
                 <div className="sheet-copy" style={{ marginTop: 0 }}>
-                  Hi {name}. Add your photos and notes from the trip — they go into the trip's story and photo album.
+                  {gathering
+                    ? <>Hi {name}. Add to the plan below (tap anything on it to change it), and add your photos and notes.</>
+                    : <>Hi {name}. Add your photos and notes from the trip — they go into the trip's story and photo album.</>}
                 </div>
                 {busy ? (
                   <div className="row-9" style={{ marginTop: 14, minHeight: 44 }}><span className="spin-sm" /><span className="sheet-copy" style={{ margin: 0 }}>{busy}</span></div>
@@ -170,8 +184,18 @@ export default function GuestTrip({ token }) {
             )}
           </div>
 
+          {gathering && (
+            <div className="detail-main" style={{ marginBottom: 6 }}>
+              <div className="timeline-head"><div className="mono-label">The plan</div></div>
+              <GatheringPlan lists={plan} busy={!!busy}
+                onAdd={(item) => planCall({ action: 'plan-add', ...item }, 'Added to the plan')}
+                onEdit={(id, c) => planCall({ action: 'plan-edit', id, ...c }, 'Saved')}
+                onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')} />
+            </div>
+          )}
+
           <div className="detail-main">
-            <div className="timeline-head"><div className="mono-label">The trip</div></div>
+            <div className="timeline-head"><div className="mono-label">{gathering ? 'Photos and notes' : 'The trip'}</div></div>
             {days.length === 0 && (
               <div className="section-empty">Nothing here yet — be the first to add a photo.</div>
             )}

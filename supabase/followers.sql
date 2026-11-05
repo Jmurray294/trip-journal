@@ -64,6 +64,8 @@ create or replace function public.follower_entry(p_id text, d jsonb) returns jso
   select jsonb_strip_nulls(jsonb_build_object(
     'id', p_id, 'date', d->'date', 'title', d->'title', 'place', d->'place', 'kind', d->'kind',
     'pos', d->'pos', 'by', d->'by', 'added', d->'added', 'lat', d->'lat', 'lon', d->'lon', 'source', d->'source',
+    -- a gathering's plan item: which list it's on, its time, who's bringing it
+    'planType', d->'planType', 'time', d->'time', 'who', d->'who',
     -- what the family wrote; a booking's note (confirmation numbers, who holds it) stays private
     'note', case when jsonb_typeof(d->'booking') = 'object' or coalesce(d->>'kind', '') <> '' then null else d->'note' end,
     'booking', case when jsonb_typeof(d->'booking') = 'object' then jsonb_build_object(
@@ -85,6 +87,7 @@ language sql stable security definer set search_path = public as $$
     'id', p_id, 'title', p_doc->'title', 'place', p_doc->'place', 'dates', p_doc->'dates', 'grad', p_doc->'grad',
     'coverSrc', case when p_doc->>'coverSrc' like 'data:%' then null else p_doc->'coverSrc' end,
     'companions', p_doc->'companions', 'possible', p_doc->'possible', 'planning', p_doc->'planning', 'cover', p_doc->'cover',
+    'gathering', p_doc->'gathering',
     'book', case when jsonb_typeof(p_doc->'book'->'draft') = 'object' then jsonb_build_object(
       'draft', p_doc->'book'->'draft', 'size', p_doc->'book'->'size', 'style', p_doc->'book'->'style') end,
     'song', case when jsonb_typeof(p_doc->'song') = 'object' then jsonb_build_object(

@@ -7,6 +7,7 @@ import { loadPortal, portalSections, latestMoments, hasBook, hasSong } from '../
 import PhotoViewer from '../components/PhotoViewer.jsx';
 import { BookReader } from './PhotoBook.jsx';
 import '../portal.css';
+import { isGathering, planLists, PLAN_SECTIONS } from '../lib/gathering.js';
 
 // The family portal (?follow): people a family invited to follow along. Sign in with an emailed
 // 6-digit code, then see the trips the family shared — what's happening now on a trip underway
@@ -194,6 +195,30 @@ function PlanItem({ d }) {
   );
 }
 
+// a gathering's plan, read only: the schedule, who's bringing what, who's coming
+function GatheringPlanView({ trip }) {
+  const lists = planLists(trip);
+  const any = PLAN_SECTIONS.some(([k]) => lists[k].length);
+  return (
+    <>
+      <div className="mono-label">The plan</div>
+      {!any && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing planned yet.</div>}
+      {PLAN_SECTIONS.map(([k, title]) => lists[k].length > 0 && (
+        <div key={k} className="pt-plan-group">
+          <div className="pt-plan-head">{title}</div>
+          {lists[k].map((d) => (
+            <div key={d.id} className="pt-plan-line">
+              {k === 'time' && d.time && <span className="pt-when">{d.time}</span>}
+              <span className="pt-plan-title">{d.title}</span>
+              {k === 'bring' && d.who && <span className="pt-sub"> · {d.who}</span>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   const isPlan = (d) => !!(d.booking || d.kind);
   // three columns on a computer: the itinerary (bookings), the photos, the journal (written entries);
@@ -204,9 +229,11 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   return (
     <div className="pt-page pt-wide pt-cols">
       <div className="pt-card pt-col-plan">
-        <div className="mono-label">Itinerary</div>
-        {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
-        {plans.map((d) => <PlanItem key={d.id} d={d} />)}
+        {isGathering(trip) ? <GatheringPlanView trip={trip} /> : (<>
+          <div className="mono-label">Itinerary</div>
+          {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
+          {plans.map((d) => <PlanItem key={d.id} d={d} />)}
+        </>)}
       </div>
       <div className="pt-col-main">
         <button className="pt-back" onClick={onBack}>‹ All trips</button>
@@ -289,6 +316,9 @@ export default function Portal({ preview = false, onClose }) {
 
   const all = useMemo(() => (families || []).flatMap((f) => f.trips.map((t) => ({ ...t, family: f.name }))), [families]);
   const sections = useMemo(() => portalSections(all), [all]);
+  // past trips and past gatherings (get-togethers at home or nearby) each have their own list
+  const pastTrips = sections.past.filter((t) => !isGathering(t));
+  const pastGatherings = sections.past.filter(isGathering);
 
   // keep a trip that's underway fresh while the page is open
   useEffect(() => {
@@ -402,9 +432,14 @@ export default function Portal({ preview = false, onClose }) {
           </button>
         )}
 
-        {sections.past.length > 0 && (<>
+        {pastTrips.length > 0 && (<>
           <div className="pt-section">Our trips</div>
-          <div className="pt-grid">{sections.past.map((t) => <TripCard key={t.id} trip={t} onOpen={() => setOpen(t.id)} />)}</div>
+          <div className="pt-grid">{pastTrips.map((t) => <TripCard key={t.id} trip={t} onOpen={() => setOpen(t.id)} />)}</div>
+        </>)}
+
+        {pastGatherings.length > 0 && (<>
+          <div className="pt-section">Gatherings</div>
+          <div className="pt-grid">{pastGatherings.map((t) => <TripCard key={t.id} trip={t} onOpen={() => setOpen(t.id)} />)}</div>
         </>)}
 
         {!sections.live.length && !sections.next && !sections.past.length && (
