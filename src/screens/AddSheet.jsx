@@ -3,6 +3,8 @@ import Chips from '../components/Chips.jsx';
 import { Mic, AddPhoto, Pencil } from '../components/Icons.jsx';
 import { GRADIENTS, short } from '../lib/derive.js';
 import { parseConfirmation } from '../lib/parser.js';
+import { rangeText } from '../lib/dates.js';
+import PlaceMap from '../components/PlaceMap.jsx';
 
 const KIND_STYLE = {
   Flight: { background: 'rgba(111,126,132,0.18)', color: '#4E6068' },
@@ -35,7 +37,7 @@ async function toUpload(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-export default function AddSheet({ initial, trips, onClose, registerStopDictation, resizePhoto, onSaveMemory, onAddPhotos, onSaveTrip, onImport, onReadUpload, canRead, toast }) {
+export default function AddSheet({ initial, trips, home, onClose, registerStopDictation, resizePhoto, onSaveMemory, onAddPhotos, onSaveTrip, onImport, onReadUpload, canRead, toast }) {
   const [mode, setMode] = useState(initial.mode);
   const [tripId, setTripId] = useState(initial.tripId);
   const [title, setTitle] = useState('');
@@ -45,6 +47,8 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
   const [kind, setKind] = useState(initial.dictate ? 'journal' : (initial.kind || null));
   // a trip, or a gathering (a get-together at home or nearby: a plan instead of bookings)
   const [newTrip, setNewTrip] = useState({ title: '', place: '', dates: '', grad: GRADIENTS[0], gathering: !!initial.gathering });
+  // dates from the calendar (start, optional end); a trip can be typed instead ("Aug 2026", "2028")
+  const [when, setWhen] = useState({ start: '', end: '', typed: false });
   const [paste, setPaste] = useState('');
   const [parsed, setParsed] = useState([]);
   const [files, setFiles] = useState([]);
@@ -257,8 +261,27 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
             <input className="field" value={newTrip.title} onChange={(e) => setNewTrip({ ...newTrip, title: e.target.value })} placeholder={newTrip.gathering ? 'e.g. Thanksgiving 2026' : 'e.g. Lake District 2026'} />
             <Label>{newTrip.gathering ? 'Where' : 'Place'}</Label>
             <input className="field" value={newTrip.place} onChange={(e) => setNewTrip({ ...newTrip, place: e.target.value })} placeholder={newTrip.gathering ? 'Home' : 'Where to?'} />
+            <PlaceMap place={newTrip.place || (newTrip.gathering ? 'Home' : '')} home={home} />
             <Label>{newTrip.gathering ? 'Date' : 'Dates'}</Label>
-            <input className="field" value={newTrip.dates} onChange={(e) => setNewTrip({ ...newTrip, dates: e.target.value })} placeholder={newTrip.gathering ? 'e.g. Nov 26, 2026 (or Nov 26–28)' : 'e.g. Aug 2026'} />
+            {when.typed && !newTrip.gathering ? (
+              <>
+                <input className="field" value={newTrip.dates} onChange={(e) => setNewTrip({ ...newTrip, dates: e.target.value })} placeholder="e.g. Aug 2026, or 2028" />
+                <button className="btn-link inline date-switch" onClick={() => setWhen({ ...when, typed: false })}>Pick dates on a calendar</button>
+              </>
+            ) : (
+              <>
+                <div className="date-pair">
+                  <label className="date-field"><span>{newTrip.gathering ? 'Day' : 'From'}</span>
+                    <input className="field" type="date" value={when.start} onChange={(e) => setWhen({ ...when, start: e.target.value, end: when.end && when.end < e.target.value ? '' : when.end })} />
+                  </label>
+                  <label className="date-field"><span>{newTrip.gathering ? 'Until (optional)' : 'To'}</span>
+                    <input className="field" type="date" value={when.end} min={when.start || undefined} onChange={(e) => setWhen({ ...when, end: e.target.value })} />
+                  </label>
+                </div>
+                {when.start && <div className="date-read">{rangeText(when.start, when.end)}</div>}
+                {!newTrip.gathering && <button className="btn-link inline date-switch" onClick={() => setWhen({ ...when, typed: true })}>Not sure yet? Type something like “Aug 2026”</button>}
+              </>
+            )}
             <Label>Cover</Label>
             <div className="swatches">
               {GRADIENTS.map((g) => (
@@ -266,7 +289,7 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
                   style={{ background: g, border: newTrip.grad === g ? '3px solid #1B3FA8' : '3px solid transparent' }} />
               ))}
             </div>
-            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => onSaveTrip(newTrip)}>{newTrip.gathering ? 'Create gathering' : 'Create trip'}</button>
+            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => onSaveTrip({ ...newTrip, dates: when.typed && !newTrip.gathering ? newTrip.dates : rangeText(when.start, when.end) })}>{newTrip.gathering ? 'Create gathering' : 'Create trip'}</button>
           </>
         )}
 

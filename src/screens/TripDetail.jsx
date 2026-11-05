@@ -10,6 +10,7 @@ import PhotoViewer from '../components/PhotoViewer.jsx';
 
 import { Itinerary, Budget, Documents, isPlan } from './TripSections.jsx';
 import GatheringPlan from './GatheringPlan.jsx';
+import PlaceMap from '../components/PlaceMap.jsx';
 import { isGathering, planLists } from '../lib/gathering.js';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
@@ -280,6 +281,12 @@ export default function TripDetail(p) {
           ))}
         </div>
 
+        {tab === 'plan' && trip.place && (
+          <div className="plan-sec plan-where">
+            <div className="plan-title">Where</div>
+            <PlaceMap place={trip.place} home={p.home} height={200} />
+          </div>
+        )}
         {tab === 'plan' && <GatheringPlan lists={planLists(trip)} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} />}
         {tab === 'itinerary' && <Itinerary trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} onDelete={p.onDeleteEntry} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}

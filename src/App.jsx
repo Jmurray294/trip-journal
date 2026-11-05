@@ -906,7 +906,7 @@ export default function App() {
 
         {add && (
           <AddSheet
-            initial={add} trips={trips}
+            initial={add} trips={trips} home={home}
             onClose={() => setAdd(null)}
             registerStopDictation={(fn) => { stopDictationRef.current = fn; }}
             resizePhoto={resizePhoto}
