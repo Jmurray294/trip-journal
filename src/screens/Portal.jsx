@@ -210,25 +210,22 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
       </div>
       <div className="pt-col-main">
         <button className="pt-back" onClick={onBack}>‹ All trips</button>
-        <div className="pt-hero" style={coverBg(trip)}>
+        <div className={'pt-hero' + (hasBook(trip) ? ' has-book' : '')} style={coverBg(trip)}>
           <div className="pt-hero-text">
             {live && <span className="pt-tag live">On the road now</span>}
             <div className="pt-hero-title">{trip.title}</div>
             <div className="pt-hero-sub">{[trip.place, trip.dates].filter(Boolean).join(' · ')}</div>
           </div>
+          {hasBook(trip) && (
+            // the photo book, standing in the header like a book: tap it to read
+            <button className="pt-hero-book press" onClick={onBook} aria-label="Read the photo book">
+              <span className="mono-label">Photo book</span>
+              <span className="pt-hero-book-title">{trip.book.draft.title || trip.title}</span>
+              <span className="pt-hero-book-go">Read the book ›</span>
+            </button>
+          )}
         </div>
-        {(hasBook(trip) || hasSong(trip)) && (
-          <div className="pt-keeps">
-            {hasBook(trip) && (
-              <div className="pt-card pt-bookcard">
-                <div className="mono-label">Photo book</div>
-                <div className="pt-song-title">{trip.book.draft.title || trip.title}</div>
-                <button className="btn-primary small press" onClick={onBook}>Read the book</button>
-              </div>
-            )}
-            {hasSong(trip) && <Song trip={trip} />}
-          </div>
-        )}
+        {hasSong(trip) && <Song trip={trip} />}
         <div className="pt-card pt-col-photos">
           <div className="mono-label">Photos</div>
           {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
