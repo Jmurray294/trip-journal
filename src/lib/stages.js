@@ -6,7 +6,8 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 const MONTH = '\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\b';
 const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-// "Sep 3–14, 2026", "Dec 28 – Jan 3, 2027", "April 2027" → [first day, last day]; null without dates.
+// "Sep 3–14, 2026", "Dec 28 – Jan 3, 2027", "April 2027", "Feb–Mar 2028" → [first day, last day];
+// null without dates (a bare year isn't a span: see tripStage).
 // Same reading as tripRange in the inbound-email function.
 export function datesRange(text) {
   const s = String(text || '');
@@ -25,8 +26,13 @@ export function datesRange(text) {
     if (points.length >= 2 && points[0] > points[points.length - 1]) points[0] = new Date(points[0].getFullYear() - 1, points[0].getMonth(), points[0].getDate());
     return [new Date(Math.min(...points)), new Date(Math.max(...points))];
   }
-  const mm = s.match(new RegExp(MONTH, 'i'));
-  if (mm) { const mo = mi(mm[1]); return [new Date(year, mo, 1), new Date(year, mo + 1, 0)]; }
+  // months without days: from the first month's start to the last one's end
+  const months = [...s.matchAll(new RegExp(MONTH, 'gi'))].map((x) => mi(x[1]));
+  if (months.length) {
+    const a = months[0], z = months[months.length - 1];
+    const ya = z < a ? year - 1 : year; // "Dec – Feb 2028"
+    return [new Date(ya, a, 1), new Date(year, z + 1, 0)];
+  }
   return null;
 }
 
@@ -49,6 +55,9 @@ export function tripStage(t, today = new Date()) {
   if (t.possible) return 'possible';
   const span = tripSpan(t);
   if (span) return day(span[1]) < day(today) ? 'past' : 'upcoming';
+  // only a year, in the dates ("2028") or the name ("New Zealand 2028"): past once that year is over
+  const y = /\b(20\d{2})\b/.exec(String(t.dates || '') + ' ' + String(t.title || ''));
+  if (y) return +y[1] < today.getFullYear() ? 'past' : 'upcoming';
   return t.planning ? 'upcoming' : 'past';
 }
 

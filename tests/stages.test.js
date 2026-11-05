@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { datesRange, tripStage, countdown, stageLabel, groupTrips } from '../src/lib/stages.js';
+import { datesRange, tripStage, tripSpan, countdown, stageLabel, groupTrips } from '../src/lib/stages.js';
 
 const today = new Date(2026, 9, 23); // Oct 23, 2026
 const ymd = (d) => [d.getFullYear(), d.getMonth() + 1, d.getDate()];
@@ -76,4 +76,20 @@ test('the phone adds to the trip happening now, else the next one, else the late
   assert.equal(currentTrip(trips, new Date(2026, 10, 10)), 'jp');
   assert.equal(currentTrip(trips, new Date(2027, 5, 1)), 'jp');
   assert.equal(currentTrip([], new Date()), null);
+});
+
+test('a trip with only a year is upcoming until that year is over, and never "happening now"', () => {
+  const today = new Date(2026, 10, 5);
+  assert.equal(tripStage({ dates: '2028', days: [] }, today), 'upcoming');
+  assert.equal(tripStage({ title: 'New Zealand 2028', dates: '', days: [] }, today), 'upcoming');
+  assert.equal(tripStage({ title: 'Old trip 2019', dates: '', days: [] }, today), 'past');
+  assert.equal(tripSpan({ dates: '2026', days: [] }), null);
+});
+
+test('months without days run from the first month to the end of the last', () => {
+  const [a, z] = datesRange('Feb–Mar 2028');
+  assert.equal(a.toDateString(), new Date(2028, 1, 1).toDateString());
+  assert.equal(z.toDateString(), new Date(2028, 2, 31).toDateString());
+  const [b] = datesRange('Dec – Feb 2028');
+  assert.equal(b.toDateString(), new Date(2027, 11, 1).toDateString());
 });
