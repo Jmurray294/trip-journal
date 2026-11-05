@@ -96,3 +96,10 @@
   padding: calc(env(safe-area-inset-top, 0px) + 9px) 16px 9px; background: #FFF4CC; color: #5A4300; font-size: 13.5px; box-shadow: 0 1px 6px rgba(0,0,0,0.18); }
 .pt-preview-bar button { background: #5A4300; color: #fff; border: none; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .pt-preview .pt-page { padding-top: 14px; }
+/* trip page top: header half the width and tall, the book and the song to its right */
+.pt-top { display: flex; flex-direction: column; gap: 14px; }
+.pt-top-side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (min-width: 760px) {
+  .pt-top.has-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+  .pt-top.has-side .pt-hero { min-height: 420px; }
+}

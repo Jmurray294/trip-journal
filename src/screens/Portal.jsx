@@ -210,22 +210,29 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
       </div>
       <div className="pt-col-main">
         <button className="pt-back" onClick={onBack}>‹ All trips</button>
-        <div className="pt-hero" style={coverBg(trip)}>
-          <div className="pt-hero-text">
-            {live && <span className="pt-tag live">On the road now</span>}
-            <div className="pt-hero-title">{trip.title}</div>
-            <div className="pt-hero-sub">{[trip.place, trip.dates].filter(Boolean).join(' · ')}</div>
+        {/* the header on the left, half the width and tall; the photo book and the song stacked to its right */}
+        <div className={'pt-top' + (hasBook(trip) || hasSong(trip) ? ' has-side' : '')}>
+          <div className="pt-hero" style={coverBg(trip)}>
+            <div className="pt-hero-text">
+              {live && <span className="pt-tag live">On the road now</span>}
+              <div className="pt-hero-title">{trip.title}</div>
+              <div className="pt-hero-sub">{[trip.place, trip.dates].filter(Boolean).join(' · ')}</div>
+            </div>
           </div>
+          {(hasBook(trip) || hasSong(trip)) && (
+            <div className="pt-top-side">
+              {hasBook(trip) && (
+                // the photo book, narrow and tall like a book: tap it to read
+                <button className="pt-book press" onClick={onBook} aria-label="Read the photo book">
+                  <span className="mono-label">Photo book</span>
+                  <span className="pt-book-title">{trip.book.draft.title || trip.title}</span>
+                  <span className="pt-book-go">Read the book ›</span>
+                </button>
+              )}
+              {hasSong(trip) && <Song trip={trip} />}
+            </div>
+          )}
         </div>
-        {hasBook(trip) && (
-          // the photo book, narrow and tall like a book: tap it to read
-          <button className="pt-book press" onClick={onBook} aria-label="Read the photo book">
-            <span className="mono-label">Photo book</span>
-            <span className="pt-book-title">{trip.book.draft.title || trip.title}</span>
-            <span className="pt-book-go">Read the book ›</span>
-          </button>
-        )}
-        {hasSong(trip) && <Song trip={trip} />}
         <div className="pt-card pt-col-photos">
           <div className="mono-label">Photos</div>
           {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
