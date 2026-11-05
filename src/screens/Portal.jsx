@@ -269,7 +269,6 @@ export default function Portal({ preview = false, onClose }) {
   } else if (trip) {
     body = <TripPage trip={trip} live={sections.live.includes(trip)} onBack={() => setOpen(null)} onBook={() => setReading(trip.id)} onPhoto={(d, i) => showPhoto(trip, d, i)} />;
   } else {
-    const songs = all.filter(hasSong);
     body = (
       <div className="pt-page">
         <div className="pt-head">
@@ -308,11 +307,6 @@ export default function Portal({ preview = false, onClose }) {
         {sections.past.length > 0 && (<>
           <div className="pt-section">Our trips</div>
           <div className="pt-grid">{sections.past.map((t) => <TripCard key={t.id} trip={t} onOpen={() => setOpen(t.id)} />)}</div>
-        </>)}
-
-        {songs.length > 0 && (<>
-          <div className="pt-section">Trip songs</div>
-          <div className="pt-songs">{songs.map((t) => <Song key={t.id} trip={t} />)}</div>
         </>)}
 
         {!sections.live.length && !sections.next && !sections.past.length && (

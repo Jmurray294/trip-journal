@@ -62,7 +62,6 @@
 .pt-song-title { font-weight: 700; font-size: 17px; }
 .pt-audio { width: 100%; }
 .pt-lyrics { white-space: pre-wrap; line-height: 1.5; font-size: 14.5px; color: var(--secondary); }
-.pt-songs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 
 /* a member's preview, opened over the journal */
 .pt-preview { position: fixed; inset: 0; z-index: 900; }
