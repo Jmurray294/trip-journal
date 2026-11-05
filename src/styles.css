@@ -941,3 +941,19 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 @media (max-width: 420px) {
   .plan-add, .plan-sec:nth-child(2) .plan-add, .plan-add.one { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* the family's contacts, to pick followers and guests from (ContactsSheet.jsx) */
+.contacts { margin-top: 12px; display: flex; flex-direction: column; }
+.contact { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-top: 1px solid rgba(42,37,32,0.08); }
+.contact:first-child { border-top: none; }
+.contact.on { background: #F4F7FD; border-radius: 10px; }
+.contact-check { width: 20px; height: 20px; flex: none; accent-color: #1B3FA8; }
+.contact-main { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; background: none; border: none; padding: 2px 0; font: inherit; color: var(--ink); cursor: pointer; }
+.contact-name { font-size: 15px; font-weight: 600; }
+.contact-sub { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-tag { font-size: 11.5px; font-weight: 600; color: #2A7D34; background: rgba(42,125,52,0.1); border-radius: 999px; padding: 3px 8px; }
+.contact-add { align-self: flex-start; margin-top: 6px !important; }
+.contact-form { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid rgba(42,37,32,0.08); }
+.contact-form .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; }
+.contact-form-btns { display: flex; gap: 8px; align-items: center; }
+.contact-form-btns .btn-primary.small, .contact-form-btns .btn-muted { flex: none; width: auto; min-height: 40px; padding: 0 18px; margin: 0; }

@@ -12,6 +12,8 @@ import { placeKey, mergeSuggestions } from './lib/explore.js';
 import { sortDays } from './lib/sync.js';
 import { useTravelers } from './lib/travelers.js';
 import { useFollowers, announceEmail } from './lib/followers.js';
+import { useContacts } from './lib/contacts.js';
+import ContactsSheet from './screens/ContactsSheet.jsx';
 import Portal from './screens/Portal.jsx';
 import { coverRef } from './lib/cover.js';
 import { useActivity } from './lib/activity.js';
@@ -144,6 +146,9 @@ export default function App() {
   // ---- travelers: documents, loyalty programs, preferences ----
   const travelers = useTravelers(family.household);
   const followers = useFollowers(family.household);
+  // people the family invites again and again (followers, guests): pick instead of typing
+  const contacts = useContacts(family.household);
+  const [contactsOpen, setContactsOpen] = useState(null); // { mode: 'followers' | 'guests' | 'manage', tripId? }
   const [followPreview, setFollowPreview] = useState(false);
   // ---- the bell: what's new from the trips address and the Shortcut ----
   const activity = useActivity(family.household);
@@ -777,6 +782,7 @@ export default function App() {
               onShare={() => shareTrip(trip)}
               onMakeLink={() => makeTripLink(trip.id)}
               onSendLink={() => sendTripLink(trip)}
+              onPickGuests={family.household ? () => setContactsOpen({ mode: 'guests', tripId: trip.id }) : null}
               tripLink={trip.shareToken ? tripLink(trip) : ''}
               onCopyLink={async () => showToast((await copyText(tripLink(trip))) ? 'Trip link copied' : 'Could not copy — press and hold the link instead')}
               onStopLink={() => stopTripLink(trip.id)}
@@ -894,7 +900,13 @@ export default function App() {
             onOpenTrip={(id) => go({ tab: 'trips', tripId: id })} onSort={() => setSortOpen(true)}
             onOpenItem={(o) => (o.sort ? setSortOpen(true) : go({ tab: 'trips', tripId: o.tripId, view: null, section: o.section || null }))} />
         )}
-        {familyOpen && <FamilySheet family={family} followers={followers} onPreview={() => { setFamilyOpen(false); setFollowPreview(true); }} onClose={() => setFamilyOpen(false)} toast={showToast} />}
+        {familyOpen && <FamilySheet family={family} followers={followers} contactCount={contacts.list.length} onContacts={(mode) => setContactsOpen({ mode })} onSaveContact={(c) => contacts.save(c)} onPreview={() => { setFamilyOpen(false); setFollowPreview(true); }} onClose={() => setFamilyOpen(false)} toast={showToast} />}
+        {contactsOpen && (() => {
+          const t = contactsOpen.tripId ? trips.find((x) => x.id === contactsOpen.tripId) : null;
+          return <ContactsSheet mode={contactsOpen.mode} contacts={contacts} followers={followers} toast={showToast}
+            trip={t} link={t && t.shareToken ? tripLink(t) : ''} gathering={!!(t && t.gathering)}
+            onClose={() => setContactsOpen(null)} />;
+        })()}
         {followPreview && <Portal preview onClose={() => { setFollowPreview(false); followers.reload(); }} />}
         {sortOpen && (
           <SortSheet items={inbox.items} trips={trips} onFile={fileInboxItem} onDismiss={dismissInboxItem} onClose={closeSort} />

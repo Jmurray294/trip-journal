@@ -36,7 +36,7 @@ function PasswordField({ value, onChange, placeholder = 'Password', autoComplete
   );
 }
 
-export default function FamilySheet({ family, followers, onPreview, onClose, toast }) {
+export default function FamilySheet({ family, followers, contactCount = 0, onContacts, onSaveContact, onPreview, onClose, toast }) {
   const [view, setView] = useState('signin'); // signin | signup | forgot
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -101,7 +101,8 @@ export default function FamilySheet({ family, followers, onPreview, onClose, toa
   const addFollower = async () => {
     const to = followEmail.trim().toLowerCase();
     const ok = await act(() => followers.invite(to).then(() => true), `${to} can follow along`);
-    if (ok) { setFollowEmail(''); tellFollower(to); }
+    // whoever you invite goes into Contacts too, to pick again next time
+    if (ok) { setFollowEmail(''); if (onSaveContact) onSaveContact({ email: to }).catch(() => {}); tellFollower(to); }
   };
 
   const pwOk = password.length >= 6;
@@ -228,6 +229,12 @@ export default function FamilySheet({ family, followers, onPreview, onClose, toa
             <input className="field" type="email" inputMode="email" value={followEmail} onChange={(e) => setFollowEmail(e.target.value)} placeholder="their@email.com" />
             <button className="btn-share press" disabled={busy || !followEmail.includes('@')} onClick={addFollower}>Invite</button>
           </div>
+          {onContacts && (
+            <div className="row-8" style={{ marginTop: 8 }}>
+              <button className="btn-secondary press" style={{ marginTop: 0 }} onClick={() => onContacts('followers')}>Pick from contacts</button>
+              <button className="btn-muted press" onClick={() => onContacts('manage')}>Contacts{contactCount ? ' (' + contactCount + ')' : ''}</button>
+            </div>
+          )}
           {onPreview && <button className="btn-secondary press" onClick={onPreview}>See what followers see</button>}
         </>)}
 

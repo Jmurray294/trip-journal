@@ -94,6 +94,7 @@ function SharingCard({ trip, followers, link, p }) {
           <button className="btn-primary small press" onClick={p.onSendLink}><Share /> Send link</button>
           <button className="btn-muted press" onClick={p.onCopyLink}>Copy link</button>
         </div>
+        {p.onPickGuests && <button className="btn-secondary press" style={{ marginTop: 8 }} onClick={p.onPickGuests}>Send to contacts</button>}
         <div className="trip-link-url">{link}</div>
       </ShareRow>
       <button className="btn-link inline share-copy" onClick={p.onShare}>{g ? 'Copy the plan as text' : 'Copy itinerary as text'}</button>
