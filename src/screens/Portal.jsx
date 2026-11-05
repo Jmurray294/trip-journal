@@ -101,7 +101,14 @@ function Moment({ d, trip, onPhoto, showTrip }) {
       {(d.note || '').trim() && <div className="pt-note">{d.note}</div>}
       {photos.length > 0 && (
         <div className={'pt-photos n' + Math.min(photos.length, 4)}>
-          {photos.map((p, i) => <button key={i} className="pt-photo" style={photoBg(p)} onClick={() => onPhoto(d, i)} aria-label={p.label || 'Photo'} />)}
+          {photos.map((p, i) => {
+            const cap = (p.label || '').trim();
+            return (
+              <button key={i} className="pt-photo" style={photoBg(p)} onClick={() => onPhoto(d, i)} aria-label={cap || 'Photo'}>
+                {cap && <span className="photo-cap"><span className="photo-cap-text">{cap}</span></span>}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

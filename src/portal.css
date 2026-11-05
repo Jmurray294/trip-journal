@@ -46,7 +46,7 @@
 .pt-photos { display: grid; gap: 6px; margin-top: 10px; grid-template-columns: repeat(2, 1fr); }
 .pt-photos.n1 { grid-template-columns: 1fr; }
 .pt-photos.n3, .pt-photos.n4 { grid-template-columns: repeat(3, 1fr); }
-.pt-photo { aspect-ratio: 1; border: none; border-radius: 8px; cursor: zoom-in; padding: 0; }
+.pt-photo { aspect-ratio: 1; border: none; border-radius: 8px; cursor: zoom-in; padding: 0; position: relative; overflow: hidden; text-align: left; }
 .pt-photos.n1 .pt-photo { aspect-ratio: 4 / 3; }
 .pt-plan { font-size: 13.5px; color: var(--secondary); padding: 8px 0 0; }
 
