@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rangeText } from '../src/lib/dates.js';
+import { rangeText, datesForEdit } from '../src/lib/dates.js';
 import { datesRange } from '../src/lib/stages.js';
 
 test('picked dates are written the way trips show them, and read back to the same days', () => {
@@ -18,4 +18,13 @@ test('picked dates are written the way trips show them, and read back to the sam
     assert.equal(r[1].toDateString(), new Date(...z).toDateString(), text);
   }
   assert.equal(rangeText('', ''), '');
+});
+
+test('editing: exact dates go into the calendar, vague ones stay typed', () => {
+  assert.deepEqual(datesForEdit('Nov 20–22, 2026'), { start: '2026-11-20', end: '2026-11-22', typed: false, text: 'Nov 20–22, 2026' });
+  assert.deepEqual(datesForEdit('Nov 26, 2026'), { start: '2026-11-26', end: '', typed: false, text: 'Nov 26, 2026' });
+  assert.equal(datesForEdit('Aug 2026').typed, true);
+  assert.equal(datesForEdit('2028').typed, true);
+  assert.equal(datesForEdit('Dates to be decided').typed, true);
+  assert.deepEqual(datesForEdit(''), { start: '', end: '', typed: false, text: '' });
 });

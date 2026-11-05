@@ -14,6 +14,7 @@ import { useTravelers } from './lib/travelers.js';
 import { useFollowers, announceEmail } from './lib/followers.js';
 import { useContacts } from './lib/contacts.js';
 import ContactsSheet from './screens/ContactsSheet.jsx';
+import TripEditSheet from './screens/TripEditSheet.jsx';
 import Portal from './screens/Portal.jsx';
 import { coverRef } from './lib/cover.js';
 import { useActivity } from './lib/activity.js';
@@ -149,6 +150,7 @@ export default function App() {
   // people the family invites again and again (followers, guests): pick instead of typing
   const contacts = useContacts(family.household);
   const [contactsOpen, setContactsOpen] = useState(null); // { mode: 'followers' | 'guests' | 'manage', tripId? }
+  const [editTripId, setEditTripId] = useState(null); // the trip or gathering being edited (TripEditSheet)
   const [followPreview, setFollowPreview] = useState(false);
   // ---- the bell: what's new from the trips address and the Shortcut ----
   const activity = useActivity(family.household);
@@ -800,6 +802,7 @@ export default function App() {
               travelers={travelers.list} home={home} onTravelers={() => go({ tab: 'travelers', tripId: null })}
               onAddCost={(c) => addCost(trip.id, c)}
               onUpload={() => openAddFor(trip.id, 'import')}
+              onEditTrip={() => setEditTripId(trip.id)}
               onBackToSomeday={family.household ? () => backToSomeday(trip.id) : null}
               onConfirmTrip={() => { updateTrip(trip.id, (t) => ({ ...t, possible: false, planning: true, statusLabel: 'Planning' })); showToast("It's on — moved to your trips"); }}
               onBack={() => go({ tripId: null })}
@@ -925,6 +928,17 @@ export default function App() {
             onOpenItem={(o) => (o.sort ? setSortOpen(true) : go({ tab: 'trips', tripId: o.tripId, view: null, section: o.section || null }))} />
         )}
         {familyOpen && <FamilySheet family={family} followers={followers} contactCount={contacts.list.length} onContacts={(mode) => setContactsOpen({ mode })} onSaveContact={(c) => contacts.save(c)} onPreview={() => { setFamilyOpen(false); setFollowPreview(true); }} onClose={() => setFamilyOpen(false)} toast={showToast} />}
+        {editTripId && trips.some((t) => t.id === editTripId) && (
+          <TripEditSheet trip={trips.find((t) => t.id === editTripId)} home={home} onClose={() => setEditTripId(null)}
+            onSave={({ title, place, dates, grad, gathering }) => {
+              updateTrip(editTripId, (t) => {
+                const { gathering: _g, ...rest } = t; // eslint-disable-line no-unused-vars
+                return { ...rest, title, place: place || (gathering ? 'Home' : ''), dates, grad, ...(gathering ? { gathering: true } : {}) };
+              });
+              setEditTripId(null);
+              showToast('Saved');
+            }} />
+        )}
         {contactsOpen && (() => {
           const t = contactsOpen.tripId ? trips.find((x) => x.id === contactsOpen.tripId) : null;
           return <ContactsSheet mode={contactsOpen.mode} contacts={contacts} followers={followers} toast={showToast}

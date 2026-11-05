@@ -1,3 +1,5 @@
+import { datesRange } from './stages.js';
+
 // Dates picked in a calendar ("2026-11-26") written the way the app reads and shows them
 // (stages.js datesRange reads every form below back).
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -14,4 +16,17 @@ export function rangeText(startIso, endIso) {
   if (z.y !== a.y) return `${MON[a.m]} ${a.d}, ${a.y} – ${MON[z.m]} ${z.d}, ${z.y}`;
   if (z.m !== a.m) return `${MON[a.m]} ${a.d} – ${MON[z.m]} ${z.d}, ${a.y}`;
   return `${MON[a.m]} ${a.d}–${z.d}, ${a.y}`;
+}
+
+const pad = (n) => String(n).padStart(2, '0');
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// The dates a trip already has, ready for the calendar: exact days go in the pickers; anything vaguer
+// ("Aug 2026", "2028", "Dates to be decided") stays as typed text.
+export function datesForEdit(text) {
+  const s = String(text || '').trim();
+  const r = datesRange(s);
+  const hasDay = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b/i.test(s);
+  if (r && hasDay) return { start: isoOf(r[0]), end: r[1] - r[0] > 0 ? isoOf(r[1]) : '', typed: false, text: s };
+  return { start: '', end: '', typed: !!s, text: s };
 }

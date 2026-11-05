@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music } from '../components/Icons.jsx';
+import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music, Pencil } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
 import { tripStage } from '../lib/stages.js';
@@ -229,6 +229,7 @@ export default function TripDetail(p) {
           <h1 className="trip-head-title">{trip.title}</h1>
           {(trip.dates || gathering) && <div className="trip-head-dates">{[gathering && 'Gathering', trip.dates, gathering && trip.place].filter(Boolean).join(' · ')}</div>}
         </div>
+        {p.onEditTrip && <button className="trip-edit press" onClick={p.onEditTrip} aria-label={gathering ? 'Edit gathering' : 'Edit trip'}><Pencil /> Edit</button>}
       </div>
 
       {!gathering && <TripAlerts trip={trip} travelers={p.travelers || []} home={p.home || {}} onOpen={p.onTravelers} />}
