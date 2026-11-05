@@ -99,20 +99,38 @@ function Moment({ d, trip, onPhoto, showTrip }) {
       <div className="pt-when">{[showTrip && trip.title, d.date, d.place].filter(Boolean).join(' · ')}{d.by ? ' · from ' + d.by : ''}</div>
       {d.title && !(d.booking || d.kind) && <div className="pt-mtitle">{d.title}</div>}
       {(d.note || '').trim() && <div className="pt-note">{d.note}</div>}
-      {photos.length > 0 && (
-        <div className={'pt-photos n' + Math.min(photos.length, 4)}>
-          {photos.map((p, i) => {
-            const cap = (p.label || '').trim();
-            return (
-              <button key={i} className="pt-photo" style={photoBg(p)} onClick={() => onPhoto(d, i)} aria-label={cap || 'Photo'}>
-                {cap && <span className="photo-cap"><span className="photo-cap-text">{cap}</span></span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {photos.length > 0 && <PhotoGrid items={photos.map((p, i) => ({ p, d, i }))} onPhoto={onPhoto} />}
     </div>
   );
+}
+
+// photos as tiles with their captions; items: [{ p, d (its day), i (its place in that day) }]
+function PhotoGrid({ items, onPhoto }) {
+  return (
+    <div className={'pt-photos n' + Math.min(items.length, 4)}>
+      {items.map(({ p, d, i }) => {
+        const cap = (p.label || '').trim();
+        return (
+          <button key={d.id + '-' + i} className="pt-photo" style={photoBg(p)} onClick={() => onPhoto(d, i)} aria-label={cap || 'Photo'}>
+            {cap && <span className="photo-cap"><span className="photo-cap-text">{cap}</span></span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// a trip's photos by day and place, in journal order
+function photoGroups(trip) {
+  const groups = [], at = new Map();
+  for (const d of trip.days || []) {
+    (d.photos || []).forEach((p, i) => {
+      const k = (d.date || '') + '|' + (d.place || '');
+      if (!at.has(k)) { at.set(k, groups.length); groups.push({ key: k, date: d.date, place: d.place, items: [] }); }
+      groups[at.get(k)].items.push({ p, d, i });
+    });
+  }
+  return groups;
 }
 
 function TripCard({ trip, onOpen, tag }) {
@@ -132,7 +150,9 @@ function TripCard({ trip, onOpen, tag }) {
 }
 
 function TripPage({ trip, onBack, onBook, onPhoto, live }) {
-  const days = (trip.days || []).filter((d) => (d.note || '').trim() || (d.photos || []).length || d.booking || d.kind);
+  // the journal: written entries and bookings; photo-only days live under Photos
+  const days = (trip.days || []).filter((d) => d.booking || d.kind || (d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim()));
+  const groups = photoGroups(trip);
   return (
     <div className="pt-page">
       <button className="pt-back" onClick={onBack}>‹ All trips</button>
@@ -156,11 +176,21 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
         </div>
       )}
       <div className="pt-card">
-        <div className="mono-label">{live ? 'The journal so far' : 'The journal'}</div>
-        {days.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing here yet.</div>}
+        <div className="mono-label">Photos</div>
+        {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
+        {groups.map((g) => (
+          <div key={g.key} className="pt-moment">
+            <div className="pt-when">{[g.date, g.place].filter(Boolean).join(' · ')}</div>
+            <PhotoGrid items={g.items} onPhoto={onPhoto} />
+          </div>
+        ))}
+      </div>
+      <div className="pt-card">
+        <div className="mono-label">{live ? 'The journal so far' : 'Journal'}</div>
+        {days.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing written yet.</div>}
         {days.map((d) => (d.booking || d.kind)
           ? <div key={d.id} className="pt-plan"><span className="pt-when">{d.date}</span> {d.kind ? d.kind + ': ' : ''}{d.title}{d.place ? ' · ' + d.place : ''}</div>
-          : <Moment key={d.id} d={d} trip={trip} onPhoto={onPhoto} />)}
+          : <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
       </div>
     </div>
   );
