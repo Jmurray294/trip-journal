@@ -240,6 +240,7 @@ export default function TripDetail(p) {
           </div>
           <div className="row-8">
             <button className="btn-muted press" onClick={p.onDeleteTrip}>Not going</button>
+            {p.onBackToSomeday && <button className="btn-muted press" onClick={p.onBackToSomeday}>Back to Someday</button>}
             <button className="btn-primary small press" onClick={p.onConfirmTrip}>We're going</button>
           </div>
         </div>

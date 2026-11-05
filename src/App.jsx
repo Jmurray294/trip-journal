@@ -373,7 +373,7 @@ export default function App() {
     return true;
   };
 
-  const noteTitle = (n) => { const f = String(n || '').trim().split(/(?<=[.!?])s/)[0]; return f.length > 70 ? f.slice(0, 67).replace(/s+S*$/, '') + '…' : f; };
+  const noteTitle = (n) => { const f = String(n || '').trim().split(/(?<=[.!?])\s/)[0]; return f.length > 70 ? f.slice(0, 67).replace(/\s+\S*$/, '') + '…' : f; };
   const saveMemory = ({ tripId, title, place, note, photos }) => {
     if (!(title || '').trim() && !(note || '').trim() && photos.length === 0) { showToast('Write what happened first'); return false; }
     const trip = trips.find((t) => t.id === tripId);
@@ -617,6 +617,29 @@ export default function App() {
     showToast('Trip deleted');
   };
 
+  // a possible trip that isn't happening yet: back on the Someday board instead of deleted. One planned
+  // from Someday gets its own ideas back; any other (an idea from an email) is saved as a new idea.
+  const backToSomeday = async (id) => {
+    const t = trips.find((x) => x.id === id);
+    if (!t) return;
+    if (!window.confirm(`Put ${t.title} back on Someday? The possible trip goes away and the idea waits on the Someday board.`)) return;
+    if (t.source !== 'someday') {
+      const when = t.dates && !/to be decided/i.test(t.dates) ? t.dates : '';
+      const notes = (t.days || []).map((d) => (d.note || '').trim()).filter(Boolean).slice(0, 5);
+      const text = [t.place || t.title, t.place && t.title !== t.place ? 'Trip idea: ' + t.title : '', when && 'When: ' + when,
+        t.companions && 'With ' + t.companions, ...notes].filter(Boolean).join('\n');
+      const ok = await readUpload({ text, files: [], name: t.title, idea: true });
+      if (!ok) return; // couldn't save the idea: keep the trip
+    }
+    applyTrips((ts) => ts.filter((x) => x.id !== id));
+    if (mapSel.tripId === id) setMapSel({ tripId: 'all', stop: 0 });
+    if (t.source === 'someday') {
+      await someday.reopen(id);
+      showSomeday(null);
+      showToast(t.title + ' is back on Someday');
+    }
+  };
+
   const shareTrip = async (t) => {
     const lines = [t.title, [t.place, t.dates].filter(Boolean).join(' · '), ''];
     if (t.gathering) {
@@ -777,6 +800,7 @@ export default function App() {
               travelers={travelers.list} home={home} onTravelers={() => go({ tab: 'travelers', tripId: null })}
               onAddCost={(c) => addCost(trip.id, c)}
               onUpload={() => openAddFor(trip.id, 'import')}
+              onBackToSomeday={family.household ? () => backToSomeday(trip.id) : null}
               onConfirmTrip={() => { updateTrip(trip.id, (t) => ({ ...t, possible: false, planning: true, statusLabel: 'Planning' })); showToast("It's on — moved to your trips"); }}
               onBack={() => go({ tripId: null })}
               onShare={() => shareTrip(trip)}
