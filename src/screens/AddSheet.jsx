@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Chips from '../components/Chips.jsx';
-import { Mic, AddPhoto } from '../components/Icons.jsx';
+import { Mic, AddPhoto, Pencil } from '../components/Icons.jsx';
 import { GRADIENTS, short } from '../lib/derive.js';
 import { parseConfirmation } from '../lib/parser.js';
 
@@ -35,13 +35,14 @@ async function toUpload(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-export default function AddSheet({ initial, trips, onClose, registerStopDictation, resizePhoto, onSaveMemory, onSaveTrip, onImport, onReadUpload, canRead, toast }) {
+export default function AddSheet({ initial, trips, onClose, registerStopDictation, resizePhoto, onSaveMemory, onAddPhotos, onSaveTrip, onImport, onReadUpload, canRead, toast }) {
   const [mode, setMode] = useState(initial.mode);
   const [tripId, setTripId] = useState(initial.tripId);
   const [title, setTitle] = useState('');
   const [place, setPlace] = useState('');
   const [note, setNote] = useState('');
-  const [photos, setPhotos] = useState([]);
+  // a memory is either photos (filed by the day each was taken) or a journal entry (words)
+  const [kind, setKind] = useState(initial.dictate ? 'journal' : (initial.kind || null));
   const [newTrip, setNewTrip] = useState({ title: '', place: '', dates: '', grad: GRADIENTS[0] });
   const [paste, setPaste] = useState('');
   const [parsed, setParsed] = useState([]);
@@ -101,11 +102,11 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
     toggleDictation(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pickPhotos = async (e) => {
+  const pickPhotos = (e) => {
     const files = [...(e.target.files || [])]; e.target.value = '';
-    const outs = [];
-    for (const f of files) { const d = await resizePhoto(f); if (d) outs.push(d); }
-    if (outs.length) setPhotos((p) => [...p, ...outs].slice(0, 8));
+    if (!files.length) return;
+    if (!tripId) { toast('Pick a trip first'); return; }
+    onAddPhotos(tripId, files);
   };
 
   const close = () => { stopDictation(); onClose(); };
@@ -196,6 +197,29 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
               </div>
             )}
 
+            {!kind && (
+              <div className="memory-kinds">
+                <button className="memory-kind press" onClick={() => setKind('photos')}>
+                  <AddPhoto /><strong>Photos</strong><span>Each goes on the day it was taken</span>
+                </button>
+                <button className="memory-kind press" onClick={() => setKind('journal')}>
+                  <Pencil /><strong>Journal entry</strong><span>Write or dictate what happened</span>
+                </button>
+              </div>
+            )}
+
+            {kind === 'photos' && (
+              <>
+                <label className="btn-primary press memory-pick" style={{ marginTop: 22 }}>
+                  <input type="file" accept="image/*,.heic,.heif" multiple onChange={pickPhotos} hidden />
+                  Choose photos
+                </label>
+                <div className="sheet-copy" style={{ textAlign: 'center' }}>Pick as many as you like. Each one goes on the day it was taken.</div>
+                <button className="link-btn memory-back" onClick={() => setKind(null)}>‹ Back</button>
+              </>
+            )}
+
+            {kind === 'journal' && (<>
             {!initial.dictate && (
               <>
                 <Label top={18}>What happened</Label>
@@ -215,23 +239,9 @@ export default function AddSheet({ initial, trips, onClose, registerStopDictatio
             </div>
             <textarea ref={noteBox} className="field" style={{ minHeight: initial.dictate ? 140 : 80 }} value={note} onChange={(e) => { setNote(e.target.value); baseNote.current = e.target.value; }} placeholder={initial.dictate ? 'Speak, or type what happened…' : 'Write what happened…'} />
 
-            <Label>Photos</Label>
-            <div className="thumbs">
-              {photos.map((s, i) => (
-                <div key={i} className="thumb">
-                  <div className="fill" style={{ backgroundImage: `url("${s}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                  <button className="thumb-x" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))} aria-label="Remove photo"><span>×</span></button>
-                </div>
-              ))}
-              {photos.length < 8 && (
-                <label className="thumb-add">
-                  <input type="file" accept="image/*" multiple onChange={pickPhotos} hidden />
-                  <AddPhoto />
-                </label>
-              )}
-            </div>
-
-            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => { stopDictation(); onSaveMemory({ tripId, title, place, note, photos }); }}>Save memory</button>
+            <button className="btn-primary press" style={{ marginTop: 24 }} onClick={() => { stopDictation(); onSaveMemory({ tripId, title, place, note, photos: [] }); }}>Save to journal</button>
+            {!initial.dictate && <button className="link-btn memory-back" onClick={() => { stopDictation(); setKind(null); }}>‹ Back</button>}
+            </>)}
           </>
         )}
 

@@ -369,7 +369,7 @@ export default function App() {
 
   const noteTitle = (n) => { const f = String(n || '').trim().split(/(?<=[.!?])s/)[0]; return f.length > 70 ? f.slice(0, 67).replace(/s+S*$/, '') + '…' : f; };
   const saveMemory = ({ tripId, title, place, note, photos }) => {
-    if (!title && !note && !place && photos.length === 0) { showToast('Add a photo or a note first'); return false; }
+    if (!(title || '').trim() && !(note || '').trim() && photos.length === 0) { showToast('Write what happened first'); return false; }
     const trip = trips.find((t) => t.id === tripId);
     if (!trip) return true;
     const where = (place || trip.place || '').trim();
@@ -857,6 +857,7 @@ export default function App() {
             registerStopDictation={(fn) => { stopDictationRef.current = fn; }}
             resizePhoto={resizePhoto}
             onSaveMemory={(m) => { if (saveMemory(m)) setAdd(null); }}
+            onAddPhotos={(id, files) => { setAdd(null); importPhotos(id, files); }}
             onSaveTrip={(t) => { if (saveTrip(t)) setAdd(null); }}
             onImport={(id, parsed) => { if (importParsed(id, parsed)) setAdd(null); }}
             onReadUpload={readUpload} canRead={!!(supabase && family.household)}
