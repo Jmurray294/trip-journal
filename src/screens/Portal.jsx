@@ -153,11 +153,14 @@ function TripCard({ trip, onOpen, tag }) {
 const BLANK_TITLE = 'A new moment';
 
 function TripPage({ trip, onBack, onBook, onPhoto, live }) {
-  // the journal: written entries and bookings; photo-only days live under Photos
-  const days = (trip.days || []).filter((d) => d.booking || d.kind || (d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim() && d.title.trim() !== BLANK_TITLE));
+  const isPlan = (d) => !!(d.booking || d.kind);
+  // three columns on a computer: the itinerary (bookings), the photos, the journal (written entries);
+  // a phone shows the photos
+  const plans = (trip.days || []).filter(isPlan);
+  const notes = (trip.days || []).filter((d) => !isPlan(d) && ((d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim() && d.title.trim() !== BLANK_TITLE)));
   const groups = photoGroups(trip);
   return (
-    <div className="pt-page">
+    <div className="pt-page pt-wide">
       <button className="pt-back" onClick={onBack}>‹ All trips</button>
       <div className="pt-hero" style={coverBg(trip)}>
         <div className="pt-hero-text">
@@ -178,24 +181,33 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
           {hasSong(trip) && <Song trip={trip} />}
         </div>
       )}
-      <div className="pt-split">
-      <div className="pt-card">
-        <div className="mono-label">Photos</div>
-        {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
-        {groups.map((g) => (
-          <div key={g.key} className="pt-moment">
-            <div className="pt-when">{[g.date, g.place].filter(Boolean).join(' · ')}</div>
-            <PhotoGrid items={g.items} onPhoto={onPhoto} />
-          </div>
-        ))}
-      </div>
-      <div className="pt-card">
-        <div className="mono-label">{live ? 'The journal so far' : 'Journal'}</div>
-        {days.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing written yet.</div>}
-        {days.map((d) => (d.booking || d.kind)
-          ? <div key={d.id} className="pt-plan"><span className="pt-when">{d.date}</span> {d.kind ? d.kind + ': ' : ''}{d.title}{d.place ? ' · ' + d.place : ''}</div>
-          : <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
-      </div>
+      <div className="pt-cols">
+        <div className="pt-card pt-col-plan">
+          <div className="mono-label">Itinerary</div>
+          {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
+          {plans.map((d) => (
+            <div key={d.id} className="pt-plan-item">
+              <div className="pt-when">{[d.date, d.kind].filter(Boolean).join(' · ')}</div>
+              <div className="pt-plan-title">{d.title}</div>
+              {d.place && <div className="pt-sub">{d.place}</div>}
+            </div>
+          ))}
+        </div>
+        <div className="pt-card pt-col-photos">
+          <div className="mono-label">Photos</div>
+          {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
+          {groups.map((g) => (
+            <div key={g.key} className="pt-moment">
+              <div className="pt-when">{[g.date, g.place].filter(Boolean).join(' · ')}</div>
+              <PhotoGrid items={g.items} onPhoto={onPhoto} />
+            </div>
+          ))}
+        </div>
+        <div className="pt-card pt-col-journal">
+          <div className="mono-label">{live ? 'The journal so far' : 'Journal'}</div>
+          {notes.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing written yet.</div>}
+          {notes.map((d) => <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
+        </div>
       </div>
     </div>
   );
