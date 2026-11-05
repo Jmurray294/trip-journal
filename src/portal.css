@@ -47,6 +47,15 @@
 .pt-col-plan, .pt-col-journal { display: none; }
 .pt-plan-item { border-top: 1px solid var(--line, #E6E9EE); padding-top: 10px; margin-top: 10px; }
 .pt-plan-title { font-size: 14px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
+.pt-plan-btn { display: block; width: 100%; text-align: left; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.pt-plan-btn:hover .pt-plan-title { color: #1B3FA8; }
+.pt-plan-item.cancelled .pt-plan-title { text-decoration: line-through; opacity: 0.6; }
+.pt-plan-detail { margin-top: 8px; padding: 10px; border-radius: 8px; background: #F4F7FD; font-size: 13px; }
+.pt-plan-row { display: grid; grid-template-columns: 68px 1fr; gap: 8px; padding: 2px 0; }
+.pt-plan-row span { color: var(--muted); }
+.pt-plan-row b { font-weight: 500; }
+.pt-plan-row a, .pt-plan-link { color: #1B3FA8; }
+.pt-plan-link { display: inline-block; margin-top: 6px; font-weight: 600; text-decoration: none; }
 @media (min-width: 1000px) {
   .pt-page.pt-cols { max-width: 1800px; display: grid; grid-template-columns: 270px minmax(0, 1fr) 360px; align-items: start; }
   .pt-col-plan, .pt-col-journal { display: block; }

@@ -68,7 +68,9 @@ create or replace function public.follower_entry(p_id text, d jsonb) returns jso
     'note', case when jsonb_typeof(d->'booking') = 'object' or coalesce(d->>'kind', '') <> '' then null else d->'note' end,
     'booking', case when jsonb_typeof(d->'booking') = 'object' then jsonb_build_object(
       'provider', d->'booking'->'provider', 'status', d->'booking'->'status',
-      'start', d->'booking'->'start', 'end', d->'booking'->'end') end,
+      'start', d->'booking'->'start', 'end', d->'booking'->'end',
+      -- when, where and who, for the itinerary detail; confirmation and loyalty numbers stay private
+      'time', d->'booking'->'time', 'address', d->'booking'->'address', 'travelers', d->'booking'->'travelers') end,
     -- every photo keeps its place in the list (the photo book refers to them by position)
     'photos', (select coalesce(jsonb_agg(jsonb_build_object(
         'path', p->'path', 'label', p->'label', 'by', p->'by', 'taken', p->'taken',

@@ -152,6 +152,48 @@ function TripCard({ trip, onOpen, tag }) {
 // the title the app gives an entry saved with nothing written; followers don't see those
 const BLANK_TITLE = 'A new moment';
 
+// "2026-10-31" → "Sat, Oct 31"
+const isoLabel = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+};
+
+// one booking in the itinerary; tap it for the details a follower may see (never confirmation numbers)
+function PlanItem({ d }) {
+  const [open, setOpen] = useState(false);
+  const b = d.booking || {};
+  const status = b.status === 'cancelled' ? 'Cancelled' : b.status === 'changed' ? 'Changed' : '';
+  const from = isoLabel(b.start), to = isoLabel(b.end);
+  const when = from && to && to !== from ? from + ' – ' + to : from;
+  const flight = d.kind === 'Flight' && /\b([A-Z]{2}|[A-Z]\d|\d[A-Z])\s?(\d{1,4})\b/.exec(d.title || '');
+  const rows = [
+    [d.kind === 'Stay' ? 'Dates' : 'Date', when || d.date],
+    ['Time', b.time],
+    ['With', b.provider],
+    ['Where', b.address || d.place],
+    ['Travelers', b.travelers],
+  ].filter((r) => r[1]);
+  return (
+    <div className={'pt-plan-item' + (status === 'Cancelled' ? ' cancelled' : '')}>
+      <button className="pt-plan-btn" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <div className="pt-when">{[d.date, d.kind, status].filter(Boolean).join(' · ')}</div>
+        <div className="pt-plan-title">{d.title}</div>
+        {!open && d.place && <div className="pt-sub">{d.place}</div>}
+      </button>
+      {open && (
+        <div className="pt-plan-detail">
+          {rows.map(([k, v]) => (
+            <div key={k} className="pt-plan-row"><span>{k}</span>
+              {k === 'Where' ? <a href={'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(v)} target="_blank" rel="noreferrer">{v}</a> : <b>{v}</b>}
+            </div>
+          ))}
+          {flight && <a className="pt-plan-link" href={'https://www.flightaware.com/live/flight/' + flight[1] + flight[2]} target="_blank" rel="noreferrer">Track this flight ›</a>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   const isPlan = (d) => !!(d.booking || d.kind);
   // three columns on a computer: the itinerary (bookings), the photos, the journal (written entries);
@@ -164,13 +206,7 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
       <div className="pt-card pt-col-plan">
         <div className="mono-label">Itinerary</div>
         {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
-        {plans.map((d) => (
-          <div key={d.id} className="pt-plan-item">
-            <div className="pt-when">{[d.date, d.kind].filter(Boolean).join(' · ')}</div>
-            <div className="pt-plan-title">{d.title}</div>
-            {d.place && <div className="pt-sub">{d.place}</div>}
-          </div>
-        ))}
+        {plans.map((d) => <PlanItem key={d.id} d={d} />)}
       </div>
       <div className="pt-col-main">
         <button className="pt-back" onClick={onBack}>‹ All trips</button>
