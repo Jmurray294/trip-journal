@@ -175,6 +175,7 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
           {hasSong(trip) && <Song trip={trip} />}
         </div>
       )}
+      <div className="pt-split">
       <div className="pt-card">
         <div className="mono-label">Photos</div>
         {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
@@ -191,6 +192,7 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
         {days.map((d) => (d.booking || d.kind)
           ? <div key={d.id} className="pt-plan"><span className="pt-when">{d.date}</span> {d.kind ? d.kind + ': ' : ''}{d.title}{d.place ? ' · ' + d.place : ''}</div>
           : <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
+      </div>
       </div>
     </div>
   );

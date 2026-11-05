@@ -41,6 +41,10 @@
 /* journal moments */
 .pt-moment { border-top: 1px solid var(--line, #E6E9EE); padding-top: 12px; margin-top: 12px; }
 .pt-live-sec { margin-top: 22px; }
+/* trip page: Photos and Journal side by side on a wide screen, one under the other on a phone */
+.pt-split { display: grid; gap: 14px; align-items: start; }
+.pt-split > * { min-width: 0; }
+@media (min-width: 760px) { .pt-split { grid-template-columns: 1fr 1fr; } .pt-split .pt-photos.n3, .pt-split .pt-photos.n4 { grid-template-columns: repeat(2, 1fr); } }
 .pt-when { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
 .pt-mtitle { font-weight: 600; margin-top: 4px; }
 .pt-note { white-space: pre-wrap; line-height: 1.55; font-size: 15px; margin-top: 6px; }
