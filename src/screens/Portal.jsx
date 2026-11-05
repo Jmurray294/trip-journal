@@ -160,39 +160,39 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   const notes = (trip.days || []).filter((d) => !isPlan(d) && ((d.note || '').trim() || (d.source !== 'photos' && (d.title || '').trim() && d.title.trim() !== BLANK_TITLE)));
   const groups = photoGroups(trip);
   return (
-    <div className="pt-page pt-wide">
-      <button className="pt-back" onClick={onBack}>‹ All trips</button>
-      <div className="pt-hero" style={coverBg(trip)}>
-        <div className="pt-hero-text">
-          {live && <span className="pt-tag live">On the road now</span>}
-          <div className="pt-hero-title">{trip.title}</div>
-          <div className="pt-hero-sub">{[trip.place, trip.dates].filter(Boolean).join(' · ')}</div>
-        </div>
+    <div className="pt-page pt-wide pt-cols">
+      <div className="pt-card pt-col-plan">
+        <div className="mono-label">Itinerary</div>
+        {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
+        {plans.map((d) => (
+          <div key={d.id} className="pt-plan-item">
+            <div className="pt-when">{[d.date, d.kind].filter(Boolean).join(' · ')}</div>
+            <div className="pt-plan-title">{d.title}</div>
+            {d.place && <div className="pt-sub">{d.place}</div>}
+          </div>
+        ))}
       </div>
-      {(hasBook(trip) || hasSong(trip)) && (
-        <div className="pt-keeps">
-          {hasBook(trip) && (
-            <div className="pt-card pt-bookcard">
-              <div className="mono-label">Photo book</div>
-              <div className="pt-song-title">{trip.book.draft.title || trip.title}</div>
-              <button className="btn-primary small press" onClick={onBook}>Read the book</button>
-            </div>
-          )}
-          {hasSong(trip) && <Song trip={trip} />}
+      <div className="pt-col-main">
+        <button className="pt-back" onClick={onBack}>‹ All trips</button>
+        <div className="pt-hero" style={coverBg(trip)}>
+          <div className="pt-hero-text">
+            {live && <span className="pt-tag live">On the road now</span>}
+            <div className="pt-hero-title">{trip.title}</div>
+            <div className="pt-hero-sub">{[trip.place, trip.dates].filter(Boolean).join(' · ')}</div>
+          </div>
         </div>
-      )}
-      <div className="pt-cols">
-        <div className="pt-card pt-col-plan">
-          <div className="mono-label">Itinerary</div>
-          {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
-          {plans.map((d) => (
-            <div key={d.id} className="pt-plan-item">
-              <div className="pt-when">{[d.date, d.kind].filter(Boolean).join(' · ')}</div>
-              <div className="pt-plan-title">{d.title}</div>
-              {d.place && <div className="pt-sub">{d.place}</div>}
-            </div>
-          ))}
-        </div>
+        {(hasBook(trip) || hasSong(trip)) && (
+          <div className="pt-keeps">
+            {hasBook(trip) && (
+              <div className="pt-card pt-bookcard">
+                <div className="mono-label">Photo book</div>
+                <div className="pt-song-title">{trip.book.draft.title || trip.title}</div>
+                <button className="btn-primary small press" onClick={onBook}>Read the book</button>
+              </div>
+            )}
+            {hasSong(trip) && <Song trip={trip} />}
+          </div>
+        )}
         <div className="pt-card pt-col-photos">
           <div className="mono-label">Photos</div>
           {groups.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No photos yet.</div>}
@@ -203,11 +203,11 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
             </div>
           ))}
         </div>
-        <div className="pt-card pt-col-journal">
-          <div className="mono-label">{live ? 'The journal so far' : 'Journal'}</div>
-          {notes.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing written yet.</div>}
-          {notes.map((d) => <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
-        </div>
+      </div>
+      <div className="pt-card pt-col-journal">
+        <div className="mono-label">{live ? 'The journal so far' : 'Journal'}</div>
+        {notes.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing written yet.</div>}
+        {notes.map((d) => <Moment key={d.id} d={{ ...d, photos: [] }} trip={trip} onPhoto={onPhoto} />)}
       </div>
     </div>
   );

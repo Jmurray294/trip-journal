@@ -42,16 +42,15 @@
 .pt-moment { border-top: 1px solid var(--line, #E6E9EE); padding-top: 12px; margin-top: 12px; }
 .pt-live-sec { margin-top: 22px; }
 /* trip page: on a computer the itinerary (left), photos (middle) and journal (right); a phone shows the photos */
-.pt-cols { display: grid; gap: 14px; align-items: start; }
 .pt-cols > * { min-width: 0; }
+.pt-col-main { display: flex; flex-direction: column; gap: 14px; }
 .pt-col-plan, .pt-col-journal { display: none; }
 .pt-plan-item { border-top: 1px solid var(--line, #E6E9EE); padding-top: 10px; margin-top: 10px; }
 .pt-plan-title { font-size: 14px; font-weight: 600; line-height: 1.3; margin-top: 2px; }
 @media (min-width: 1000px) {
-  .pt-page.pt-wide { max-width: 1320px; }
-  .pt-cols { grid-template-columns: 250px minmax(0, 1fr) 340px; }
+  .pt-page.pt-cols { max-width: 1800px; display: grid; grid-template-columns: 270px minmax(0, 1fr) 360px; align-items: start; }
   .pt-col-plan, .pt-col-journal { display: block; }
-  .pt-col-plan { position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; }
+  .pt-col-plan { position: sticky; top: calc(var(--safe-top) + 10px); max-height: calc(100vh - 40px); overflow-y: auto; }
 }
 .pt-when { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
 .pt-mtitle { font-weight: 600; margin-top: 4px; }
