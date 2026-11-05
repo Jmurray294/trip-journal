@@ -311,7 +311,10 @@ export default function Portal({ preview = false, onClose }) {
         {error && <div className="pt-card pt-msg">{error}</div>}
 
         {sections.live.map((t) => {
-          const moments = latestMoments(t, 12);
+          // newest first, split like the trip page: the latest photo days, then the latest written entries
+          const moments = latestMoments(t, 60);
+          const photoDays = moments.filter((d) => (d.photos || []).length).slice(0, 6);
+          const notes = moments.filter((d) => (d.note || '').trim()).slice(0, 6);
           return (
             <div key={t.id} className="pt-card pt-live">
               <div className="pt-live-head">
@@ -321,7 +324,15 @@ export default function Portal({ preview = false, onClose }) {
               <div className="pt-trip-title big">{t.title}</div>
               <div className="pt-sub">{[t.place, t.dates].filter(Boolean).join(' · ')}</div>
               {moments.length === 0 && <div className="pt-sub" style={{ marginTop: 10 }}>Nothing posted yet today. Check back soon.</div>}
-              {moments.map((d) => <Moment key={d.id} d={d} trip={t} onPhoto={(dd, i) => showPhoto(t, dd, i)} />)}
+              {photoDays.length > 0 && <div className="mono-label pt-live-sec">Latest photos</div>}
+              {photoDays.map((d) => (
+                <div key={d.id} className="pt-moment">
+                  <div className="pt-when">{[d.date, d.place].filter(Boolean).join(' · ')}{d.by ? ' · from ' + d.by : ''}</div>
+                  <PhotoGrid items={d.photos.map((p, i) => ({ p, d, i }))} onPhoto={(dd, i) => showPhoto(t, dd, i)} />
+                </div>
+              ))}
+              {notes.length > 0 && <div className="mono-label pt-live-sec">From the journal</div>}
+              {notes.map((d) => <Moment key={d.id} d={{ ...d, photos: [] }} trip={t} onPhoto={() => {}} />)}
             </div>
           );
         })}
