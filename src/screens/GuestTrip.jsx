@@ -6,6 +6,8 @@ import { onUpdateReady, applyUpdate } from '../lib/update.js';
 import { Plus, Note } from '../components/Icons.jsx';
 import GatheringPlan from './GatheringPlan.jsx';
 import { planLists } from '../lib/gathering.js';
+import PlaceMap from '../components/PlaceMap.jsx';
+import RouteMap from '../components/RouteMap.jsx';
 
 // A trip opened from its shared link (jcmurraytrips.com/?t=<token>): fellow travelers see the plan
 // and everyone's photos and notes, and add their own — no account, just a name. Everything goes
@@ -183,6 +185,20 @@ export default function GuestTrip({ token }) {
               </>
             )}
           </div>
+
+          {/* a gathering: the street map of where it is, with directions; a trip: its route */}
+          {gathering && data.where && (
+            <div className="detail-main" style={{ marginBottom: 6 }}>
+              <div className="timeline-head"><div className="mono-label">Where</div></div>
+              <PlaceMap place={data.where.label} at={typeof data.where.lon === 'number' ? [data.where.lon, data.where.lat] : null} height={220} />
+            </div>
+          )}
+          {!gathering && days.some((d) => typeof d.lon === 'number') && (
+            <div className="detail-main" style={{ marginBottom: 6 }}>
+              <div className="timeline-head"><div className="mono-label">The route</div></div>
+              <RouteMap days={days} height={260} />
+            </div>
+          )}
 
           {gathering && (
             <div className="detail-main" style={{ marginBottom: 6 }}>

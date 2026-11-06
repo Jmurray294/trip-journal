@@ -5,6 +5,8 @@ import { onMediaReady } from '../lib/media.js';
 import { countdown } from '../lib/stages.js';
 import { loadPortal, portalSections, latestMoments, hasBook, hasSong } from '../lib/followers.js';
 import PhotoViewer from '../components/PhotoViewer.jsx';
+import RouteMap from '../components/RouteMap.jsx';
+import { awayStops } from '../lib/geo.js';
 import { BookReader } from './PhotoBook.jsx';
 import '../portal.css';
 import { isGathering, planLists, PLAN_SECTIONS } from '../lib/gathering.js';
@@ -230,6 +232,13 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
     <div className="pt-page pt-wide pt-cols">
       <div className="pt-card pt-col-plan">
         {isGathering(trip) ? <GatheringPlanView trip={trip} /> : (<>
+          {/* the route: country outlines and a pin per place, no street detail and no home */}
+          {awayStops(trip.days).length > 0 && (
+            <div className="pt-route">
+              <div className="mono-label">The route</div>
+              <RouteMap days={trip.days} height={220} />
+            </div>
+          )}
           <div className="mono-label">Itinerary</div>
           {plans.length === 0 && <div className="pt-sub" style={{ marginTop: 8 }}>No bookings yet.</div>}
           {plans.map((d) => <PlanItem key={d.id} d={d} />)}

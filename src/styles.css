@@ -977,3 +977,4 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .trip-edit svg path { stroke: #fff; }
 .trip-head > .grow { flex: 0 1 auto; }
 .trip-head .trip-edit { margin-left: 4px; }
+.route-map { position: relative; border-radius: 14px; overflow: hidden; margin-top: 10px; }

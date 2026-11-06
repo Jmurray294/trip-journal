@@ -1064,6 +1064,8 @@ async function sharedTrip(req: Request, url: URL) {
     const out = days.map(({ id, doc: d }) => ({
       id, date: String(d.date || ""), title: String(d.title || ""), place: String(d.place || ""), kind: String(d.kind || ""),
       pos: Number(d.pos) || 0, by: String(d.by || ""), cancelled: d.booking?.status === "cancelled",
+      // where each stop is, for the route map (a gathering's guests get its address instead, below)
+      ...(!t.doc.gathering && typeof d.lon === "number" && typeof d.lat === "number" ? { lon: d.lon, lat: d.lat } : {}),
       ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0 } : {}),
       // a booking shows when and where, not its confirmation number or who holds it
       note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
@@ -1072,7 +1074,7 @@ async function sharedTrip(req: Request, url: URL) {
         label: String(p.label || ""), by: String(p.by || ""),
       })).filter((p: { url: string }) => p.url),
     })).sort((a, b) => a.pos - b.pos);
-    return ok({ trip: { title: t.doc.title || "Our trip", place: t.doc.place || "", dates: t.doc.dates || "", grad: t.doc.grad || "", gathering: !!t.doc.gathering }, days: out });
+    return ok({ trip: { title: t.doc.title || "Our trip", place: t.doc.place || "", dates: t.doc.dates || "", grad: t.doc.grad || "", gathering: !!t.doc.gathering }, days: out, where: await gatheringWhere(admin, hid, t.doc) });
   }
 
   let body: Record<string, unknown>;
@@ -1100,6 +1102,22 @@ async function sharedTrip(req: Request, url: URL) {
     reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
   });
   return ok({ added: 1 });
+}
+
+// Where a gathering is, for its guests' map: they're invited, so "Home" (or no place) is the family's
+// home address. { label, lon?, lat? } (without coordinates the page looks the label up), or null.
+// deno-lint-ignore no-explicit-any
+async function gatheringWhere(admin: any, hid: string, doc: Record<string, any>) {
+  if (!doc.gathering) return null;
+  const place = String(doc.place || "").trim();
+  if (!place || /^home$/i.test(place)) {
+    const { data } = await admin.from("households").select("home").eq("id", hid).limit(1);
+    const h = (data && data[0] && data[0].home) || {};
+    if (!h.home) return null;
+    return { label: String(h.home), ...(typeof h.lon === "number" && typeof h.lat === "number" ? { lon: h.lon, lat: h.lat } : {}) };
+  }
+  const placed = doc.geoPlace === place && typeof doc.lon === "number" && typeof doc.lat === "number";
+  return { label: place, ...(placed ? { lon: doc.lon, lat: doc.lat } : {}) };
 }
 
 // a guest adds to, changes or takes something off a gathering's plan (entries with kind "Plan")

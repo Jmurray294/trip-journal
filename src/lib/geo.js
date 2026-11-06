@@ -82,3 +82,11 @@ export function buildStops(trip, home) {
     photo: s.photos[0]
   }));
 }
+
+// The trip's route for people outside the family (followers, guests): one pin per distinct place
+// with coordinates, in day order, and never a Home pin.
+export function awayStops(days) {
+  return buildStops({ days: days || [] }, {})
+    .filter((s) => !s.isHome && typeof s.lon === 'number' && typeof s.lat === 'number')
+    .map((s, i) => ({ index: i, name: s.name, date: s.date, lon: s.lon, lat: s.lat }));
+}

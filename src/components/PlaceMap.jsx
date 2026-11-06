@@ -11,8 +11,11 @@ export function resolvePlace(place, home) {
   return { query: p, label: p, c: null };
 }
 
-export default function PlaceMap({ place, home, height = 170 }) {
-  const { query, label, c: known } = resolvePlace(place, home);
+// `at`: coordinates already known ([lon, lat]), so nothing is looked up.
+export default function PlaceMap({ place, home, at, height = 170 }) {
+  const r = resolvePlace(place, home);
+  const { query, label } = r;
+  const known = at || r.c;
   const [c, setC] = useState(known);
   const [missing, setMissing] = useState(false);
 

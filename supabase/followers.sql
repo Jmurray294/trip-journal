@@ -81,6 +81,19 @@ create or replace function public.follower_entry(p_id text, d jsonb) returns jso
   ));
 $$;
 
+-- where an entry is, for the follower's route map: none on a gathering, none within ~3 km of the
+-- family's home (households.home), and otherwise rounded to about 1 km
+create or replace function public.follower_place(e jsonb, p_doc jsonb, h jsonb) returns jsonb language sql immutable as $
+  select case
+    when public.follower_num(e->'lat') is null or public.follower_num(e->'lon') is null then e - 'lat' - 'lon'
+    when coalesce(p_doc->>'gathering', '') = 'true' then e - 'lat' - 'lon'
+    when public.follower_num(h->'lat') is not null and public.follower_num(h->'lon') is not null
+      and abs(public.follower_num(e->'lat') - public.follower_num(h->'lat')) < 0.03
+      and abs(public.follower_num(e->'lon') - public.follower_num(h->'lon')) < 0.04 then e - 'lat' - 'lon'
+    else e || jsonb_build_object('lat', round(public.follower_num(e->'lat'), 2), 'lon', round(public.follower_num(e->'lon'), 2))
+  end;
+$;
+
 create or replace function public.follower_trip(p_household uuid, p_id text, p_doc jsonb) returns jsonb
 language sql stable security definer set search_path = public as $$
   select jsonb_strip_nulls(jsonb_build_object(
@@ -93,7 +106,8 @@ language sql stable security definer set search_path = public as $$
     'song', case when jsonb_typeof(p_doc->'song') = 'object' then jsonb_build_object(
       'title', p_doc->'song'->'title', 'lines', p_doc->'song'->'lines', 'mood', p_doc->'song'->'mood',
       'audioPath', p_doc->'song'->'audioPath', 'audioDur', p_doc->'song'->'audioDur') end,
-    'days', (select coalesce(jsonb_agg(public.follower_entry(e.id, e.doc) order by public.follower_num(e.doc->'pos') nulls last), '[]'::jsonb)
+    'days', (select coalesce(jsonb_agg(public.follower_place(public.follower_entry(e.id, e.doc), p_doc,
+        (select hh.home from households hh where hh.id = p_household)) order by public.follower_num(e.doc->'pos') nulls last), '[]'::jsonb)
       from entries e
       where e.household_id = p_household and e.trip_id = p_id and not e.deleted
         and coalesce(e.doc->>'type', '') <> 'cost'
