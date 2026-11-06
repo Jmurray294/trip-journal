@@ -83,7 +83,7 @@ $$;
 
 -- where an entry is, for the follower's route map: none on a gathering, none within ~3 km of the
 -- family's home (households.home), and otherwise rounded to about 1 km
-create or replace function public.follower_place(e jsonb, p_doc jsonb, h jsonb) returns jsonb language sql immutable as $
+create or replace function public.follower_place(e jsonb, p_doc jsonb, h jsonb) returns jsonb language sql immutable as $$
   select case
     when public.follower_num(e->'lat') is null or public.follower_num(e->'lon') is null then e - 'lat' - 'lon'
     when coalesce(p_doc->>'gathering', '') = 'true' then e - 'lat' - 'lon'
@@ -92,7 +92,7 @@ create or replace function public.follower_place(e jsonb, p_doc jsonb, h jsonb) 
       and abs(public.follower_num(e->'lon') - public.follower_num(h->'lon')) < 0.04 then e - 'lat' - 'lon'
     else e || jsonb_build_object('lat', round(public.follower_num(e->'lat'), 2), 'lon', round(public.follower_num(e->'lon'), 2))
   end;
-$;
+$$;
 
 create or replace function public.follower_trip(p_household uuid, p_id text, p_doc jsonb) returns jsonb
 language sql stable security definer set search_path = public as $$
