@@ -4,7 +4,7 @@ import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js
 import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
-import { useInbox, fileRows, forwardingAddress, mergeTrip } from './lib/inbox.js';
+import { useInbox, fileRows, forwardingAddress, mergeTrip, moveEntry } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
 import { resizePhoto } from './lib/resize.js';
@@ -498,7 +498,7 @@ export default function App() {
     if (!trips.some((t) => t.id === tripId)) { showToast('Pick a trip first'); return false; }
     updateTrip(tripId, (t) => {
       const base = Date.now();
-      const days = [...t.days, ...parsed.map((p, i) => ({ id: newEntryId(), pos: base + i, added: base, date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [] }))];
+      const days = [...t.days, ...parsed.map((p, i) => ({ id: newEntryId(), pos: base + i, added: base, date: p.date, title: p.title, place: p.place || t.place, note: p.note, photos: [], ...(p.kind ? { kind: p.kind } : {}) }))];
       return { ...t, days: days.map((d, i) => ({ ...d, num: i + 1 })) };
     });
     go({ tab: 'trips', tripId });
@@ -637,6 +637,30 @@ export default function App() {
     setEditTripId(null);
     go({ tab: 'trips', tripId: toId, view: null });
     showToast('Moved into ' + (to.title || 'the trip'));
+  };
+
+  // one item (tickets, a booking) into another trip or gathering; a trip an email made just for it
+  // goes away once it's empty, and that email follows the item to Documents there
+  const moveEntryTo = (fromId, entryId, toId) => {
+    const from = trips.find((t) => t.id === fromId), to = trips.find((t) => t.id === toId);
+    const entry = from && (from.days || []).find((d) => d.id === entryId);
+    if (!entry || !to || fromId === toId) return;
+    const next = moveEntry(trips, fromId, entryId, toId);
+    const gone = !next.some((t) => t.id === fromId);
+    applyTrips((ts) => moveEntry(ts, fromId, entryId, toId));
+    const hid = family.household && family.household.id;
+    if (gone && supabase && hid) {
+      supabase.from('inbound_emails').update({ trip_id: toId, trip_title: to.title || '' }).eq('household_id', hid).eq('trip_id', fromId).then(() => {});
+      supabase.from('inbox_items').update({ trip_id: toId }).eq('household_id', hid).eq('trip_id', fromId).then(() => {});
+    }
+    if (gone) { if (mapSel.tripId === fromId) setMapSel({ tripId: 'all', stop: 0 }); go({ tab: 'trips', tripId: toId, view: null }); }
+    showToast(`Moved ${entry.title || 'it'} to ${to.title || 'the trip'}`);
+  };
+  // something dragged onto a trip or gathering in the sidebar
+  const dropOnTrip = (toId, p) => {
+    if (!p || p.tripId === toId) return;
+    if (p.type === 'entry') moveEntryTo(p.tripId, p.entryId, toId);
+    else if (p.type === 'trip') moveTripInto(p.tripId, toId);
   };
 
   // a possible trip that isn't happening yet: back on the Someday board instead of deleted. One planned
@@ -842,6 +866,8 @@ export default function App() {
               onAddSuggestion={(stop, item) => addSuggestion(trip.id, stop, item)}
               onDismissSuggestion={(place, id) => setSuggestion(trip.id, place, id, 'dismissed')}
               onDeleteEntry={(i) => deleteEntry(trip.id, i)}
+              others={trips.filter((t) => t.id !== trip.id)}
+              onMoveEntry={(entryId, toId) => moveEntryTo(trip.id, entryId, toId)}
               onAddPlan={(item) => addPlan(trip.id, item)}
               onEditPlan={(id, changes) => editPlan(trip.id, id, changes)}
               onRemovePlan={(id) => removePlan(trip.id, id)}
@@ -901,6 +927,7 @@ export default function App() {
           onNewTrip={() => openAddFor(null, 'trip')}
           onNewGathering={() => openAddFor(null, 'trip', { gathering: true })}
           onOpenTrip={(id) => go({ tab: 'trips', tripId: id })}
+          onDropOn={dropOnTrip}
           someday={family.household ? someday.groups : []} onSomeday={showSomeday}
         />
 

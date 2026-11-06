@@ -4,6 +4,8 @@ import { money, dayLabel, costTotals, isPending } from '../lib/derive.js';
 import { tripDocuments, openFile } from '../lib/docs.js';
 import { tripIdeas } from '../lib/someday.js';
 import { Idea } from './SomedayBoard.jsx';
+import TripPicker from '../components/TripPicker.jsx';
+import { startDrag } from '../lib/drag.js';
 
 // The trip page's Itinerary, Budget and Documents tabs (the Journal and Photos tabs are in TripDetail).
 
@@ -33,7 +35,10 @@ const UploadButton = ({ onUpload, label = 'Upload' }) => (
 export const isPlan = (d) => d.source !== 'photos' && !!(d.booking || d.kind);
 
 // ---------- Itinerary: the plan, day by day, each booking with its details ----------
-export function Itinerary({ trip, inbox, toast, onUpload, onDelete }) {
+// `others` / `onMove(entryId, toTripId)`: move an item to another trip or gathering (a Move button,
+// or drag it onto one in the sidebar on a computer)
+export function Itinerary({ trip, inbox, toast, onUpload, onDelete, others = [], onMove }) {
+  const [moving, setMoving] = useState(null);
   const list = (trip.days || []).map((d, idx) => ({ ...d, idx })).filter((d) => isPlan(d) && d.kind !== 'Plan')
     .sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
   const copy = async (text) => {
@@ -64,7 +69,8 @@ export function Itinerary({ trip, inbox, toast, onUpload, onDelete }) {
               const b = d.booking || {};
               const st = b.status === 'cancelled' ? 'Cancelled' : b.status === 'changed' ? 'Changed' : '';
               return (
-                <div key={d.id} className={'booking-card' + (b.status === 'cancelled' ? ' cancelled' : '')}>
+                <div key={d.id} className={'booking-card' + (b.status === 'cancelled' ? ' cancelled' : '')}
+                  {...(onMove ? { draggable: true, onDragStart: (e) => startDrag(e, { type: 'entry', tripId: trip.id, entryId: d.id }), title: 'Drag onto a trip or gathering in the list to move it' } : {})}>
                   <div className="booking-top">
                     <div className="grow">
                       <div className="booking-when">{d.kind && d.kind !== 'Booking' ? (KIND_ONE[d.kind] || d.kind) + ' · ' : ''}{span(b, d.date)}{b.time ? ' · ' + b.time : ''}</div>
@@ -86,6 +92,15 @@ export function Itinerary({ trip, inbox, toast, onUpload, onDelete }) {
                     )}
                     {b.travelers && <div><span>Who</span>{b.travelers}</div>}
                   </div>
+                  {onMove && others.length > 0 && (moving === d.id ? (
+                    <div className="move-pick">
+                      <div className="field-label" style={{ margin: '12px 0 0' }}>Move to</div>
+                      <TripPicker trips={others} onPick={(id) => { setMoving(null); onMove(d.id, id); }} />
+                      <button className="btn-link inline" onClick={() => setMoving(null)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button className="btn-link inline move-btn" onClick={() => setMoving(d.id)}>Move to…</button>
+                  ))}
                 </div>
               );
             })}

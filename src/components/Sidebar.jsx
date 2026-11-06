@@ -1,4 +1,5 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
+import { startDrag, isOurDrag, readDrag } from '../lib/drag.js';
 import { Plus } from './Icons.jsx';
 import { accentFor, short } from '../lib/derive.js';
 import { groupTrips, STAGES } from '../lib/stages.js';
@@ -7,7 +8,17 @@ import { isGathering, gatheringsInOrder } from '../lib/gathering.js';
 
 // Every trip by stage, plus Someday ideas by country: a card beside the page on a computer (≥900px),
 // and with `inline`, the list under the trip up next on a phone's Trips home.
-export default function Sidebar({ tab, trips, tripId, onNewTrip, onNewGathering, onOpenTrip, someday = [], onSomeday, inline = false }) {
+// `onDropOn(targetTripId, payload)`: something dragged onto a trip or gathering (see lib/drag.js).
+export default function Sidebar({ tab, trips, tripId, onNewTrip, onNewGathering, onOpenTrip, someday = [], onSomeday, inline = false, onDropOn }) {
+  const [over, setOver] = useState(null);
+  // every trip and gathering row can be dragged (a whole trip) and dropped on
+  const dnd = (t) => (!onDropOn || inline ? {} : {
+    draggable: true,
+    onDragStart: (e) => startDrag(e, { type: 'trip', tripId: t.id }),
+    onDragOver: (e) => { if (isOurDrag(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== t.id) setOver(t.id); } },
+    onDragLeave: () => setOver((o) => (o === t.id ? null : o)),
+    onDrop: (e) => { e.preventDefault(); setOver(null); const p = readDrag(e); if (p) onDropOn(t.id, p); },
+  });
   // trips by stage; gatherings (get-togethers at home or nearby) have their own list below
   const groups = groupTrips(trips.filter((t) => !isGathering(t)));
   const gatherings = gatheringsInOrder(trips);
@@ -20,7 +31,7 @@ export default function Sidebar({ tab, trips, tripId, onNewTrip, onNewGathering,
           <div className="side-label">{title} <span className="side-count">{groups[key].length}</span></div>
           <div className="side-trips">
             {groups[key].map((t) => (
-              <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '')} onClick={() => onOpenTrip(t.id)} title={t.title}>
+              <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '') + (over === t.id ? ' drop-on' : '')} onClick={() => onOpenTrip(t.id)} title={t.title} {...dnd(t)}>
                 <span className="accent-dot" style={{ background: accentFor(t.id) }} />
                 <span className="side-trip-name">{short(t.title, 22)}</span>
               </button>
@@ -36,7 +47,7 @@ export default function Sidebar({ tab, trips, tripId, onNewTrip, onNewGathering,
         <div className="side-label">Gatherings {gatherings.length > 0 && <span className="side-count">{gatherings.length}</span>}</div>
         <div className="side-trips">
           {gatherings.map(({ t, upcoming }) => (
-            <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '') + (upcoming ? '' : ' side-past')} onClick={() => onOpenTrip(t.id)} title={t.title}>
+            <button key={t.id} className={'side-trip' + (tab === 'trips' && tripId === t.id ? ' active' : '') + (upcoming ? '' : ' side-past') + (over === t.id ? ' drop-on' : '')} onClick={() => onOpenTrip(t.id)} title={t.title} {...dnd(t)}>
               <span className="accent-dot" style={{ background: '#C9822B' }} />
               <span className="side-trip-name">{short(t.title, 22)}</span>
             </button>

@@ -80,3 +80,27 @@ export function mergeTrip(trips, fromId, toId) {
     costs: [...(t.costs || []), ...(from.costs || [])].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)),
   }));
 }
+
+// Move one item (a booking, a note) into another trip or gathering. Costs with the same confirmation
+// number go with it. A trip an email started on its own (source 'email') that is left empty is removed,
+// so tickets that made a "trip" end up only where they belong. Pure, so it can be tested.
+const confKey = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+export function moveEntry(trips, fromId, entryId, toId) {
+  const from = trips.find((t) => t.id === fromId);
+  const entry = from && (from.days || []).find((d) => d.id === entryId);
+  if (!entry || fromId === toId || !trips.some((t) => t.id === toId)) return trips;
+  const conf = confKey(entry.booking && entry.booking.confirmation);
+  const goes = (c) => conf.length >= 4 && confKey(c.confirmation) === conf;
+  const costs = (from.costs || []).filter(goes);
+  const left = { days: (from.days || []).filter((d) => d.id !== entryId), costs: (from.costs || []).filter((c) => !goes(c)) };
+  const emptied = from.source === 'email' && !left.days.length && !left.costs.length;
+  return trips.filter((t) => !(emptied && t.id === fromId)).map((t) => {
+    if (t.id === fromId) return { ...t, days: left.days, ...(t.costs ? { costs: left.costs } : {}) };
+    if (t.id !== toId) return t;
+    return {
+      ...t,
+      days: sortDays([...(t.days || []), entry]),
+      ...(costs.length || t.costs ? { costs: [...(t.costs || []), ...costs].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)) } : {}),
+    };
+  });
+}

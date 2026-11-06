@@ -580,7 +580,7 @@ const READING_SCHEMA = {
   additionalProperties: false,
 };
 
-type TripBrief = { id: string; title: string; place: string; dates: string; possible?: boolean; items: string[] };
+type TripBrief = { id: string; title: string; place: string; dates: string; possible?: boolean; gathering?: boolean; items: string[] };
 type Attachment = { Name?: string; ContentType?: string; Content?: string }; // Content is base64
 
 // PDFs (invoices, e-tickets, cruise confirmations) and photos of bookings, as content blocks Claude reads
@@ -704,7 +704,10 @@ async function readWithClaude(text: string, subject: string, trips: TripBrief[],
         "Choose 'existing' with its trip_id only when the email clearly belongs to that trip (same destination, cruise or " +
         "itinerary, overlapping dates, or a confirmation number already in it). Choose 'new' when it is a reservation for travel " +
         "that matches none of them, and name the trip. Choose 'unsure' when it could fit more than one trip, or when it is a " +
-        "payment or notice you cannot tie to a trip.\n\n" +
+        "payment or notice you cannot tie to a trip. " +
+        "Some are gatherings (gathering: true): a visit or get-together at or near home, like relatives coming to stay or a holiday. " +
+        "Tickets, tours, games, shows or dinners near home on a gathering's dates belong to that gathering: choose 'existing' with its " +
+        "trip_id. A local outing like that is never a 'new' trip; if no gathering fits, choose 'unsure'.\n\n" +
         "IDEAS: list trips that are being proposed, planned or discussed but not booked \u2014 invitations, 'want to come with us\u2026', " +
         "group trip plans, save-the-dates, a friend's itinerary we might join. One per distinct trip. If an idea is about one of the " +
         "family's trips above (including ones marked possible), give its trip_id so we don't make it twice. Ideas are not bookings: " +
@@ -1230,7 +1233,7 @@ Deno.serve(async (req) => {
     .eq("household_id", hid).eq("deleted", false);
   const items = (itemRows || []) as { id: string; trip_id: string; title: string | null; bconf: string | null; cconf: string | null }[];
   const briefs: TripBrief[] = trips.map((t) => ({
-    id: t.id, title: t.doc.title || "", place: t.doc.place || "", dates: t.doc.dates || "", ...(t.doc.possible ? { possible: true } : {}),
+    id: t.id, title: t.doc.title || "", place: t.doc.place || "", dates: t.doc.dates || "", ...(t.doc.possible ? { possible: true } : {}), ...(t.doc.gathering ? { gathering: true } : {}),
     items: items.filter((e) => e.trip_id === t.id).slice(0, 15).map((e) => [e.title, e.bconf || e.cconf].filter(Boolean).join(" \u00b7 ")),
   }));
 
