@@ -67,3 +67,16 @@ export function useInbox(household) {
 
   return { items, refresh, close };
 }
+
+// Move everything in one trip (its itinerary, journal, photos and costs) into another trip or a
+// gathering, and remove the emptied trip (pure, so it can be tested). An email that started a trip
+// of its own — tickets for a gathering — goes where it belongs.
+export function mergeTrip(trips, fromId, toId) {
+  const from = trips.find((t) => t.id === fromId);
+  if (!from || fromId === toId || !trips.some((t) => t.id === toId)) return trips;
+  return trips.filter((t) => t.id !== fromId).map((t) => (t.id !== toId ? t : {
+    ...t,
+    days: sortDays([...(t.days || []), ...(from.days || [])]),
+    costs: [...(t.costs || []), ...(from.costs || [])].sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0)),
+  }));
+}

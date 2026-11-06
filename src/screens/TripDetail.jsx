@@ -11,7 +11,7 @@ import PhotoViewer from '../components/PhotoViewer.jsx';
 import { Itinerary, Budget, Documents, isPlan } from './TripSections.jsx';
 import GatheringPlan from './GatheringPlan.jsx';
 import PlaceMap from '../components/PlaceMap.jsx';
-import { isGathering, planLists } from '../lib/gathering.js';
+import { isGathering, isPlanItem, planLists } from '../lib/gathering.js';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
 function CostsCard({ costs, onOpen }) {
@@ -210,7 +210,12 @@ function SongCard({ trip, song, busy, audioBusy, onWrite, onToggle, onToggleLyri
 export default function TripDetail(p) {
   const { trip } = p;
   const gathering = isGathering(trip);
-  const tabs = gathering ? GATHERING_TABS : TABS;
+  // a gathering with tickets or costs (moved in from a trip, or forwarded) shows them too
+  const bookings = (trip.days || []).filter((d) => isPlan(d) && !isPlanItem(d)).length;
+  const hasCosts = (trip.costs || []).length > 0;
+  const tabs = !gathering ? TABS : [...GATHERING_TABS,
+    ...(bookings ? [['itinerary', 'Itinerary']] : []), ...(hasCosts ? [['budget', 'Budget']] : []),
+    ...(bookings || hasCosts ? [['documents', 'Documents']] : [])];
   const [tab, setTab] = useState(tabs.some(([k]) => k === p.initialTab) ? p.initialTab : tabs[0][0]);
   // while planning, what just came in matters most; a finished trip reads as its story, day by day
   const [order, setOrder] = useState(() => (tripStage(trip) === 'past' ? 'trip' : 'newest'));
@@ -219,7 +224,7 @@ export default function TripDetail(p) {
   const shown = trip.days.map((d, idx) => ({ d, idx })).filter(({ d }) => d.source !== 'photos' && !isPlan(d)); // idx: its place in trip.days, for delete
   if (order === 'newest') shown.sort((a, b) => when(b.d) - when(a.d) || b.idx - a.idx);
   const planCount = (trip.days || []).filter(isPlan).length;
-  const counts = { itinerary: planCount, plan: planCount, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
+  const counts = { itinerary: gathering ? bookings : planCount, plan: (trip.days || []).filter(isPlanItem).length, journal: shown.length, photos: countPhotos(trip), budget: (trip.costs || []).length };
   return (
     <div className="screen pad-tab">
       {/* just the trip name: the page is about what's below it */}

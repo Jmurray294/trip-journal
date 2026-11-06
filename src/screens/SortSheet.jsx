@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { money } from '../lib/derive.js';
+import TripPicker from '../components/TripPicker.jsx';
 
 // Forwarded emails the reader was not sure about. Pick the trip and everything in the email is
 // filed there (itinerary items and costs); or start a new trip from it; or dismiss it.
@@ -32,15 +33,11 @@ function Item({ item, trips, onFile, onDismiss }) {
       </div>
       {s.reason && <div className="sort-reason">{s.reason}</div>}
       <div className="field-label" style={{ marginTop: 14 }}>File in</div>
-      <div className="chips wrap">
-        {ordered.map((t) => (
-          <button key={t.id} className={'chip' + (t.id === s.trip_id ? ' active' : '')} disabled={busy}
-            onClick={() => run(() => onFile(item, t.id))}>{t.title}</button>
-        ))}
-        {(item.entries || []).length > 0 && (
-          <button className="chip" disabled={busy} onClick={() => run(() => onFile(item, 'new'))}>+ New trip{s.title ? ': ' + s.title : ''}</button>
-        )}
-      </div>
+      <TripPicker trips={ordered} active={s.trip_id} disabled={busy} onPick={(id) => run(() => onFile(item, id))}
+        extra={(item.entries || []).length > 0 ? {
+          trips: [{ id: 'new', label: '+ New trip' + (s.title ? ': ' + s.title : '') }],
+          gatherings: [{ id: 'new-gathering', label: '+ New gathering' }],
+        } : {}} />
       <button className="btn-link" style={{ textAlign: 'left', width: 'auto' }} disabled={busy} onClick={() => run(() => onDismiss(item))}>Dismiss</button>
     </div>
   );
@@ -60,7 +57,7 @@ export default function SortSheet({ items, trips, onFile, onDismiss, onClose }) 
       <div className="sheet" role="dialog" aria-modal="true" aria-label="To sort">
         <div className="grab" />
         <div className="serif" style={{ fontSize: 24, fontWeight: 600 }}>To sort</div>
-        <div className="sheet-copy">We weren't sure which trip these emails belong to. Pick one and everything in the email is added to it.</div>
+        <div className="sheet-copy">We weren't sure where these emails belong. Pick a trip or a gathering (or start a new one) and everything in the email is added to it.</div>
         <div className="stack-16" style={{ marginTop: 16 }}>
           {items.map((it) => <Item key={it.id} item={it} trips={trips} onFile={onFile} onDismiss={onDismiss} />)}
         </div>

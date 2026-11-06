@@ -231,7 +231,12 @@ function TripPage({ trip, onBack, onBook, onPhoto, live }) {
   return (
     <div className="pt-page pt-wide pt-cols">
       <div className="pt-card pt-col-plan">
-        {isGathering(trip) ? <GatheringPlanView trip={trip} /> : (<>
+        {isGathering(trip) ? (<>
+          <GatheringPlanView trip={trip} />
+          {/* tickets and bookings for the gathering */}
+          {plans.some((d) => d.kind !== 'Plan') && <div className="mono-label" style={{ marginTop: 18 }}>Tickets &amp; bookings</div>}
+          {plans.filter((d) => d.kind !== 'Plan').map((d) => <PlanItem key={d.id} d={d} />)}
+        </>) : (<>
           {/* the route: country outlines and a pin per place, no street detail and no home */}
           {awayStops(trip.days).length > 0 && (
             <div className="pt-route">

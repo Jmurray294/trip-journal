@@ -53,3 +53,8 @@ exception when duplicate_object then null; end $$;
 alter table public.inbound_emails add column if not exists attachments jsonb not null default '[]';
 alter table public.inbound_emails add column if not exists message_id text;
 alter table public.inbox_items add column if not exists email_id bigint references public.inbound_emails on delete set null;
+
+-- moving a trip into another trip or a gathering (Edit → Move into) takes its emails along
+drop policy if exists "members move emails" on public.inbound_emails;
+create policy "members move emails" on public.inbound_emails for update
+  using (public.is_member(household_id)) with check (public.is_member(household_id));

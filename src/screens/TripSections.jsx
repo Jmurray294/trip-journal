@@ -34,7 +34,7 @@ export const isPlan = (d) => d.source !== 'photos' && !!(d.booking || d.kind);
 
 // ---------- Itinerary: the plan, day by day, each booking with its details ----------
 export function Itinerary({ trip, inbox, toast, onUpload, onDelete }) {
-  const list = (trip.days || []).map((d, idx) => ({ ...d, idx })).filter(isPlan)
+  const list = (trip.days || []).map((d, idx) => ({ ...d, idx })).filter((d) => isPlan(d) && d.kind !== 'Plan')
     .sort((a, b) => (a.pos ?? 0) - (b.pos ?? 0));
   const copy = async (text) => {
     try { await navigator.clipboard.writeText(text); toast('Copied ' + text); } catch (e) { toast(text); }

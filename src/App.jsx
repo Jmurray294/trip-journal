@@ -4,7 +4,7 @@ import { migrate, normalize, newTripId, newEntryId, FAMILY } from './lib/seed.js
 import { onMediaReady } from './lib/media.js';
 import { useFamily } from './lib/useFamily.js';
 import { supabase } from './lib/supabase.js';
-import { useInbox, fileRows, forwardingAddress } from './lib/inbox.js';
+import { useInbox, fileRows, forwardingAddress, mergeTrip } from './lib/inbox.js';
 import { useSomeday } from './lib/someday.js';
 import { parseExif, parsePhotoTime, photoKey, placePhotos } from './lib/photos.js';
 import { resizePhoto } from './lib/resize.js';
@@ -127,9 +127,11 @@ export default function App() {
   const closeSort = useCallback(() => setSortOpen(false), []);
   const fileInboxItem = async (item, choice) => {
     let tripId = choice;
-    if (choice === 'new') {
+    if (choice === 'new' || choice === 'new-gathering') {
       const s = item.suggestion || {};
+      const g = choice === 'new-gathering';
       const t = {
+        ...(g ? { gathering: true } : {}),
         id: newTripId(), title: s.title || item.subject || 'New trip', place: s.place || '', dates: s.dates || todayLabel(),
         grad: GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)], planning: !!s.planning,
         statusLabel: s.planning ? 'Planning' : 'My trip', timelineLabel: 'Itinerary', members: FAMILY, song: null, days: [],
@@ -619,6 +621,24 @@ export default function App() {
     showToast('Trip deleted');
   };
 
+  // everything in one trip moved into another trip or a gathering (an email that made a trip of its
+  // own, like tickets for a gathering); its emails move too, so they show under Documents there
+  const moveTripInto = (fromId, toId) => {
+    const from = trips.find((t) => t.id === fromId), to = trips.find((t) => t.id === toId);
+    if (!from || !to) return;
+    if (!window.confirm(`Move everything in "${from.title}" into "${to.title}"? "${from.title}" will be removed.`)) return;
+    applyTrips((ts) => mergeTrip(ts, fromId, toId));
+    const hid = family.household && family.household.id;
+    if (supabase && hid) {
+      supabase.from('inbound_emails').update({ trip_id: toId, trip_title: to.title || '' }).eq('household_id', hid).eq('trip_id', fromId).then(() => {});
+      supabase.from('inbox_items').update({ trip_id: toId }).eq('household_id', hid).eq('trip_id', fromId).then(() => {});
+    }
+    if (mapSel.tripId === fromId) setMapSel({ tripId: 'all', stop: 0 });
+    setEditTripId(null);
+    go({ tab: 'trips', tripId: toId, view: null });
+    showToast('Moved into ' + (to.title || 'the trip'));
+  };
+
   // a possible trip that isn't happening yet: back on the Someday board instead of deleted. One planned
   // from Someday gets its own ideas back; any other (an idea from an email) is saved as a new idea.
   const backToSomeday = async (id) => {
@@ -930,6 +950,7 @@ export default function App() {
         {familyOpen && <FamilySheet family={family} followers={followers} contactCount={contacts.list.length} onContacts={(mode) => setContactsOpen({ mode })} onSaveContact={(c) => contacts.save(c)} onPreview={() => { setFamilyOpen(false); setFollowPreview(true); }} onClose={() => setFamilyOpen(false)} toast={showToast} />}
         {editTripId && trips.some((t) => t.id === editTripId) && (
           <TripEditSheet trip={trips.find((t) => t.id === editTripId)} home={home} onClose={() => setEditTripId(null)}
+            others={trips.filter((t) => t.id !== editTripId)} onMoveInto={(toId) => moveTripInto(editTripId, toId)}
             onSave={({ title, place, dates, grad, gathering }) => {
               updateTrip(editTripId, (t) => {
                 const { gathering: _g, ...rest } = t; // eslint-disable-line no-unused-vars

@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { GRADIENTS } from '../lib/derive.js';
 import { rangeText, datesForEdit } from '../lib/dates.js';
 import PlaceMap from '../components/PlaceMap.jsx';
+import TripPicker from '../components/TripPicker.jsx';
 
 // Change a trip's or gathering's name, place, dates and cover (and which of the two it is).
-export default function TripEditSheet({ trip, home, onSave, onClose }) {
+// `others` / `onMoveInto`: move everything here into another trip or gathering, and remove this one.
+export default function TripEditSheet({ trip, home, onSave, onClose, others = [], onMoveInto }) {
+  const [moveTo, setMoveTo] = useState('');
   const [f, setF] = useState({ title: trip.title || '', place: trip.place || '', grad: trip.grad || GRADIENTS[0], gathering: !!trip.gathering });
   const [when, setWhen] = useState(() => datesForEdit(trip.dates));
 
@@ -66,6 +69,21 @@ export default function TripEditSheet({ trip, home, onSave, onClose }) {
 
         <button className="btn-primary press" style={{ marginTop: 22 }} disabled={!f.title.trim()} onClick={save}>Save</button>
         <button className="btn-link" onClick={onClose}>Cancel</button>
+
+        {onMoveInto && others.length > 0 && (
+          <div className="move-into">
+            <div className="field-label" style={{ marginBottom: 4 }}>Move into another trip or gathering</div>
+            <div className="sheet-copy" style={{ marginTop: 0 }}>
+              Belongs with something else, like tickets for a gathering? Everything here (bookings, notes, photos, costs and emails) moves there, and {g ? 'this gathering' : 'this trip'} is removed.
+            </div>
+            <TripPicker trips={others} active={moveTo} onPick={(id) => setMoveTo(id === moveTo ? '' : id)} />
+            {moveTo && (
+              <button className="btn-secondary press" style={{ marginTop: 14 }} onClick={() => onMoveInto(moveTo)}>
+                Move into {(others.find((t) => t.id === moveTo) || {}).title}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
