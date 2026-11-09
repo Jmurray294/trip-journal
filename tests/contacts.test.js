@@ -46,3 +46,10 @@ test('phone numbers read the usual way, and the same number typed differently is
   const l = upsertContact([{ id: 'a', name: 'Amy', email: '', phone: '9727688136' }], makeContact({ name: '', phone: '972-768-8136' }, 'b'));
   assert.equal(l.length, 1);
 });
+
+test('one group text to several people: the iPhone form and the Android form', async () => {
+  const { smsMany } = await import('../src/lib/contacts.js');
+  assert.equal(smsMany(['(972) 768-8136', '414 531 6536'], 'Hi', 'iPhone'), 'sms:/open?addresses=9727688136,4145316536&body=Hi');
+  assert.equal(smsMany(['(972) 768-8136', '414 531 6536'], 'Hi', 'Android'), 'sms:9727688136,4145316536?body=Hi');
+  assert.equal(smsMany(['(972) 768-8136'], 'Hi', 'iPhone'), 'sms:9727688136?&body=Hi');
+});

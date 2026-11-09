@@ -1003,3 +1003,8 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .booking-card[draggable="true"] { cursor: grab; }
 .move-btn { margin-top: 8px; }
 .move-pick { margin-top: 4px; }
+
+/* sending a guest link: the message as it will go, then one text or one email to everyone ticked */
+.guest-msg { margin-top: 14px; padding: 10px 12px; background: #F4F7FD; border-radius: 10px; font-size: 13px; color: var(--secondary); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
+.guest-send { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.guest-send .btn-primary { margin: 0; width: 100%; }

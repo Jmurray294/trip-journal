@@ -110,6 +110,19 @@ export function planLine(d) {
   return d.title;
 }
 
+// the message that goes with a gathering's guest link: the ideas to choose from (if any), then the link
+export function guestMessage(trip, link) {
+  const ideas = planLists(trip).idea;
+  if (!ideas.length) return `${trip.title}: see the plan, add to it (what you're bringing, who's coming), and add your photos and notes.\n\n${link}`;
+  return [
+    `${trip.title}: here are some ideas for while you're here. Open the link and tap "I'm in" on the ones you'd like, or add your own:`,
+    '',
+    ...ideas.map((d) => '• ' + d.title),
+    '',
+    link,
+  ].join('\n');
+}
+
 // gatherings for their own list: coming up (soonest first), then past (most recent first)
 export function gatheringsInOrder(trips, today = new Date()) {
   const g = groupTrips((trips || []).filter(isGathering), today);

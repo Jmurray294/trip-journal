@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { mailtoMany, smsTo, formatPhone } from '../lib/contacts.js';
+import { mailtoMany, smsTo, smsMany, formatPhone } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
+import { guestMessage } from '../lib/gathering.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
 // mode 'followers': tick people and invite them to follow along (email);
@@ -18,10 +19,13 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   }, [onClose]);
 
   const following = new Set(followers ? [...followers.followers.map((f) => f.email), ...followers.invites.map((i) => i.email)] : []);
-  // who can be ticked: an email to send to, and (for followers) not already following or invited
-  const canPick = (c) => !!c.email && !(mode === 'followers' && following.has(c.email));
+  // who can be ticked: for followers an email, and not already following or invited; for guests an
+  // email or a mobile number
+  const canPick = (c) => (mode === 'guests' ? !!(c.email || c.phone) : !!c.email && !(mode === 'followers' && following.has(c.email)));
   const toggle = (id) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const chosen = contacts.list.filter((c) => picked.has(c.id) && canPick(c));
+  const toEmail = chosen.filter((c) => c.email);
+  const toText = chosen.filter((c) => c.phone);
 
   const run = async (fn) => {
     setBusy(true);
@@ -29,7 +33,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   };
 
   const guestText = trip ? (gathering
-    ? `${trip.title}: see the plan, add to it (what you're bringing, who's coming), and add your photos and notes.\n\n${link}`
+    ? guestMessage(trip, link)
     : `${trip.title}: see the plan and add your photos and notes from the trip.\n\n${link}`) : '';
 
   const inviteFollowers = () => run(async () => {
@@ -40,13 +44,20 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
     setPicked(new Set());
   });
   const emailGuests = () => {
-    window.location.href = mailtoMany(chosen.map((c) => c.email), trip.title, guestText);
-    setPicked(new Set());
+    window.location.href = mailtoMany(toEmail.map((c) => c.email), trip.title, guestText);
+  };
+  // one group text to everyone ticked who has a mobile number
+  const textGuests = () => {
+    window.location.href = smsMany(toText.map((c) => c.phone), guestText);
+  };
+  const copyMessage = async () => {
+    try { await navigator.clipboard.writeText(guestText); toast('Message copied. Paste it into a text or group chat'); }
+    catch (e) { toast('Could not copy. Try Email or Text instead'); }
   };
 
   const title = mode === 'followers' ? 'Invite followers' : mode === 'guests' ? (gathering ? 'Send the guest link' : 'Send the trip link') : 'Contacts';
   const sub = mode === 'followers' ? 'Tick the people to invite. They get an email with how to sign in.'
-    : mode === 'guests' ? 'Tick people to email the link to, or text it to one person.'
+    : mode === 'guests' ? 'Tick people, then send them all one text or one email with the link.'
       : 'People you invite again and again. Only your family sees this list.';
 
   return (
@@ -93,11 +104,19 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
             {chosen.length ? `Invite ${chosen.length} to follow along` : 'Tick who to invite'}
           </button>
         )}
-        {mode === 'guests' && (
-          <button className="btn-primary press" style={{ marginTop: 18 }} disabled={!chosen.length} onClick={emailGuests}>
-            {chosen.length ? `Email the link to ${chosen.length}` : 'Tick who to email'}
-          </button>
-        )}
+        {mode === 'guests' && (<>
+          {guestText && <div className="guest-msg">{guestText}</div>}
+          <div className="guest-send">
+            <button className="btn-primary press" disabled={!toText.length} onClick={textGuests}>
+              {toText.length ? `Text ${toText.length === 1 ? toText[0].name.split(' ')[0] : 'all ' + toText.length}` : 'Tick who to text'}
+            </button>
+            <button className="btn-primary press" disabled={!toEmail.length} onClick={emailGuests}>
+              {toEmail.length ? `Email ${toEmail.length === 1 ? toEmail[0].name.split(' ')[0] : 'all ' + toEmail.length}` : 'Tick who to email'}
+            </button>
+          </div>
+          {toText.length > 1 && <div className="sheet-copy" style={{ marginTop: 6 }}>It goes as one group text, so everyone sees the replies.</div>}
+          <button className="btn-link" onClick={copyMessage}>Copy the message</button>
+        </>)}
         <button className="btn-link" onClick={onClose}>Done</button>
       </div>
     </div>

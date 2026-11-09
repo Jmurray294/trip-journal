@@ -47,6 +47,14 @@ export const mailtoMany = (emails, subject, body) =>
   `mailto:?bcc=${encodeURIComponent(emails.join(','))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 // a text to one person, with the message filled in (the "?&" form works on both iPhone and Android)
 export const smsTo = (phone, body) => `sms:${String(phone).replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(body)}`;
+// one group text to several people. iPhone and Mac need the sms:/open?addresses= form; Android takes
+// the numbers comma-separated. One person is a plain text.
+export function smsMany(phones, body, ua = typeof navigator !== 'undefined' ? navigator.userAgent : '') {
+  const nums = [...new Set((phones || []).map((p) => String(p).replace(/[^\d+]/g, '')).filter(Boolean))];
+  if (nums.length <= 1) return smsTo(nums[0] || '', body);
+  if (/iPhone|iPad|iPod|Macintosh/.test(ua)) return `sms:/open?addresses=${nums.join(',')}&body=${encodeURIComponent(body)}`;
+  return `sms:${nums.join(',')}?body=${encodeURIComponent(body)}`;
+}
 
 // ---------- for members: the family's list ----------
 export function useContacts(household) {

@@ -80,3 +80,14 @@ test('ideas: "I am in" toggles by name, the most wanted come first, and a picked
   assert.deepEqual(planLists({ days: [s] }).time.map((d) => d.id), ['i1']);
   assert.equal(editPlanItem(lights, { detail: '' }).detail, undefined);
 });
+
+test('the guest message lists the ideas, most wanted first, then the link', async () => {
+  const { guestMessage } = await import('../src/lib/gathering.js');
+  const a = makePlanItem({ planType: 'idea', text: 'Hike' }, { id: 'a', now: 1 });
+  const b = toggleVote(makePlanItem({ planType: 'idea', text: 'Lights drive' }, { id: 'b', now: 2 }), 'Lauren');
+  const m = guestMessage({ title: 'Thanksgiving', days: [a, b] }, 'https://x/?t=1');
+  assert.ok(m.startsWith('Thanksgiving: here are some ideas'));
+  assert.ok(m.indexOf('• Lights drive') < m.indexOf('• Hike'));
+  assert.ok(m.endsWith('https://x/?t=1'));
+  assert.ok(guestMessage({ title: 'T', days: [] }, 'L').includes('see the plan'));
+});
