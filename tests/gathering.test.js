@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { timeMinutes, planLists, makePlanItem, editPlanItem, planLine, gatheringsInOrder, isGathering } from '../src/lib/gathering.js';
+import { timeMinutes, planLists, makePlanItem, editPlanItem, planLine, gatheringsInOrder, isGathering, toggleVote, hasVoted, scheduleIdea } from '../src/lib/gathering.js';
 
 test('times are read the way people write them', () => {
   assert.equal(timeMinutes('4pm'), 16 * 60);
@@ -57,4 +57,26 @@ test('gatherings are listed apart: coming up first, then past, most recent first
   assert.deepEqual(g.map((x) => x.t.id), ['tday', 'bday', 'july']);
   assert.deepEqual(g.map((x) => x.upcoming), [true, false, false]);
   assert.ok(!isGathering(trips[0]) && isGathering(trips[1]));
+});
+
+test('ideas: "I am in" toggles by name, the most wanted come first, and a picked one goes on the schedule', () => {
+  const lights = makePlanItem({ planType: 'idea', text: 'Christmas lights drive', detail: 'Trail of Lights, after dark', time: '6pm', who: 'x' }, { id: 'i1', now: 1 });
+  assert.equal(lights.detail, 'Trail of Lights, after dark');
+  assert.deepEqual(lights.votes, []);
+  assert.ok(!('time' in lights) && !('who' in lights));
+  let hike = makePlanItem({ planType: 'idea', text: 'Hike Mount Bonnell' }, { id: 'i2', now: 2 });
+  hike = toggleVote(toggleVote(hike, 'Lauren'), ' grandma ');
+  assert.ok(hasVoted(hike, 'lauren') && hasVoted(hike, 'Grandma'));
+  assert.ok(!hasVoted(toggleVote(hike, 'LAUREN'), 'Lauren'));
+  assert.deepEqual(toggleVote(hike, '  ').votes, hike.votes);
+  const l = planLists({ days: [lights, hike] });
+  assert.deepEqual(l.idea.map((d) => d.id), ['i2', 'i1']);
+  assert.equal(planLine(hike), 'Hike Mount Bonnell (2 in: Lauren, grandma)');
+  const s = scheduleIdea(lights, ' Fri 6pm ');
+  assert.equal(s.planType, 'time');
+  assert.equal(s.time, 'Fri 6pm');
+  assert.equal(s.detail, 'Trail of Lights, after dark');
+  assert.ok(!('votes' in s));
+  assert.deepEqual(planLists({ days: [s] }).time.map((d) => d.id), ['i1']);
+  assert.equal(editPlanItem(lights, { detail: '' }).detail, undefined);
 });

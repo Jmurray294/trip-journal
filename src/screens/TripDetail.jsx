@@ -293,7 +293,7 @@ export default function TripDetail(p) {
             <PlaceMap place={trip.place} home={p.home} height={200} />
           </div>
         )}
-        {tab === 'plan' && <GatheringPlan lists={planLists(trip)} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} />}
+        {tab === 'plan' && <GatheringPlan lists={planLists(trip)} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} onSchedule={p.onSchedulePlan} />}
         {tab === 'itinerary' && <Itinerary trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} onDelete={p.onDeleteEntry} others={p.others} onMove={p.onMoveEntry} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}

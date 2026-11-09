@@ -206,7 +206,8 @@ export default function GuestTrip({ token }) {
               <GatheringPlan lists={plan} busy={!!busy}
                 onAdd={(item) => planCall({ action: 'plan-add', ...item }, 'Added to the plan')}
                 onEdit={(id, c) => planCall({ action: 'plan-edit', id, ...c }, 'Saved')}
-                onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')} />
+                onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')}
+                me={name} onVote={(id) => planCall({ action: 'plan-vote', id })} />
             </div>
           )}
 

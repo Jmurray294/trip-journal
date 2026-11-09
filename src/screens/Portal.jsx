@@ -197,7 +197,7 @@ function PlanItem({ d }) {
   );
 }
 
-// a gathering's plan, read only: the schedule, who's bringing what, who's coming
+// a gathering's plan, read only: ideas, the schedule, who's bringing what, who's coming
 function GatheringPlanView({ trip }) {
   const lists = planLists(trip);
   const any = PLAN_SECTIONS.some(([k]) => lists[k].length);
@@ -213,6 +213,7 @@ function GatheringPlanView({ trip }) {
               {k === 'time' && d.time && <span className="pt-when">{d.time}</span>}
               <span className="pt-plan-title">{d.title}</span>
               {k === 'bring' && d.who && <span className="pt-sub"> · {d.who}</span>}
+              {k === 'idea' && Array.isArray(d.votes) && d.votes.length > 0 && <span className="pt-sub"> · {d.votes.length} in</span>}
             </div>
           ))}
         </div>

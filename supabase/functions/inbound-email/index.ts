@@ -1042,7 +1042,8 @@ async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, tr
 // POST { action: "photo", name, image, taken, lat?, lon? } adds a photo; { action: "note", name, text, when }
 //       a note on that day. Both are marked with who sent them. Turning the link off in the app ends it.
 //       On a gathering, guests also change the plan: { action: "plan-add", name, planType, text, time?, who? },
-//       { action: "plan-edit", name, id, text, time?, who? }, { action: "plan-remove", name, id }
+//       { action: "plan-edit", name, id, text, time?, who? }, { action: "plan-remove", name, id },
+//       and on ideas (planType "idea", with detail?) { action: "plan-vote", name, id } says "I'm in" or takes it back
 //       (plan entries only; the same rules as src/lib/gathering.js).
 const noConf = (s: string) => s.replace(/\s*(\u00b7\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^\u00b7\s*/, "");
 async function sharedTrip(req: Request, url: URL) {
@@ -1069,7 +1070,8 @@ async function sharedTrip(req: Request, url: URL) {
       pos: Number(d.pos) || 0, by: String(d.by || ""), cancelled: d.booking?.status === "cancelled",
       // where each stop is, for the route map (a gathering's guests get its address instead, below)
       ...(!t.doc.gathering && typeof d.lon === "number" && typeof d.lat === "number" ? { lon: d.lon, lat: d.lat } : {}),
-      ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0 } : {}),
+      ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0,
+        detail: String(d.detail || ""), votes: Array.isArray(d.votes) ? d.votes.map(String) : [] } : {}),
       // a booking shows when and where, not its confirmation number or who holds it
       note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
       photos: (d.photos || []).map((p: Record<string, any>) => ({
@@ -1132,18 +1134,19 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
   const fields = (type: string) => ({
     ...(type === "time" && planClean(body.time, 20) ? { time: planClean(body.time, 20) } : {}),
     ...(type === "bring" && planClean(body.who, 40) ? { who: planClean(body.who, 40) } : {}),
+    ...(type === "idea" && planClean(body.detail, 300) ? { detail: planClean(body.detail, 300) } : {}),
   });
   if (body.action === "plan-add") {
     if (!text) return ok({ error: "Write something first" }, 400);
-    const type = ["time", "bring", "coming"].includes(String(body.planType)) ? String(body.planType) : "time";
+    const type = ["idea", "time", "bring", "coming"].includes(String(body.planType)) ? String(body.planType) : "time";
     const r = tripRange(String(t.doc.dates || ""));
     const id = "plan-" + crypto.randomUUID().slice(0, 13);
     const now = Date.now();
     const doc = { id, kind: "Plan", planType: type, title: text, date: r ? label(r[0]) : label(new Date()), place: String(t.doc.place || ""),
-      ...fields(type), by: name, photos: [], source: "plan", pos: now, added: now };
+      ...fields(type), ...(type === "idea" ? { votes: [name] } : {}), by: name, photos: [], source: "plan", pos: now, added: now };
     const { error } = await admin.from("entries").upsert({ household_id: hid, id, trip_id: t.id, deleted: false, doc }, { onConflict: "household_id,id" });
     if (error) return ok({ error: error.message }, 500);
-    const what = type === "coming" ? `${name}: ${text} is coming` : type === "bring" ? `${name}: ${text}${doc.who ? " (" + doc.who + ")" : ""} for the plan` : `${name} added to the plan: ${text}`;
+    const what = type === "idea" ? `${name} has an idea: ${text}` : type === "coming" ? `${name}: ${text} is coming` : type === "bring" ? `${name}: ${text}${doc.who ? " (" + doc.who + ")" : ""} for the plan` : `${name} added to the plan: ${text}`;
     await admin.from("inbound_emails").insert({
       household_id: hid, sender: name, subject: what.slice(0, 120), items: 1, status: "added",
       reader: "guest", trip_title: String(t.doc.title || ""), trip_id: t.id, message_id: "guest:" + id, body: "", attachments: [],
@@ -1159,10 +1162,20 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     if (error) return ok({ error: error.message }, 500);
     return ok({ removed: 1 });
   }
+  if (body.action === "plan-vote") {
+    if (cur.doc.planType !== "idea") return ok({ error: "That's already on the schedule" }, 400);
+    const same = (v: unknown) => planClean(v, 40).toLowerCase() === name.toLowerCase();
+    const votes = (Array.isArray(cur.doc.votes) ? cur.doc.votes : []).map(String);
+    const doc = { ...cur.doc, votes: votes.some(same) ? votes.filter((v: string) => !same(v)) : [...votes, name] };
+    const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
+    if (error) return ok({ error: error.message }, 500);
+    return ok({ voted: doc.votes.length });
+  }
   if (body.action !== "plan-edit") return ok({ error: "unknown action" }, 400);
   if (!text) return ok({ error: "Write something first" }, 400);
   const type = String(cur.doc.planType || "time");
   const { time: _t, who: _w, ...rest } = cur.doc;
+  if (type === "idea") delete rest.detail; // rewritten below (a scheduled idea keeps its details)
   const doc = { ...rest, title: text, ...fields(type) };
   const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
   if (error) return ok({ error: error.message }, 500);

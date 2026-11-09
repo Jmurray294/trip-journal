@@ -929,8 +929,9 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .plan-who { font-size: 14px; color: var(--secondary); font-weight: 600; }
 .plan-by { flex-basis: 100%; font-size: 11.5px; color: var(--muted); }
 .plan-add { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px; margin-top: 10px; align-items: center; }
-.plan-sec:nth-child(2) .plan-add { grid-template-columns: minmax(0, 1fr) 120px auto; }
-.plan-add.one { grid-template-columns: minmax(0, 1fr) auto; }
+.plan-add.t-bring { grid-template-columns: minmax(0, 1fr) 120px auto; }
+.plan-add.t-idea { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.plan-add.t-coming { grid-template-columns: minmax(0, 1fr) auto; }
 .plan-add .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; }
 .plan-btn { flex: none; min-height: 42px; padding: 0 16px; }
 .plan-edit { border-top: 1px solid rgba(42,37,32,0.08); padding: 10px 0; }
@@ -938,8 +939,24 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .plan-edit-btns .btn-primary.small, .plan-edit-btns .btn-muted { flex: none; width: auto; min-height: 40px; padding: 0 18px; margin: 0; }
 .plan-btn { width: auto !important; }
 .plan-remove { color: #9E1B1B !important; margin-left: auto !important; }
+/* ideas to choose from: votes ("I'm in"), and the family puts the chosen ones on the schedule */
+.plan-sec-idea { border-color: rgba(27,63,168,0.28); background: #F7F9FE; }
+.plan-note { font-size: 13px; color: var(--secondary); margin: -2px 0 6px; }
+.plan-detail { flex-basis: 100%; font-size: 13px; color: var(--secondary); overflow-wrap: anywhere; }
+.plan-detail a { color: #1B3FA8; }
+.plan-idea { cursor: default; align-items: center; flex-wrap: nowrap; }
+.plan-idea-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; text-align: left; background: none; border: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; }
+.plan-idea-main:hover .plan-text { color: #1B3FA8; }
+.plan-votes { flex-basis: 100%; font-size: 12.5px; color: var(--muted); }
+.plan-votes b { color: #2A7D34; font-weight: 700; }
+.plan-vote { flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1.5px solid #1B3FA8; background: #fff; color: #1B3FA8; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.plan-vote.on { background: #2A7D34; border-color: #2A7D34; color: #fff; }
+.plan-schedule { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(42,37,32,0.15); font-size: 14px; font-weight: 600; }
+.plan-schedule .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; width: 160px; }
+.plan-schedule .btn-primary.small { flex: none; width: auto; min-height: 40px; padding: 0 16px; margin: 0; }
 @media (max-width: 420px) {
-  .plan-add, .plan-sec:nth-child(2) .plan-add, .plan-add.one { grid-template-columns: minmax(0, 1fr); }
+  .plan-add, .plan-add.t-bring, .plan-add.t-idea, .plan-add.t-coming { grid-template-columns: minmax(0, 1fr); }
+  .plan-schedule .plan-x { flex-basis: 100%; }
 }
 
 /* the family's contacts, to pick followers and guests from (ContactsSheet.jsx) */

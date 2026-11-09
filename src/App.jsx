@@ -40,7 +40,7 @@ import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
 import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
-import { makePlanItem, editPlanItem, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
+import { makePlanItem, editPlanItem, scheduleIdea, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
 
 
 async function copyText(text) {
@@ -520,6 +520,7 @@ export default function App() {
     return true;
   };
   const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? editPlanItem(d, changes) : d)) }));
+  const schedulePlan = (tripId, id, time) => { updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? scheduleIdea(d, time) : d)) })); showToast('On the schedule'); };
   const removePlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: sortDays(t.days.filter((d) => d.id !== id)) }));
 
   const deleteEntry = (tripId, idx) => {
@@ -871,6 +872,7 @@ export default function App() {
               onAddPlan={(item) => addPlan(trip.id, item)}
               onEditPlan={(id, changes) => editPlan(trip.id, id, changes)}
               onRemovePlan={(id) => removePlan(trip.id, id)}
+              onSchedulePlan={(id, time) => schedulePlan(trip.id, id, time)}
               onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
               onSetCover={(dayId, pi) => setTripCover(trip.id, dayId, pi)}
               onPhotoCaption={(i, pi, text) => trip.days[i] && setPhotoCaption(trip.id, trip.days[i].id, pi, text)}
