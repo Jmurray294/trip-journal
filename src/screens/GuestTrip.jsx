@@ -132,11 +132,28 @@ export default function GuestTrip({ token }) {
   const gathering = !!trip.gathering;
   const plan = gathering ? planLists({ days: data.days }) : null;
   const days = data.days.filter((d) => d.kind !== 'Plan');
+  // add photos / add a note (or what's being saved)
+  const addBar = (
+    busy ? (
+      <div className="row-9" style={{ marginTop: 14, minHeight: 44 }}><span className="spin-sm" /><span className="sheet-copy" style={{ margin: 0 }}>{busy}</span></div>
+    ) : (
+      <div className="row-8" style={{ marginTop: 14 }}>
+        <label className="btn-primary small press" style={{ cursor: 'pointer' }}>
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.target.files; if (f && f.length) addPhotos([...f]); e.target.value = ''; }} />
+          <Plus size={15} color="#FBF6EC" w={2} /> Add photos
+        </label>
+        <button className="btn-soft-pill press" style={{ flex: 1, justifyContent: 'center', minHeight: 46 }} onClick={() => setNoteOpen(true)}>
+          <Note /> Add a note
+        </button>
+      </div>
+    )
+  );
+
   return (
     <div className="app">
       <div className="scroller">
         <div className="screen" style={{ paddingBottom: 60 }}>
-          <div className="hero detail-hero">
+          <div className={'hero detail-hero' + (gathering ? ' short' : '')}>
             <div className="fill" style={coverBg(trip)} />
             <div className="fill" style={{ background: 'linear-gradient(to top, rgba(48,26,14,0.82) 0%, rgba(48,26,14,0.10) 52%, rgba(30,20,14,0.22) 100%)' }} />
             <div className="hero-text">
@@ -150,7 +167,7 @@ export default function GuestTrip({ token }) {
             </div>
           </div>
 
-          <div className="stats-card" style={{ display: 'block' }}>
+          <div className="stats-card" style={{ display: 'block', ...(gathering ? { marginTop: 14 } : {}) }}>
             {!name ? (
               <>
                 <div className="field-label">Who's this?</div>
@@ -165,26 +182,32 @@ export default function GuestTrip({ token }) {
               <>
                 <div className="sheet-copy" style={{ marginTop: 0 }}>
                   {gathering
-                    ? <>Hi {name}. Add to the plan below (tap anything on it to change it), and add your photos and notes.</>
+                    ? <>Hi {name}. The plan’s right below: tap “I’m in” on the ideas you’d like, add your own, or tap anything to change it.</>
                     : <>Hi {name}. Add your photos and notes from the trip — they go into the trip's story and photo album.</>}
                 </div>
-                {busy ? (
-                  <div className="row-9" style={{ marginTop: 14, minHeight: 44 }}><span className="spin-sm" /><span className="sheet-copy" style={{ margin: 0 }}>{busy}</span></div>
-                ) : (
-                  <div className="row-8" style={{ marginTop: 14 }}>
-                    <label className="btn-primary small press" style={{ cursor: 'pointer' }}>
-                      <input type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.target.files; if (f && f.length) addPhotos([...f]); e.target.value = ''; }} />
-                      <Plus size={15} color="#FBF6EC" w={2} /> Add photos
-                    </label>
-                    <button className="btn-soft-pill press" style={{ flex: 1, justifyContent: 'center', minHeight: 46 }} onClick={() => setNoteOpen(true)}>
-                      <Note /> Add a note
-                    </button>
-                  </div>
-                )}
+                {!gathering && addBar}
                 <button className="btn-link inline" style={{ marginTop: 8 }} onClick={() => { setDraft(name); setName(store(nameKey, '')); }}>Not {name}?</button>
               </>
             )}
           </div>
+
+          {/* a gathering: the plan first, so guests don't have to look for it */}
+          {gathering && (
+            <div className="detail-main" style={{ marginBottom: 6 }}>
+              <div className="timeline-head"><div className="mono-label">The plan</div></div>
+              <GatheringPlan lists={plan} busy={!!busy}
+                onAdd={(item) => planCall({ action: 'plan-add', ...item }, 'Added to the plan')}
+                onEdit={(id, c) => planCall({ action: 'plan-edit', id, ...c }, 'Saved')}
+                onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')}
+                me={name} onVote={(id) => planCall({ action: 'plan-vote', id })} />
+            </div>
+          )}
+          {gathering && name && (
+            <div className="stats-card" style={{ display: 'block' }}>
+              <div className="sheet-copy" style={{ marginTop: 0 }}>Add your photos and notes from the visit.</div>
+              {addBar}
+            </div>
+          )}
 
           {/* a gathering: the street map of where it is, with directions; a trip: its route */}
           {gathering && data.where && (
@@ -200,16 +223,6 @@ export default function GuestTrip({ token }) {
             </div>
           )}
 
-          {gathering && (
-            <div className="detail-main" style={{ marginBottom: 6 }}>
-              <div className="timeline-head"><div className="mono-label">The plan</div></div>
-              <GatheringPlan lists={plan} busy={!!busy}
-                onAdd={(item) => planCall({ action: 'plan-add', ...item }, 'Added to the plan')}
-                onEdit={(id, c) => planCall({ action: 'plan-edit', id, ...c }, 'Saved')}
-                onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')}
-                me={name} onVote={(id) => planCall({ action: 'plan-vote', id })} />
-            </div>
-          )}
 
           <div className="detail-main">
             <div className="timeline-head"><div className="mono-label">{gathering ? 'Photos and notes' : 'The trip'}</div></div>
