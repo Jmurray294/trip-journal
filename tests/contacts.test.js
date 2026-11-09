@@ -36,3 +36,13 @@ test('group email is bcc; a text goes to one number with the message', () => {
   assert.ok(m.startsWith('mailto:?bcc=a%40x.com%2Cb%40x.com&subject=Hi%20there&body=Line%201%0Ahttps'));
   assert.equal(smsTo('(414) 555-0101', 'Join us'), 'sms:4145550101?&body=Join%20us');
 });
+
+test('phone numbers read the usual way, and the same number typed differently is the same person', async () => {
+  const { formatPhone } = await import('../src/lib/contacts.js');
+  assert.equal(formatPhone('9727688136'), '(972) 768-8136');
+  assert.equal(formatPhone('+1 972.768.8136'), '(972) 768-8136');
+  assert.equal(formatPhone('+44 20 7946 0958'), '+44 20 7946 0958');
+  assert.equal(makeContact({ name: 'Amy', phone: '9727688136' }, 'a').phone, '(972) 768-8136');
+  const l = upsertContact([{ id: 'a', name: 'Amy', email: '', phone: '9727688136' }], makeContact({ name: '', phone: '972-768-8136' }, 'b'));
+  assert.equal(l.length, 1);
+});

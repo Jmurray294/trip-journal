@@ -8,7 +8,15 @@ import { supabase } from './supabase.js';
 
 const clean = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 export const normEmail = (e) => clean(e, 120).toLowerCase();
-export const normPhone = (p) => clean(p, 30).replace(/[^\d+()\-. ]/g, '');
+// a US number shown the usual way: 9727688136 or +1 972.768.8136 → (972) 768-8136; others as typed
+export function formatPhone(p) {
+  const s = clean(p, 30).replace(/[^\d+()\-. ]/g, '');
+  const d = s.replace(/\D/g, '');
+  const us = d.length === 10 ? d : d.length === 11 && d[0] === '1' ? d.slice(1) : '';
+  return us ? `(${us.slice(0, 3)}) ${us.slice(3, 6)}-${us.slice(6)}` : s;
+}
+export const normPhone = formatPhone;
+const samePhone = (a, b) => !!a && !!b && formatPhone(a).replace(/\D/g, '') === formatPhone(b).replace(/\D/g, '');
 
 // a contact from a form; null when it has nothing to reach them by. A blank name stays blank here,
 // so saving someone again by email alone keeps the name they already have (upsertContact fills it).
@@ -24,7 +32,7 @@ export function makeContact({ name, email, phone }, id) {
 export function upsertContact(list, c) {
   const own = (list || []).findIndex((x) => x.id === c.id);
   if (own >= 0) return sortContacts(list.map((x, j) => (j === own ? { ...c, name: c.name || x.name } : x)));
-  const same = (x) => (c.email && x.email === c.email) || (!c.email && c.phone && x.phone === c.phone);
+  const same = (x) => (c.email && x.email === c.email) || (!c.email && samePhone(x.phone, c.phone));
   const i = (list || []).findIndex(same);
   if (i < 0) return sortContacts([...(list || []), { ...c, name: c.name || (c.email ? c.email.split('@')[0] : c.phone) }]);
   const merged = { ...list[i], ...Object.fromEntries(Object.entries(c).filter(([k, v]) => v && k !== 'id')) };

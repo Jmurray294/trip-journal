@@ -964,7 +964,8 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .contact { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-top: 1px solid rgba(42,37,32,0.08); }
 .contact:first-child { border-top: none; }
 .contact.on { background: #F4F7FD; border-radius: 10px; }
-.contact-check { width: 20px; height: 20px; flex: none; accent-color: #1B3FA8; }
+.contact-check { -webkit-appearance: checkbox; appearance: auto; width: 20px; height: 20px; flex: none; margin: 0; accent-color: #1B3FA8; cursor: pointer; }
+.contact a.btn-link.inline { display: inline-flex; align-items: center; text-decoration: none; }
 .contact-main { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; background: none; border: none; padding: 2px 0; font: inherit; color: var(--ink); cursor: pointer; }
 .contact-name { font-size: 15px; font-weight: 600; }
 .contact-sub { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

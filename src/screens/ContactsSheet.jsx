@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { mailtoMany, smsTo } from '../lib/contacts.js';
+import { mailtoMany, smsTo, formatPhone } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
@@ -72,7 +72,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
                 )}
                 <button className="contact-main" onClick={() => (mode !== 'manage' && canPick(c) ? toggle(c.id) : setEditing(c.id))}>
                   <span className="contact-name">{c.name}</span>
-                  <span className="contact-sub">{[c.email, c.phone].filter(Boolean).join(' · ')}</span>
+                  <span className="contact-sub">{[c.email, c.phone && formatPhone(c.phone)].filter(Boolean).join(' · ')}</span>
                 </button>
                 {mode === 'followers' && following.has(c.email) && <span className="contact-tag">Following</span>}
                 {mode === 'guests' && c.phone && <a className="btn-link inline" href={smsTo(c.phone, guestText)}>Text</a>}
@@ -105,7 +105,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
 }
 
 function ContactForm({ c = {}, busy, onSave, onCancel, onRemove }) {
-  const [f, setF] = useState({ name: c.name || '', email: c.email || '', phone: c.phone || '' });
+  const [f, setF] = useState({ name: c.name || '', email: c.email || '', phone: c.phone ? formatPhone(c.phone) : '' });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const ok = f.email.includes('@') || f.phone.replace(/\D/g, '').length >= 7;
   return (
