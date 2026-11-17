@@ -110,3 +110,5 @@
 .pt-plan-line { padding: 4px 0; font-size: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
 .pt-plan-line .pt-plan-title { font-weight: 500; margin: 0; }
 .pt-route { margin-bottom: 18px; }
+.pt-plan-sub { margin-top: 4px; }
+.pt-plan-subhead { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 6px; }

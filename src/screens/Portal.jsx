@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { coverBg, photoBg, songAudioSrc } from '../lib/derive.js';
 import { onMediaReady } from '../lib/media.js';
-import { countdown } from '../lib/stages.js';
+import { countdown, datesRange } from '../lib/stages.js';
 import { loadPortal, portalSections, latestMoments, hasBook, hasSong } from '../lib/followers.js';
 import PhotoViewer from '../components/PhotoViewer.jsx';
 import RouteMap from '../components/RouteMap.jsx';
 import { awayStops } from '../lib/geo.js';
 import { BookReader } from './PhotoBook.jsx';
 import '../portal.css';
-import { isGathering, planLists, PLAN_SECTIONS } from '../lib/gathering.js';
+import { isGathering, planLists, PLAN_SECTIONS, scheduleByDay, gatheringDays, bringByCourse } from '../lib/gathering.js';
 
 // The family portal (?follow): people a family invited to follow along. Sign in with an emailed
 // 6-digit code, then see the trips the family shared — what's happening now on a trip underway
@@ -205,7 +205,25 @@ function GatheringPlanView({ trip }) {
     <>
       <div className="mono-label">The plan</div>
       {!any && <div className="pt-sub" style={{ marginTop: 8 }}>Nothing planned yet.</div>}
-      {PLAN_SECTIONS.map(([k, title]) => lists[k].length > 0 && (
+      {PLAN_SECTIONS.map(([k, title]) => lists[k].length > 0 && (k === 'time' || k === 'bring' ? (
+        // the schedule day by day, the bring list course by course
+        <div key={k} className="pt-plan-group">
+          <div className="pt-plan-head">{title}</div>
+          {(k === 'time' ? scheduleByDay(lists.time, gatheringDays(datesRange(trip.dates))).filter((g) => g.items.length) : bringByCourse(lists.bring).map((g) => ({ name: g.course, items: g.items }))).map((g) => (
+            <div key={g.name} className="pt-plan-sub">
+              <div className="pt-plan-subhead">{g.name}</div>
+              {g.items.map((d) => (
+                <div key={d.id} className="pt-plan-line">
+                  {k === 'time' && <span className="pt-when">{d.time ? (d.until ? d.time + '–' + d.until : d.time) : 'Anytime'}</span>}
+                  <span className="pt-plan-title">{d.title}</span>
+                  {k === 'time' && d.group && <span className="pt-sub"> · {d.group}</span>}
+                  {k === 'bring' && <span className="pt-sub"> · {d.who || 'still needed'}</span>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
         <div key={k} className="pt-plan-group">
           <div className="pt-plan-head">{title}</div>
           {lists[k].map((d) => (
@@ -217,7 +235,7 @@ function GatheringPlanView({ trip }) {
             </div>
           ))}
         </div>
-      ))}
+      )))}
     </>
   );
 }

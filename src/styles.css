@@ -954,8 +954,41 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .plan-schedule { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(42,37,32,0.15); font-size: 14px; font-weight: 600; }
 .plan-schedule .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; width: 160px; }
 .plan-schedule .btn-primary.small { flex: none; width: auto; min-height: 40px; padding: 0 16px; margin: 0; }
+/* the schedule day by day, moving things, the bring list by course */
+.plan-day-group { border-radius: 10px; transition: background 0.15s; }
+.plan-day-group + .plan-day-group { margin-top: 8px; }
+.plan-day-group.over { background: #EEF2FC; outline: 2px dashed rgba(27,63,168,0.4); }
+.plan-day-head { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--secondary); font-weight: 700; padding: 10px 2px 2px; border-bottom: 1px solid rgba(27,63,168,0.14); }
+.plan-course + .plan-course { margin-top: 4px; }
+.plan-time.none { color: var(--muted); }
+.plan-group { font-size: 12px; font-weight: 600; color: #6B4E16; background: #FBF1DC; border-radius: 999px; padding: 2px 8px; }
+.plan-row[draggable="true"] { cursor: grab; }
+/* .t-time is also the song player's timer; undo it here */
+.plan-add.t-time { width: auto; font-family: inherit; font-size: inherit; color: inherit; }
+.plan-add.t-time.with-day, .plan-add.t-bring { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+/* what it is goes on top, across; day and time (or course and who) and Add below */
+.plan-add.t-time.with-day > .field:nth-child(3), .plan-add.t-bring > .field:first-child { grid-column: 1 / -1; order: -1; }
+.plan-move { background: #F4F7FD; border-radius: 10px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.plan-move-what { font-size: 14.5px; }
+.plan-move-what b { font-family: var(--mono); color: #1B3FA8; font-weight: 600; margin-right: 6px; }
+.plan-move-btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.plan-move-label { font-size: 12.5px; color: var(--secondary); flex-basis: 100%; }
+.plan-chip { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1.5px solid rgba(27,63,168,0.35); background: #fff; color: #1B3FA8; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.plan-chip:disabled { opacity: 0.4; cursor: default; }
+.plan-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.plan-f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.plan-f.wide { grid-column: 1 / -1; }
+.plan-f > span { font-size: 12px; color: var(--secondary); font-weight: 600; }
+.plan-f .field, .plan-add .plan-day { padding: 10px 12px; font-size: 15px; border-radius: 10px; min-width: 0; }
+.plan-anytime { margin-top: 6px !important; }
+.plan-need { font-size: 12px; font-weight: 700; color: #9A5B00; background: #FFF1D6; border-radius: 999px; padding: 2px 9px; }
+.plan-row.needed .plan-text { color: var(--ink); }
+.plan-needed-count { color: #9A5B00; }
+.plan-schedule .plan-day { padding: 10px 12px; font-size: 15px; border-radius: 10px; width: 150px; }
 @media (max-width: 420px) {
-  .plan-add, .plan-add.t-bring, .plan-add.t-idea, .plan-add.t-coming { grid-template-columns: minmax(0, 1fr); }
+  .plan-add, .plan-add.t-idea, .plan-add.t-coming { grid-template-columns: minmax(0, 1fr); }
+  .plan-add.t-time:not(.with-day) { grid-template-columns: 110px minmax(0, 1fr); }
+  .plan-add.t-time:not(.with-day) > .plan-btn { grid-column: 1 / -1; }
   .plan-schedule .plan-x { flex-basis: 100%; }
 }
 

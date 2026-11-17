@@ -1,25 +1,38 @@
 import { useState } from 'react';
-import { PLAN_SECTIONS, votesOf, hasVoted } from '../lib/gathering.js';
+import {
+  PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
+  COURSES, courseOf, bringByCourse, stillNeeded,
+} from '../lib/gathering.js';
 
-// A gathering's plan: ideas to choose from, the schedule, who's bringing what, who's coming. Anyone
-// who can see it here can add to it, change an item (tap it) or take one off. Used in the family's app
-// and on the guests' link page. lists: planLists(trip); onAdd({ planType, text, time, who, detail }) →
-// true when added; onEdit(id, { text, time, who, detail }); onRemove(id).
+// A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
+// course), who's coming. Anyone who can see it here can add to it, change an item (tap it) or take one
+// off. Used in the family's app and on the guests' link page.
+//   lists: planLists(trip); days: gatheringDays(span) — the gathering's days, for the schedule
+//   onAdd({ planType, text, time, until, group, day, course, who, detail }) → true when added
+//   onEdit(id, changes); onRemove(id); onShift(id, minutes) moves that item and the rest of its day
 // Ideas: onVote(id) says "I'm in" (or takes it back) as `me` — the guests' page passes both; the family
-// app passes onSchedule(id, time) to put a chosen idea on the schedule.
-export default function GatheringPlan({ lists, onAdd, onEdit, onRemove, onVote, onSchedule, me = '', busy = false }) {
+// app passes onSchedule(id, time, day) to put a chosen idea on the schedule.
+// Bring: onClaim(id) says "I'll bring it" as `me` (the guests' page).
+export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemove, onShift, onVote, onSchedule, onClaim, me = '', busy = false }) {
+  const common = { onAdd, onEdit, onRemove, busy, days };
   return (
     <div className="plan">
-      {PLAN_SECTIONS.map(([type, title, hint, extra]) => (
-        <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={lists[type] || []}
-          onAdd={onAdd} onEdit={onEdit} onRemove={onRemove} onVote={onVote} onSchedule={onSchedule} me={me} busy={busy} />
-      ))}
+      {PLAN_SECTIONS.map(([type, title, hint, extra]) => {
+        const items = lists[type] || [];
+        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} onShift={onShift} {...common} />;
+        if (type === 'bring') return <BringSection key={type} title={title} items={items} me={me} onClaim={onClaim} {...common} />;
+        return (
+          <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={items}
+            onVote={onVote} onSchedule={onSchedule} me={me} {...common} />
+        );
+      })}
     </div>
   );
 }
 
-const extraOf = (type, d) => (type === 'time' ? d.time : type === 'bring' ? d.who : type === 'idea' ? d.detail : '') || '';
-const withExtra = (type, text, x) => ({ text, ...(type === 'time' ? { time: x } : type === 'bring' ? { who: x } : type === 'idea' ? { detail: x } : {}) });
+// the time picker gives "16:30"; the plan keeps "4:30pm"
+const fromPicker = (v) => (v ? fmtTime(timeMinutes(v)) : '');
+const whenOf = (d) => (d.time ? (d.until ? `${d.time}–${d.until}` : d.time) : 'Anytime');
 
 // details with any web address made into a link
 const URL_RE = /(https?:\/\/[^\s]+)/g;
@@ -34,7 +47,237 @@ function Detail({ text }) {
   );
 }
 
-function PlanSection({ type, title, hint, extra, items, onAdd, onEdit, onRemove, onVote, onSchedule, me, busy }) {
+function EditButtons({ busy, ok, onSave, onCancel, onRemove }) {
+  return (
+    <div className="plan-edit-btns">
+      <button className="btn-primary small press" disabled={!ok || busy} onClick={onSave}>Save</button>
+      <button className="btn-muted press" onClick={onCancel}>Cancel</button>
+      <button className="btn-link inline plan-remove" disabled={busy} onClick={onRemove}>Remove</button>
+    </div>
+  );
+}
+
+function DaySelect({ days, value, onChange, label = 'Day' }) {
+  if (days.length < 2 && (!value || (days[0] && days[0].label === value))) return null;
+  const known = days.some((d) => d.label === value);
+  return (
+    <select className="field plan-day" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      {!known && value && <option value={value}>{value}</option>}
+      {days.map((d) => <option key={d.label} value={d.label}>{d.name}</option>)}
+    </select>
+  );
+}
+
+// ---------- the schedule ----------
+function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift, busy }) {
+  const groups = scheduleByDay(items, days);
+  const [open, setOpen] = useState(null); // id
+  const [day, setDay] = useState(days[0] ? days[0].label : '');
+  const [time, setTime] = useState('');
+  const [text, setText] = useState('');
+  const [over, setOver] = useState(''); // the day being dragged over
+  const add = async () => {
+    if (!text.trim() || busy) return;
+    const ok = await onAdd({ planType: 'time', text, time: fromPicker(time), day });
+    if (ok !== false) { setText(''); setTime(''); }
+  };
+  const drop = (label) => (e) => {
+    e.preventDefault(); setOver('');
+    const id = e.dataTransfer.getData('text/plan-id');
+    const d = items.find((x) => x.id === id);
+    if (d && d.date !== label) onEdit(id, { day: label });
+  };
+  const many = groups.length > 1;
+  return (
+    <div className="plan-sec plan-sec-time">
+      <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-note">Tap anything to move it to another time or day{many ? ', or drag it onto a day' : ''}.</div>
+      {groups.length === 0 && <div className="plan-empty">Nothing yet.</div>}
+      {groups.map((g) => (
+        <div key={g.label || 'any'} className={'plan-day-group' + (over === g.label ? ' over' : '')}
+          onDragOver={(e) => { if (e.dataTransfer.types.includes('text/plan-id')) { e.preventDefault(); setOver(g.label); } }}
+          onDragLeave={() => setOver((o) => (o === g.label ? '' : o))} onDrop={drop(g.label)}>
+          {many && <div className="plan-day-head">{g.name}</div>}
+          {g.items.length === 0 && <div className="plan-empty">Nothing planned{many ? ' this day' : ''} yet.</div>}
+          {g.items.map((d) => (open === d.id
+            ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
+                onRemove={async () => { await onRemove(d.id); setOpen(null); }} onClose={() => setOpen(null)} />
+            : (
+              <button key={d.id} className="plan-row" onClick={() => setOpen(d.id)} title="Tap to change or move"
+                draggable onDragStart={(e) => { e.dataTransfer.setData('text/plan-id', d.id); e.dataTransfer.effectAllowed = 'move'; }}>
+                <span className={'plan-time' + (d.time ? '' : ' none')}>{whenOf(d)}</span>
+                <span className="plan-text">{d.title}</span>
+                {d.group && <span className="plan-group">{d.group}</span>}
+                {d.detail && <Detail text={d.detail} />}
+                {d.by && <span className="plan-by">added by {d.by}</span>}
+              </button>
+            )))}
+        </div>
+      ))}
+      <div className={'plan-add t-time' + (days.length > 1 ? ' with-day' : '')}>
+        <DaySelect days={days} value={day} onChange={setDay} />
+        <input className="field plan-x" type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Time (leave empty for anytime)" />
+        <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="e.g. Dinner" aria-label="Add to the schedule" />
+        <button className="btn-primary small press plan-btn" disabled={!text.trim() || busy} onClick={add}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleEdit({ d, days, busy, onEdit, onShift, onRemove, onClose }) {
+  const timed = timeMinutes(d.time) != null;
+  const i = days.findIndex((x) => x.label === d.date);
+  const move = (mins) => onEdit(d.id, { time: fmtTime(timeMinutes(d.time) + mins), ...(timeMinutes(d.until) != null ? { until: fmtTime(timeMinutes(d.until) + mins) } : {}) });
+  const early = timed && timeMinutes(d.time) >= 30;
+  const late = timed && timeMinutes(d.time) <= 23 * 60;
+  return (
+    <div className="plan-edit">
+      <div className="plan-move">
+        <span className="plan-move-what"><b>{whenOf(d)}</b> {d.title}</span>
+        <div className="plan-move-btns">
+          {timed && <button className="plan-chip press" disabled={busy || !early} onClick={() => move(-30)}>− 30 min</button>}
+          {timed && <button className="plan-chip press" disabled={busy || !late} onClick={() => move(30)}>+ 30 min</button>}
+          {i > 0 && <button className="plan-chip press" disabled={busy} onClick={() => onEdit(d.id, { day: days[i - 1].label })}>‹ {days[i - 1].name.split(' ')[0]}</button>}
+          {i >= 0 && i < days.length - 1 && <button className="plan-chip press" disabled={busy} onClick={() => onEdit(d.id, { day: days[i + 1].label })}>{days[i + 1].name.split(' ')[0]} ›</button>}
+        </div>
+        {timed && onShift && (
+          <div className="plan-move-btns">
+            <span className="plan-move-label">Running late? Push this and the rest of the day back</span>
+            <button className="plan-chip press" disabled={busy || !late} onClick={() => onShift(d.id, 30)}>30 min</button>
+            <button className="plan-chip press" disabled={busy || !late} onClick={() => onShift(d.id, 60)}>1 hour</button>
+          </div>
+        )}
+      </div>
+      {/* the full edit; keyed so it shows the new day and time after a quick move */}
+      <ScheduleForm key={`${d.date}|${d.time}|${d.until}`} d={d} days={days} busy={busy} onRemove={onRemove} onClose={onClose}
+        onSave={async (c) => { await onEdit(d.id, c); onClose(); }} />
+    </div>
+  );
+}
+
+function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
+  const [text, setText] = useState(d.title || '');
+  const [day, setDay] = useState(d.date || (days[0] && days[0].label) || '');
+  const [time, setTime] = useState(pickerTime(d.time));
+  const [until, setUntil] = useState(pickerTime(d.until));
+  const [group, setGroup] = useState(d.group || '');
+  const [detail, setDetail] = useState(d.detail || '');
+  // a time written by hand that the picker can't show ("after dinner") stays unless it's changed
+  const odd = !!d.time && timeMinutes(d.time) == null;
+  const [timeTouched, setTimeTouched] = useState(false);
+  const save = () => {
+    if (!text.trim()) return;
+    const c = { text, day, group, detail };
+    if (!odd || timeTouched) { c.time = fromPicker(time); c.until = time ? fromPicker(until) : ''; }
+    onSave(c);
+  };
+  const key = (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onClose(); };
+  return (
+    <>
+      <div className="plan-form">
+        <label className="plan-f wide"><span>What</span><input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={key} aria-label="What" /></label>
+        {days.length > 1 && <label className="plan-f"><span>Day</span><DaySelect days={days} value={day} onChange={setDay} /></label>}
+        <label className="plan-f"><span>Starts{odd && !timeTouched ? ` (now “${d.time}”)` : ''}</span>
+          <input className="field" type="time" value={time} onChange={(e) => { setTime(e.target.value); setTimeTouched(true); }} aria-label="Starts" /></label>
+        <label className="plan-f"><span>Until (optional)</span>
+          <input className="field" type="time" value={until} disabled={!time} onChange={(e) => { setUntil(e.target.value); setTimeTouched(true); }} aria-label="Until" /></label>
+        <label className="plan-f"><span>For (optional)</span><input className="field" value={group} onChange={(e) => setGroup(e.target.value)} onKeyDown={key} placeholder="e.g. Kids, Everyone" aria-label="For" /></label>
+        <label className="plan-f wide"><span>Notes or link (optional)</span><input className="field" value={detail} onChange={(e) => setDetail(e.target.value)} onKeyDown={key} aria-label="Notes or link" /></label>
+      </div>
+      {time && <button className="btn-link inline plan-anytime" onClick={() => { setTime(''); setUntil(''); setTimeTouched(true); }}>No set time (anytime)</button>}
+      <EditButtons busy={busy} ok={!!text.trim()} onSave={save} onCancel={onClose} onRemove={onRemove} />
+    </>
+  );
+}
+
+// ---------- who's bringing what ----------
+function BringSection({ title, items, me, onAdd, onEdit, onRemove, onClaim, busy }) {
+  const [open, setOpen] = useState(null);
+  const [text, setText] = useState('');
+  const [course, setCourse] = useState('Sides');
+  const [who, setWho] = useState('');
+  const needed = items.filter(stillNeeded).length;
+  const add = async () => {
+    if (!text.trim() || busy) return;
+    const ok = await onAdd({ planType: 'bring', text, course, who });
+    if (ok !== false) { setText(''); setWho(''); }
+  };
+  const key = (e) => { if (e.key === 'Enter') add(); };
+  return (
+    <div className="plan-sec plan-sec-bring">
+      <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-note">
+        {needed > 0 && <b className="plan-needed-count">{needed} still needed. </b>}
+        {onClaim ? 'Tap “I’ll bring it” on anything still needed, or add what you’re bringing.' : 'List what’s needed and leave Who empty; guests tap “I’ll bring it” on their link.'}
+      </div>
+      {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
+      {bringByCourse(items).map((g) => (
+        <div key={g.course} className="plan-course">
+          <div className="plan-day-head">{g.course}</div>
+          {g.items.map((d) => (open === d.id
+            ? <BringEdit key={d.id} d={d} busy={busy} onClose={() => setOpen(null)}
+                onSave={async (c) => { await onEdit(d.id, c); setOpen(null); }}
+                onRemove={async () => { await onRemove(d.id); setOpen(null); }} />
+            : <BringRow key={d.id} d={d} me={me} busy={busy} onClaim={onClaim} onOpen={() => setOpen(d.id)} />))}
+        </div>
+      ))}
+      <div className="plan-add t-bring">
+        <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={key} placeholder="e.g. Green bean casserole" aria-label="Add something to bring" />
+        <select className="field plan-x" value={course} onChange={(e) => setCourse(e.target.value)} aria-label="Course">
+          {COURSES.map((c) => <option key={c}>{c}</option>)}
+        </select>
+        <input className="field plan-x" value={who} onChange={(e) => setWho(e.target.value)} onKeyDown={key} placeholder={onClaim ? 'Who (or leave empty)' : 'Who (empty = needed)'} aria-label="Who's bringing it" />
+        <button className="btn-primary small press plan-btn" disabled={!text.trim() || busy} onClick={add}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+function BringRow({ d, me, busy, onClaim, onOpen }) {
+  const need = stillNeeded(d);
+  const mine = !need && !!me && String(d.who).trim().toLowerCase() === String(me).trim().toLowerCase();
+  return (
+    <div className={'plan-row plan-idea' + (need ? ' needed' : '')}>
+      <button className="plan-idea-main" onClick={onOpen} title="Tap to change">
+        <span className="plan-text">{d.title}</span>
+        {need ? <span className="plan-need">Still needed</span> : <span className="plan-who">{d.who}</span>}
+        {d.detail && <Detail text={d.detail} />}
+      </button>
+      {onClaim && (need || mine) && (
+        <button className={'plan-vote press' + (mine ? ' on' : '')} disabled={busy} onClick={() => onClaim(d.id)} aria-pressed={mine}>
+          {mine ? '✓ I’m bringing it' : 'I’ll bring it'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function BringEdit({ d, busy, onSave, onRemove, onClose }) {
+  const [text, setText] = useState(d.title || '');
+  const [course, setCourse] = useState(courseOf(d));
+  const [who, setWho] = useState(d.who || '');
+  const [detail, setDetail] = useState(d.detail || '');
+  const save = () => { if (text.trim()) onSave({ text, course, who, detail }); };
+  const key = (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onClose(); };
+  return (
+    <div className="plan-edit">
+      <div className="plan-form">
+        <label className="plan-f wide"><span>What</span><input className="field" value={text} autoFocus onChange={(e) => setText(e.target.value)} onKeyDown={key} aria-label="What" /></label>
+        <label className="plan-f"><span>Course</span>
+          <select className="field" value={course} onChange={(e) => setCourse(e.target.value)} aria-label="Course">{COURSES.map((c) => <option key={c}>{c}</option>)}</select></label>
+        <label className="plan-f"><span>Who’s bringing it</span><input className="field" value={who} onChange={(e) => setWho(e.target.value)} onKeyDown={key} placeholder="Empty = still needed" aria-label="Who" /></label>
+        <label className="plan-f wide"><span>Note (optional)</span><input className="field" value={detail} onChange={(e) => setDetail(e.target.value)} onKeyDown={key} placeholder="e.g. gluten-free, serves 12" aria-label="Note" /></label>
+      </div>
+      <EditButtons busy={busy} ok={!!text.trim()} onSave={save} onCancel={onClose} onRemove={onRemove} />
+    </div>
+  );
+}
+
+// ---------- ideas, and who's coming ----------
+const extraOf = (type, d) => (type === 'idea' ? d.detail : '') || '';
+const withExtra = (type, text, x) => ({ text, ...(type === 'idea' ? { detail: x } : {}) });
+
+function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onRemove, onVote, onSchedule, me, busy }) {
   const [text, setText] = useState('');
   const [x, setX] = useState('');
   const [editing, setEditing] = useState(null); // id
@@ -53,7 +296,7 @@ function PlanSection({ type, title, hint, extra, items, onAdd, onEdit, onRemove,
       {note && <div className="plan-note">{note}</div>}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
       {items.map((d) => (editing === d.id
-        ? <PlanEdit key={d.id} type={type} d={d} extra={extra} busy={busy} onSchedule={onSchedule ? (t) => onSchedule(d.id, t) : null}
+        ? <PlanEdit key={d.id} type={type} d={d} extra={extra} days={days} busy={busy} onSchedule={onSchedule ? (t, day) => onSchedule(d.id, t, day) : null}
             onSave={async (c) => { await onEdit(d.id, c); setEditing(null); }}
             onRemove={async () => { await onRemove(d.id); setEditing(null); }}
             onCancel={() => setEditing(null)} />
@@ -61,17 +304,13 @@ function PlanSection({ type, title, hint, extra, items, onAdd, onEdit, onRemove,
           ? <IdeaRow key={d.id} d={d} me={me} busy={busy} onVote={onVote} onOpen={() => setEditing(d.id)} />
           : (
             <button key={d.id} className="plan-row" onClick={() => setEditing(d.id)} title="Tap to change">
-              {type === 'time' && <span className="plan-time">{d.time || '—'}</span>}
               <span className="plan-text">{d.title}</span>
-              {type === 'bring' && d.who && <span className="plan-who">{d.who}</span>}
-              {type === 'time' && d.detail && <Detail text={d.detail} />}
               {d.by && <span className="plan-by">added by {d.by}</span>}
             </button>
           )))}
       <div className={'plan-add t-' + type}>
-        {type === 'time' && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label="Time" />}
         <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={key} placeholder={hint} aria-label={'Add to ' + title} />
-        {(type === 'bring' || type === 'idea') && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label={extra} />}
+        {type === 'idea' && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label={extra} />}
         <button className="btn-primary small press plan-btn" disabled={!text.trim() || busy} onClick={add}>Add</button>
       </div>
     </div>
@@ -100,29 +339,26 @@ function IdeaRow({ d, me, busy, onVote, onOpen }) {
   );
 }
 
-function PlanEdit({ type, d, extra, busy, onSave, onRemove, onCancel, onSchedule }) {
+function PlanEdit({ type, d, extra, days, busy, onSave, onRemove, onCancel, onSchedule }) {
   const [text, setText] = useState(d.title || '');
   const [x, setX] = useState(extraOf(type, d));
   const [when, setWhen] = useState('');
+  const [day, setDay] = useState(days[0] ? days[0].label : '');
   const save = () => { if (text.trim()) onSave(withExtra(type, text, x)); };
   const key = (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); };
   return (
     <div className="plan-edit">
       <div className={'plan-add t-' + type} style={{ marginTop: 0 }}>
-        {type === 'time' && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label="Time" />}
         <input className="field" value={text} autoFocus onChange={(e) => setText(e.target.value)} onKeyDown={key} aria-label="Item" />
-        {(type === 'bring' || type === 'idea') && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label={extra} />}
+        {type === 'idea' && <input className="field plan-x" value={x} onChange={(e) => setX(e.target.value)} onKeyDown={key} placeholder={extra} aria-label={extra} />}
       </div>
-      <div className="plan-edit-btns">
-        <button className="btn-primary small press" disabled={!text.trim() || busy} onClick={save}>Save</button>
-        <button className="btn-muted press" onClick={onCancel}>Cancel</button>
-        <button className="btn-link inline plan-remove" disabled={busy} onClick={onRemove}>Remove</button>
-      </div>
+      <EditButtons busy={busy} ok={!!text.trim()} onSave={save} onCancel={onCancel} onRemove={onRemove} />
       {type === 'idea' && onSchedule && (
         <div className="plan-schedule">
           <span>We’re doing it:</span>
-          <input className="field plan-x" value={when} onChange={(e) => setWhen(e.target.value)} placeholder="When, e.g. Fri 6pm" aria-label="When" />
-          <button className="btn-primary small press" disabled={busy} onClick={() => onSchedule(when)}>Put on the schedule</button>
+          <DaySelect days={days} value={day} onChange={setDay} />
+          <input className="field plan-x" type="time" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="When (leave empty for anytime)" />
+          <button className="btn-primary small press" disabled={busy} onClick={() => onSchedule(fromPicker(when), day)}>Put on the schedule</button>
         </div>
       )}
     </div>

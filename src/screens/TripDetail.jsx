@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Chevron, Share, Book, Plus, Trash, Play, Pause, ToSuno, Upload, Note, Rewrite, Music, Pencil } from '../components/Icons.jsx';
 import { countPhotos, countPlaces, coverBg, photoBg, songAudioSrc, money, dayLabel, costTotals } from '../lib/derive.js';
 import { fmtTime, activeLine } from '../lib/song.js';
-import { tripStage } from '../lib/stages.js';
+import { tripStage, tripSpan, datesRange } from '../lib/stages.js';
 import { isCover } from '../lib/cover.js';
 import TripAlerts from '../components/TripAlerts.jsx';
 import Explore from './Explore.jsx';
@@ -11,7 +11,7 @@ import PhotoViewer from '../components/PhotoViewer.jsx';
 import { Itinerary, Budget, Documents, isPlan } from './TripSections.jsx';
 import GatheringPlan from './GatheringPlan.jsx';
 import PlaceMap from '../components/PlaceMap.jsx';
-import { isGathering, isPlanItem, planLists } from '../lib/gathering.js';
+import { isGathering, isPlanItem, planLists, gatheringDays } from '../lib/gathering.js';
 
 // Paid / still-due totals at a glance; the full list lives in the Budget tab.
 function CostsCard({ costs, onOpen }) {
@@ -293,7 +293,7 @@ export default function TripDetail(p) {
             <PlaceMap place={trip.place} home={p.home} height={200} />
           </div>
         )}
-        {tab === 'plan' && <GatheringPlan lists={planLists(trip)} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} onSchedule={p.onSchedulePlan} />}
+        {tab === 'plan' && <GatheringPlan lists={planLists(trip)} days={gatheringDays(datesRange(trip.dates) || tripSpan(trip))} onAdd={p.onAddPlan} onEdit={p.onEditPlan} onRemove={p.onRemovePlan} onSchedule={p.onSchedulePlan} onShift={p.onShiftPlan} />}
         {tab === 'itinerary' && <Itinerary trip={trip} inbox={p.inbox} toast={p.toast} onUpload={p.household ? p.onUpload : null} onDelete={p.onDeleteEntry} others={p.others} onMove={p.onMoveEntry} />}
         {tab === 'budget' && <Budget trip={trip} onAddCost={p.onAddCost} onDeleteCost={p.onDeleteCost} onMarkPaid={p.onMarkPaid} onEditCost={p.onEditCost} />}
         {tab === 'explore' && <Explore trip={trip} signedIn={p.canExplore} busy={p.exploreBusy || new Set()}

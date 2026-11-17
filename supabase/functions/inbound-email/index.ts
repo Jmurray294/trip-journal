@@ -1043,7 +1043,10 @@ async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, tr
 //       a note on that day. Both are marked with who sent them. Turning the link off in the app ends it.
 //       On a gathering, guests also change the plan: { action: "plan-add", name, planType, text, time?, who? },
 //       { action: "plan-edit", name, id, text, time?, who? }, { action: "plan-remove", name, id },
-//       and on ideas (planType "idea", with detail?) { action: "plan-vote", name, id } says "I'm in" or takes it back
+//       and on ideas (planType "idea", with detail?) { action: "plan-vote", name, id } says "I'm in" or takes it back.
+//       Schedule items also take day ("Nov 27"), until and group; { action: "plan-shift", name, id, minutes } moves
+//       that item and the rest of its day; things to bring take course and detail, and { action: "plan-claim", name, id }
+//       says "I'll bring it" (or takes it back)
 //       (plan entries only; the same rules as src/lib/gathering.js).
 const noConf = (s: string) => s.replace(/\s*(\u00b7\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^\u00b7\s*/, "");
 async function sharedTrip(req: Request, url: URL) {
@@ -1071,7 +1074,8 @@ async function sharedTrip(req: Request, url: URL) {
       // where each stop is, for the route map (a gathering's guests get its address instead, below)
       ...(!t.doc.gathering && typeof d.lon === "number" && typeof d.lat === "number" ? { lon: d.lon, lat: d.lat } : {}),
       ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0,
-        detail: String(d.detail || ""), votes: Array.isArray(d.votes) ? d.votes.map(String) : [] } : {}),
+        detail: String(d.detail || ""), votes: Array.isArray(d.votes) ? d.votes.map(String) : [],
+        until: String(d.until || ""), group: String(d.group || ""), course: String(d.course || "") } : {}),
       // a booking shows when and where, not its confirmation number or who holds it
       note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
       photos: (d.photos || []).map((p: Record<string, any>) => ({
@@ -1127,22 +1131,49 @@ async function gatheringWhere(admin: any, hid: string, doc: Record<string, any>)
 
 // a guest adds to, changes or takes something off a gathering's plan (entries with kind "Plan")
 const planClean = (v: unknown, n: number) => String(v || "").replace(/\s+/g, " ").trim().slice(0, n);
+const PLAN_COURSES = ["Main", "Sides", "Desserts", "Drinks", "Supplies", "Other"];
+const planCourse = (v: unknown) => PLAN_COURSES.find((c) => c.toLowerCase() === planClean(v, 20).toLowerCase()) || "Other";
+// "4pm", "4:30 pm", "16:00", "noon" -> minutes after midnight (same as timeMinutes in src/lib/gathering.js)
+function planMinutes(v: unknown): number | null {
+  const s = String(v || "").trim().toLowerCase();
+  if (!s) return null;
+  if (/^noon\b/.test(s)) return 720;
+  if (/^midnight\b/.test(s)) return 0;
+  const m = /^(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/.exec(s);
+  if (!m) return null;
+  let h = +m[1];
+  const min = m[2] ? +m[2] : 0;
+  if (h > 23 || min > 59) return null;
+  if (m[3]) { const pm = m[3][0] === "p"; if (h === 12) h = pm ? 12 : 0; else if (pm) h += 12; }
+  return h * 60 + min;
+}
+// a time moved by some minutes, written "4:30pm" (same as fmtTime in src/lib/gathering.js)
+function planShift(v: unknown, minutes: number) {
+  const m = Math.min(1439, Math.max(0, (planMinutes(v) as number) + minutes));
+  if (m === 720) return "noon";
+  const h = Math.floor(m / 60), mm = m % 60;
+  return (h % 12 === 0 ? 12 : h % 12) + (mm ? ":" + String(mm).padStart(2, "0") : "") + (h < 12 ? "am" : "pm");
+}
 // deno-lint-ignore no-explicit-any
 async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<string, any> }, body: Record<string, unknown>, name: string) {
   if (!t.doc.gathering) return ok({ error: "This trip has no plan to change" }, 400);
   const text = planClean(body.text, 120);
   const fields = (type: string) => ({
     ...(type === "time" && planClean(body.time, 20) ? { time: planClean(body.time, 20) } : {}),
+    ...(type === "time" && planClean(body.time, 20) && planClean(body.until, 20) ? { until: planClean(body.until, 20) } : {}),
+    ...(type === "time" && planClean(body.group, 40) ? { group: planClean(body.group, 40) } : {}),
+    ...(type === "bring" ? { course: planCourse(body.course) } : {}),
     ...(type === "bring" && planClean(body.who, 40) ? { who: planClean(body.who, 40) } : {}),
-    ...(type === "idea" && planClean(body.detail, 300) ? { detail: planClean(body.detail, 300) } : {}),
+    ...(type !== "coming" && planClean(body.detail, 300) ? { detail: planClean(body.detail, 300) } : {}),
   });
+  const day = /^[A-Z][a-z]{2} \d{1,2}$/.test(planClean(body.day, 12)) ? planClean(body.day, 12) : "";
   if (body.action === "plan-add") {
     if (!text) return ok({ error: "Write something first" }, 400);
     const type = ["idea", "time", "bring", "coming"].includes(String(body.planType)) ? String(body.planType) : "time";
     const r = tripRange(String(t.doc.dates || ""));
     const id = "plan-" + crypto.randomUUID().slice(0, 13);
     const now = Date.now();
-    const doc = { id, kind: "Plan", planType: type, title: text, date: r ? label(r[0]) : label(new Date()), place: String(t.doc.place || ""),
+    const doc = { id, kind: "Plan", planType: type, title: text, date: (type === "time" && day) || (r ? label(r[0]) : label(new Date())), place: String(t.doc.place || ""),
       ...fields(type), ...(type === "idea" ? { votes: [name] } : {}), by: name, photos: [], source: "plan", pos: now, added: now };
     const { error } = await admin.from("entries").upsert({ household_id: hid, id, trip_id: t.id, deleted: false, doc }, { onConflict: "household_id,id" });
     if (error) return ok({ error: error.message }, 500);
@@ -1162,6 +1193,33 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     if (error) return ok({ error: error.message }, 500);
     return ok({ removed: 1 });
   }
+  if (body.action === "plan-shift") {
+    // running late: this item and everything after it on the same day move by some minutes
+    const minutes = Math.max(-240, Math.min(240, Math.round(Number(body.minutes) || 0)));
+    const from = planMinutes(cur.doc.time);
+    if (!minutes || from == null || cur.doc.planType !== "time") return ok({ error: "That has no time to move" }, 400);
+    const { data: all } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", t.id).eq("deleted", false);
+    const later = ((all || []) as { id: string; doc: Record<string, any> }[]).filter((r) => r.doc.kind === "Plan" && r.doc.planType === "time" &&
+      r.doc.date === cur.doc.date && planMinutes(r.doc.time) != null && (planMinutes(r.doc.time) as number) >= from);
+    for (const r of later) {
+      const doc = { ...r.doc, time: planShift(r.doc.time, minutes) };
+      if (planMinutes(r.doc.until) != null) doc.until = planShift(r.doc.until, minutes);
+      const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", r.id);
+      if (error) return ok({ error: error.message }, 500);
+    }
+    return ok({ moved: later.length });
+  }
+  if (body.action === "plan-claim") {
+    if (cur.doc.planType !== "bring") return ok({ error: "That isn't on the list of things to bring" }, 400);
+    const who = planClean(cur.doc.who, 40);
+    const doc = { ...cur.doc };
+    if (!who) doc.who = name;
+    else if (who.toLowerCase() === name.toLowerCase()) delete doc.who;
+    else return ok({ error: `${who} is already bringing that` }, 400);
+    const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
+    if (error) return ok({ error: error.message }, 500);
+    return ok({ claimed: !!doc.who });
+  }
   if (body.action === "plan-vote") {
     if (cur.doc.planType !== "idea") return ok({ error: "That's already on the schedule" }, 400);
     const same = (v: unknown) => planClean(v, 40).toLowerCase() === name.toLowerCase();
@@ -1172,11 +1230,19 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     return ok({ voted: doc.votes.length });
   }
   if (body.action !== "plan-edit") return ok({ error: "unknown action" }, 400);
-  if (!text) return ok({ error: "Write something first" }, 400);
+  const has = (k: string) => body[k] !== undefined;
+  if (has("text") && !text) return ok({ error: "Write something first" }, 400);
   const type = String(cur.doc.planType || "time");
-  const { time: _t, who: _w, ...rest } = cur.doc;
-  if (type === "idea") delete rest.detail; // rewritten below (a scheduled idea keeps its details)
-  const doc = { ...rest, title: text, ...fields(type) };
+  const doc: Record<string, any> = { ...cur.doc };
+  const set = (k: string, n: number) => { if (!has(k)) return; const v = planClean(body[k], n); if (v) doc[k] = v; else delete doc[k]; };
+  if (has("text")) doc.title = text;
+  if (type === "time") {
+    set("time", 20); set("until", 20); set("group", 40);
+    if (!doc.time) delete doc.until;
+    if (day) doc.date = day;
+  }
+  if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); }
+  if (type !== "coming") set("detail", 300);
   const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
   if (error) return ok({ error: error.message }, 500);
   return ok({ edited: 1 });

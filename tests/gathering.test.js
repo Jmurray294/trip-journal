@@ -91,3 +91,91 @@ test('the guest message lists the ideas, most wanted first, then the link', asyn
   assert.ok(m.endsWith('https://x/?t=1'));
   assert.ok(guestMessage({ title: 'T', days: [] }, 'L').includes('see the plan'));
 });
+
+import { gatheringDays, scheduleByDay, fmtTime, pickerTime, shiftItem, shiftFrom, courseOf, bringByCourse, stillNeeded, claimItem } from '../src/lib/gathering.js';
+
+test('a gathering has a day for each date, named with the weekday', () => {
+  const days = gatheringDays([new Date(2026, 10, 25), new Date(2026, 10, 28)]);
+  assert.deepEqual(days.map((d) => d.name), ['Wed Nov 25', 'Thu Nov 26', 'Fri Nov 27', 'Sat Nov 28']);
+  assert.equal(days[1].label, 'Nov 26');
+  assert.deepEqual(gatheringDays(null), []);
+});
+
+test('the schedule groups by day (empty days too), by time, anytime last; items off the dates get their own day', () => {
+  const days = gatheringDays([new Date(2026, 10, 26), new Date(2026, 10, 28)]);
+  const at = { first: 'Nov 26', place: 'Home' };
+  const items = [
+    makePlanItem({ planType: 'time', text: 'Dinner', time: '4pm' }, { ...at, id: 'a', now: 1 }),
+    makePlanItem({ planType: 'time', text: 'Turkey trot', time: '8am', day: 'Nov 26' }, { ...at, id: 'b', now: 2 }),
+    makePlanItem({ planType: 'time', text: 'Games' }, { ...at, id: 'c', now: 3 }),
+    makePlanItem({ planType: 'time', text: 'Lights drive', time: '6pm', day: 'Nov 28' }, { ...at, id: 'd', now: 4 }),
+    makePlanItem({ planType: 'time', text: 'Brunch', time: '10am', day: 'Nov 30' }, { ...at, id: 'e', now: 5 }),
+  ];
+  const g = scheduleByDay(items, days);
+  assert.deepEqual(g.map((x) => x.name), ['Thu Nov 26', 'Fri Nov 27', 'Sat Nov 28', 'Nov 30']);
+  assert.deepEqual(g[0].items.map((d) => d.id), ['b', 'a', 'c']);
+  assert.equal(g[1].items.length, 0);
+  assert.deepEqual(g[2].items.map((d) => d.id), ['d']);
+});
+
+test('times are written the short way and read back for the picker', () => {
+  assert.equal(fmtTime(16 * 60), '4pm');
+  assert.equal(fmtTime(16 * 60 + 30), '4:30pm');
+  assert.equal(fmtTime(12 * 60), 'noon');
+  assert.equal(fmtTime(0), '12am');
+  assert.equal(fmtTime(9 * 60 + 5), '9:05am');
+  assert.equal(pickerTime('4:30pm'), '16:30');
+  assert.equal(pickerTime('after dinner'), '');
+});
+
+test('moving an item moves its end time with it; pushing back moves the rest of that day only', () => {
+  const at = { first: 'Nov 26', place: 'Home' };
+  const a = makePlanItem({ planType: 'time', text: 'Football', time: '11:30am', until: '2:30pm' }, { ...at, id: 'a', now: 1 });
+  assert.deepEqual([shiftItem(a, 30).time, shiftItem(a, 30).until], ['noon', '3pm']);
+  const days = [
+    makePlanItem({ planType: 'time', text: 'Trot', time: '8am' }, { ...at, id: 'x', now: 0 }),
+    a,
+    makePlanItem({ planType: 'time', text: 'Dinner', time: '4pm' }, { ...at, id: 'b', now: 2 }),
+    makePlanItem({ planType: 'time', text: 'Games' }, { ...at, id: 'c', now: 3 }),
+    makePlanItem({ planType: 'time', text: 'Movie', time: '7pm', day: 'Nov 27' }, { ...at, id: 'd', now: 4 }),
+  ];
+  const moved = shiftFrom(days, 'a', 60);
+  assert.deepEqual(moved.map((d) => [d.id, d.time]), [['a', '12:30pm'], ['b', '5pm']]);
+  assert.equal(moved[0].until, '3:30pm');
+  assert.deepEqual(shiftFrom(days, 'c', 60), []);
+});
+
+test('edits can move an item to another day and set or clear its end time', () => {
+  const d = makePlanItem({ planType: 'time', text: 'Dinner', time: '4pm', until: '6pm', group: 'Everyone' }, { id: 'a', first: 'Nov 26', place: 'Home', now: 1 });
+  assert.equal(d.until, '6pm');
+  assert.equal(d.group, 'Everyone');
+  const e = editPlanItem(d, { day: 'Nov 27' });
+  assert.equal(e.date, 'Nov 27');
+  assert.equal(e.time, '4pm');
+  const f = editPlanItem(d, { time: '' });
+  assert.ok(!('time' in f) && !('until' in f));
+});
+
+test('things to bring sit under their course; empty Who means still needed, and a guest can claim it', () => {
+  const at = { first: 'Nov 26', place: 'Home' };
+  const pie = makePlanItem({ planType: 'bring', text: 'Pumpkin pie', course: 'desserts' }, { ...at, id: 'p', now: 1 });
+  const rolls = makePlanItem({ planType: 'bring', text: 'Rolls', course: 'Sides', who: 'Lauren' }, { ...at, id: 'r', now: 2 });
+  const old = { id: 'o', kind: 'Plan', planType: 'bring', title: 'Wine', who: 'Bob' };
+  assert.equal(pie.course, 'Desserts');
+  assert.equal(courseOf(old), 'Other');
+  assert.deepEqual(bringByCourse([pie, rolls, old]).map((g) => g.course), ['Sides', 'Desserts', 'Other']);
+  assert.ok(stillNeeded(pie) && !stillNeeded(rolls));
+  assert.equal(planLine(pie), 'Pumpkin pie · still needed');
+  const mine = claimItem(pie, 'Diane');
+  assert.equal(mine.who, 'Diane');
+  assert.equal(claimItem(mine, 'Someone else').who, 'Diane');
+  assert.ok(!('who' in claimItem(mine, 'diane')));
+});
+
+test('an idea put on the schedule lands on the day picked', () => {
+  const idea = makePlanItem({ planType: 'idea', text: 'Lights drive' }, { id: 'i', first: 'Nov 26', place: 'Home', now: 1 });
+  const s = scheduleIdea(idea, '6pm', 'Nov 28');
+  assert.equal(s.planType, 'time');
+  assert.equal(s.date, 'Nov 28');
+  assert.equal(s.time, '6pm');
+});

@@ -5,7 +5,8 @@ import { resizePhoto } from '../lib/resize.js';
 import { onUpdateReady, applyUpdate } from '../lib/update.js';
 import { Plus, Note } from '../components/Icons.jsx';
 import GatheringPlan from './GatheringPlan.jsx';
-import { planLists } from '../lib/gathering.js';
+import { planLists, gatheringDays } from '../lib/gathering.js';
+import { tripSpan } from '../lib/stages.js';
 import PlaceMap from '../components/PlaceMap.jsx';
 import RouteMap from '../components/RouteMap.jsx';
 
@@ -131,6 +132,7 @@ export default function GuestTrip({ token }) {
   const { trip } = data;
   const gathering = !!trip.gathering;
   const plan = gathering ? planLists({ days: data.days }) : null;
+  const planDays = gathering ? gatheringDays(tripSpan({ dates: trip.dates, days: [] })) : [];
   const days = data.days.filter((d) => d.kind !== 'Plan');
   // add photos / add a note (or what's being saved)
   const addBar = (
@@ -195,10 +197,12 @@ export default function GuestTrip({ token }) {
           {gathering && (
             <div className="detail-main" style={{ marginBottom: 6 }}>
               <div className="timeline-head"><div className="mono-label">The plan</div></div>
-              <GatheringPlan lists={plan} busy={!!busy}
+              <GatheringPlan lists={plan} days={planDays} busy={!!busy}
                 onAdd={(item) => planCall({ action: 'plan-add', ...item }, 'Added to the plan')}
                 onEdit={(id, c) => planCall({ action: 'plan-edit', id, ...c }, 'Saved')}
                 onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')}
+                onShift={(id, minutes) => planCall({ action: 'plan-shift', id, minutes }, 'Moved')}
+                onClaim={(id) => planCall({ action: 'plan-claim', id })}
                 me={name} onVote={(id) => planCall({ action: 'plan-vote', id })} />
             </div>
           )}

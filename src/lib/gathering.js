@@ -72,40 +72,149 @@ export function toggleVote(d, name) {
 }
 
 // the family picks an idea: it goes on the schedule (at a time, if given) and keeps its details
-export function scheduleIdea(d, time) {
+export function scheduleIdea(d, time, day) {
   const { votes: _v, ...rest } = d;
   const t = clean(time, 20);
-  return { ...rest, planType: 'time', ...(t ? { time: t } : {}) };
+  return { ...rest, planType: 'time', ...(t ? { time: t } : {}), ...(clean(day, 12) ? { date: clean(day, 12) } : {}) };
 }
 
 // a new plan entry. `first` is the gathering's first day label ("Nov 26"), `now` a timestamp.
-export function makePlanItem({ planType, text, time, who, detail, by }, { id, first, place, now }) {
+// Schedule items can name their day (`day`, a label like "Nov 27"), an end time (`until`) and who it's
+// for (`group`: "Kids"); things to bring have a course and a note (`detail`), and no `who` until
+// someone says they'll bring it.
+export function makePlanItem({ planType, text, time, until, group, day, course, who, detail, by }, { id, first, place, now }) {
   const type = PLAN_TYPES.includes(planType) ? planType : 'time';
   return {
-    id, kind: 'Plan', planType: type, title: clean(text, 120), date: first || '', place: place || '',
+    id, kind: 'Plan', planType: type, title: clean(text, 120), date: (type === 'time' && clean(day, 12)) || first || '', place: place || '',
     ...(type === 'time' && clean(time, 20) ? { time: clean(time, 20) } : {}),
+    ...(type === 'time' && clean(time, 20) && clean(until, 20) ? { until: clean(until, 20) } : {}),
+    ...(type === 'time' && clean(group, 40) ? { group: clean(group, 40) } : {}),
+    ...(type === 'bring' ? { course: courseOf({ course }) } : {}),
     ...(type === 'bring' && clean(who, 40) ? { who: clean(who, 40) } : {}),
-    ...(type === 'idea' && clean(detail, 300) ? { detail: clean(detail, 300) } : {}),
+    ...(type !== 'coming' && clean(detail, 300) ? { detail: clean(detail, 300) } : {}),
     ...(type === 'idea' ? { votes: [] } : {}),
     ...(by ? { by: clean(by, 40) } : {}),
     photos: [], source: 'plan', pos: now, added: now,
   };
 }
 
-// apply an edit to a plan entry; only its words change
-export function editPlanItem(d, { text, time, who, detail }) {
+// apply an edit to a plan entry: its words, and for the schedule its day and times
+export function editPlanItem(d, { text, time, until, group, day, course, who, detail }) {
   const next = { ...d };
+  const set = (k, v, n) => { const c = clean(v, n); if (c) next[k] = c; else delete next[k]; };
   if (text !== undefined) next.title = clean(text, 120);
-  if (time !== undefined) { const v = clean(time, 20); if (v) next.time = v; else delete next.time; }
-  if (who !== undefined) { const v = clean(who, 40); if (v) next.who = v; else delete next.who; }
-  if (detail !== undefined) { const v = clean(detail, 300); if (v) next.detail = v; else delete next.detail; }
+  if (time !== undefined) set('time', time, 20);
+  if (until !== undefined) set('until', until, 20);
+  if (!next.time) delete next.until;
+  if (group !== undefined) set('group', group, 40);
+  if (day !== undefined && clean(day, 12)) next.date = clean(day, 12);
+  if (course !== undefined && d.planType === 'bring') next.course = courseOf({ course });
+  if (who !== undefined) set('who', who, 40);
+  if (detail !== undefined) set('detail', detail, 300);
   return next;
+}
+
+// ---- the schedule, day by day ----
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WD3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const dayLabel = (dt) => MON3[dt.getMonth()] + ' ' + dt.getDate();
+
+// the days of a gathering from its span ([first, last] dates): [{ label: 'Nov 26', name: 'Thu Nov 26' }]
+export function gatheringDays(span) {
+  if (!span || !span[0]) return [];
+  const out = [];
+  const d = new Date(span[0].getFullYear(), span[0].getMonth(), span[0].getDate());
+  const end = span[1] || span[0];
+  for (let i = 0; i < 14 && d <= end; i++, d.setDate(d.getDate() + 1)) out.push({ label: dayLabel(d), name: WD3[d.getDay()] + ' ' + dayLabel(d) });
+  return out;
+}
+
+// minutes → "4pm", "4:30pm", "noon"
+export function fmtTime(min) {
+  if (min == null) return '';
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  if (m === 12 * 60) return 'noon';
+  const h = Math.floor(m / 60), mm = m % 60;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return h12 + (mm ? ':' + String(mm).padStart(2, '0') : '') + (h < 12 ? 'am' : 'pm');
+}
+// "4:30pm" → "16:30", for a time picker; '' when it isn't a time
+export function pickerTime(s) {
+  const m = timeMinutes(s);
+  return m == null ? '' : String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+
+const byTime = (a, b) => {
+  const x = timeMinutes(a.time), y = timeMinutes(b.time);
+  if (x == null && y == null) return (a.added || a.pos || 0) - (b.added || b.pos || 0);
+  if (x == null) return 1;
+  if (y == null) return -1;
+  return x - y || (a.added || a.pos || 0) - (b.added || b.pos || 0);
+};
+
+// the schedule grouped by day: every day of the gathering (even empty ones), then any other day an
+// item is on. Within a day: by time, the ones without a time ("Anytime") last.
+export function scheduleByDay(items, days = []) {
+  const groups = days.map((d) => ({ ...d, items: [] }));
+  const at = new Map(groups.map((g) => [g.label, g]));
+  for (const d of items || []) {
+    const label = d.date || (days[0] && days[0].label) || '';
+    if (!at.has(label)) { const g = { label, name: label || 'Anytime', items: [] }; at.set(label, g); groups.push(g); }
+    at.get(label).items.push(d);
+  }
+  for (const g of groups) g.items.sort(byTime);
+  return groups;
+}
+
+// move a schedule item by some minutes (its end time goes with it); untimed items don't move
+export function shiftItem(d, minutes) {
+  const a = timeMinutes(d.time);
+  if (a == null) return d;
+  const clamp = (m) => Math.min(23 * 60 + 59, Math.max(0, m));
+  const next = { ...d, time: fmtTime(clamp(a + minutes)) };
+  const z = timeMinutes(d.until);
+  if (z != null) next.until = fmtTime(clamp(z + minutes));
+  return next;
+}
+
+// "push the rest back": this item and everything after it on the same day move by `minutes`.
+// Returns only the items that changed.
+export function shiftFrom(items, id, minutes) {
+  const me = (items || []).find((d) => d.id === id);
+  const from = me ? timeMinutes(me.time) : null;
+  if (from == null) return [];
+  return items
+    .filter((d) => d.kind === 'Plan' && d.planType === 'time' && d.date === me.date && timeMinutes(d.time) != null && timeMinutes(d.time) >= from)
+    .map((d) => shiftItem(d, minutes));
+}
+
+// ---- who's bringing what, course by course ----
+export const COURSES = ['Main', 'Sides', 'Desserts', 'Drinks', 'Supplies', 'Other'];
+export function courseOf(d) {
+  const c = clean(d && d.course, 20).toLowerCase();
+  return COURSES.find((k) => k.toLowerCase() === c) || 'Other';
+}
+// [{ course, items }] for the courses that have something, in menu order
+export function bringByCourse(items) {
+  return COURSES.map((course) => ({ course, items: (items || []).filter((d) => courseOf(d) === course) })).filter((g) => g.items.length);
+}
+export const stillNeeded = (d) => !!d && d.planType === 'bring' && !clean(d.who, 40);
+// "I'll bring it", or take it back (only the person who said they would)
+export function claimItem(d, name) {
+  const n = clean(name, 40);
+  if (!n) return d;
+  if (!clean(d.who, 40)) return { ...d, who: n };
+  if (sameName(d.who, n)) { const { who: _w, ...rest } = d; return rest; }
+  return d;
 }
 
 // one line for a plan item, as the follower page and the copied plan show it
 export function planLine(d) {
-  if (d.planType === 'bring') return d.who ? `${d.title} · ${d.who}` : d.title;
-  if (d.planType === 'time') return d.time ? `${d.time} · ${d.title}` : d.title;
+  if (d.planType === 'bring') return `${d.title} · ${d.who || 'still needed'}`;
+  if (d.planType === 'time') {
+    const when = d.time ? (d.until ? `${d.time}–${d.until}` : d.time) : '';
+    return (when ? `${when} · ` : '') + d.title + (d.group ? ` (${d.group})` : '');
+  }
   if (d.planType === 'idea') { const v = votesOf(d); return v.length ? `${d.title} (${v.length} in: ${v.join(', ')})` : d.title; }
   return d.title;
 }
