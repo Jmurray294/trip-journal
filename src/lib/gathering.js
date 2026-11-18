@@ -19,7 +19,7 @@ export const PLAN_SECTIONS = [
   ['idea', 'Ideas to choose from', 'e.g. Christmas lights drive', 'Details or link'],
   ['time', 'Schedule', 'e.g. Dinner', 'Time'],
   ['bring', 'Who’s bringing what', 'e.g. Pies', 'Who'],
-  ['coming', 'Who’s coming', 'e.g. Grandma Murray', ''],
+  ['coming', 'Who’s coming', 'e.g. Grandma, Uncle Bob', ''],
 ];
 
 // "4pm", "4:30 pm", "16:00", "noon" → minutes after midnight; null when it isn't a time

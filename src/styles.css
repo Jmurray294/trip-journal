@@ -1055,6 +1055,9 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .plan-avatar.c3 { background: #8B5CC9; }
 .plan-avatar.c4 { background: #D9822B; }
 .plan-sec-coming .plan-row { align-items: center; }
+.plan-people { flex-wrap: wrap; gap: 8px; align-items: center; }
+.plan-person { display: inline-flex; align-items: center; gap: 7px; padding: 3px 12px 3px 3px; border-radius: 999px; background: #F1F7F3; font-size: 15px; font-weight: 600; }
+.plan-people:hover .plan-person { background: #E3F1E8; }
 .plan-vote { transition: transform 0.12s ease, background 0.15s; }
 .plan-vote:active { transform: scale(0.94); }
 .plan-vote.on { box-shadow: 0 2px 8px rgba(42,125,52,0.3); }

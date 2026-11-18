@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
   COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel, bringByEvent, bringCounts, defaultEvent, eventLabel,
-  emojiFor, COURSE_EMOJI, SECTION_EMOJI, dayParts,
+  emojiFor, COURSE_EMOJI, SECTION_EMOJI, dayParts, namesFrom,
 } from '../lib/gathering.js';
 
 // A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
@@ -353,6 +353,9 @@ function BringEdit({ d, events, days, busy, onSave, onRemove, onClose }) {
 }
 
 // ---------- ideas, and who's coming ----------
+// the same color for a name every time; how many people are coming (names typed on one line count each)
+const avatarColor = (n) => [...String(n).toLowerCase()].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 997, 7) % 5;
+const headcount = (items) => items.reduce((n, d) => n + Math.max(1, namesFrom(d.title).length), 0);
 const extraOf = (type, d) => (type === 'idea' ? d.detail : '') || '';
 const withExtra = (type, text, x) => ({ text, ...(type === 'idea' ? { detail: x } : {}) });
 
@@ -371,7 +374,7 @@ function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onR
     : 'Things you could do together. Guests tap “I’m in” on their link; tap one you pick to put it on the schedule.');
   return (
     <div className={'plan-sec plan-sec-' + type}>
-      <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI[type]}</span>{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI[type]}</span>{title} {items.length > 0 && <span className="plan-count">{type === 'coming' ? headcount(items) : items.length}</span>}</div>
       {note && <div className="plan-note">{note}</div>}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
       {items.map((d) => (editing === d.id
@@ -382,11 +385,22 @@ function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onR
         : type === 'idea'
           ? <IdeaRow key={d.id} d={d} me={me} busy={busy} onVote={onVote} onOpen={() => setEditing(d.id)} />
           : (
-            <button key={d.id} className="plan-row" onClick={() => setEditing(d.id)} title="Tap to change">
-              {type === 'coming' && <span className={'plan-avatar c' + (String(d.title).length % 5)}>{String(d.title).trim().charAt(0).toUpperCase()}</span>}
-              <span className="plan-text">{d.title}</span>
-              {d.by && <span className="plan-by">added by {d.by}</span>}
-            </button>
+            type === 'coming' ? (
+              // one chip per person, even when several were typed on one line ("Diane, Dallas, Zach")
+              <button key={d.id} className="plan-row plan-people" onClick={() => setEditing(d.id)} title="Tap to change">
+                {(namesFrom(d.title).length ? namesFrom(d.title) : [d.title]).map((n) => (
+                  <span key={n} className="plan-person">
+                    <span className={'plan-avatar c' + avatarColor(n)}>{String(n).trim().charAt(0).toUpperCase()}</span>{n}
+                  </span>
+                ))}
+                {d.by && <span className="plan-by">added by {d.by}</span>}
+              </button>
+            ) : (
+              <button key={d.id} className="plan-row" onClick={() => setEditing(d.id)} title="Tap to change">
+                <span className="plan-text">{d.title}</span>
+                {d.by && <span className="plan-by">added by {d.by}</span>}
+              </button>
+            )
           )))}
       <div className={'plan-add t-' + type}>
         <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={key} placeholder={hint} aria-label={'Add to ' + title} />
