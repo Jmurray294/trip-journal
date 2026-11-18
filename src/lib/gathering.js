@@ -278,3 +278,27 @@ export function linkLabel(url) {
   const at = parts.length > 2 && parts[parts.length - 2].length <= 3 && parts[parts.length - 1].length === 2 ? parts.length - 3 : Math.max(0, parts.length - 2);
   return SITES[parts[at]] || parts.slice(at).join('.');
 }
+
+// ---- "Send an update" to the guests ----
+// the text: what's new or changed on the plan since the last update (`since`, a timestamp; 0 = never),
+// what's still needed, then the link. With nothing new to point at, a short day-by-day schedule.
+export function updateMessage(trip, link, since = 0, days = []) {
+  const items = ((trip && trip.days) || []).filter(isPlanItem);
+  const dayName = (label) => { const d = days.find((x) => x.label === label); return d ? d.name.split(' ')[0] : label; };
+  const line = (d) => (d.planType === 'time' ? `${dayName(d.date)} ${planLine(d)}`
+    : d.planType === 'idea' ? `Idea: ${d.title}` : d.planType === 'bring' ? `Bring: ${planLine(d)}` : `Coming: ${d.title}`);
+  const fresh = since ? items.filter((d) => (d.added || 0) > since) : [];
+  const changed = since ? items.filter((d) => !fresh.includes(d) && (d.changed || 0) > since) : [];
+  const needed = items.filter(stillNeeded);
+  const out = [`${trip.title}: the plan's been updated.`];
+  const list = (title, ds) => { if (ds.length) out.push('', title, ...ds.slice(0, 8).map((d) => '• ' + line(d)), ...(ds.length > 8 ? [`• and ${ds.length - 8} more`] : [])); };
+  list('New:', fresh);
+  list('Changed:', changed);
+  if (!fresh.length && !changed.length) {
+    const sched = scheduleByDay(items.filter((d) => d.planType === 'time'), days).filter((g) => g.items.length);
+    if (sched.length) out.push('', ...sched.map((g) => `${g.name.split(' ')[0]}: ${g.items.map((d) => (d.time ? d.time + ' ' : '') + d.title).join(', ')}`));
+  }
+  if (needed.length) out.push('', `Still needed: ${needed.map((d) => d.title).join(', ')}. Tap "I'll bring it" if you can.`);
+  out.push('', `See the plan and tap "I'm in" on what you're doing: ${link}`);
+  return out.join('\n');
+}

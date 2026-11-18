@@ -209,3 +209,24 @@ test('who is going: I am in on a schedule item, or typed names', () => {
   assert.deepEqual(editPlanItem(d, { going: 'Joe, Roger' }).votes, ['Joe', 'Roger']);
   assert.deepEqual(editPlanItem(d, { going: '' }).votes, []);
 });
+
+import { updateMessage } from '../src/lib/gathering.js';
+
+test('the update text says what is new and changed since the last one, what is still needed, and the link', () => {
+  const at = { first: 'Nov 26', place: 'Home' };
+  const days = gatheringDays([new Date(2026, 10, 25), new Date(2026, 10, 27)]);
+  const golf = makePlanItem({ planType: 'time', text: 'Golfing', time: '7am', day: 'Nov 25' }, { ...at, id: 'g', now: 10 });
+  const dinner = { ...makePlanItem({ planType: 'time', text: 'Dinner', time: '1pm' }, { ...at, id: 'd', now: 11 }), changed: 50 };
+  const pickle = makePlanItem({ planType: 'time', text: 'Pickleball', time: '7am', day: 'Nov 27' }, { ...at, id: 'p', now: 60 });
+  const rolls = makePlanItem({ planType: 'bring', text: 'Rolls', course: 'Sides' }, { ...at, id: 'r', now: 12 });
+  const trip = { title: 'Thanksgiving', days: [golf, dinner, pickle, rolls] };
+  const m = updateMessage(trip, 'https://link', 40, days);
+  assert.match(m, /New:\n• Fri 7am · Pickleball/);
+  assert.match(m, /Changed:\n• Thu 1pm · Dinner/);
+  assert.ok(!m.includes('Golfing'));
+  assert.match(m, /Still needed: Rolls\./);
+  assert.ok(m.trim().endsWith('https://link'));
+  // never sent before: the schedule, day by day
+  const first = updateMessage(trip, 'https://link', 0, days);
+  assert.match(first, /Wed: 7am Golfing\nThu: 1pm Dinner\nFri: 7am Pickleball/);
+});

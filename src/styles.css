@@ -1010,6 +1010,10 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
   .plan-choice-items > .plan-row + .plan-row { border-left: 1px solid rgba(42,37,32,0.08); padding-left: 12px; }
 }
 
+/* "Send an update" on a gathering's plan */
+.plan-update { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; background: #F4F7FD; border: 1px solid rgba(27,63,168,0.18); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; color: var(--secondary); }
+.plan-update .btn-primary.small { width: auto; flex: none; min-height: 40px; padding: 0 16px; margin: 0; }
+
 /* the family's contacts, to pick followers and guests from (ContactsSheet.jsx) */
 .contacts { margin-top: 12px; display: flex; flex-direction: column; }
 .contact { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-top: 1px solid rgba(42,37,32,0.08); }

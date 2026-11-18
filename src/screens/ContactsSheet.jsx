@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { mailtoMany, smsTo, smsMany, formatPhone } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
-import { guestMessage } from '../lib/gathering.js';
+import { guestMessage, updateMessage, gatheringDays } from '../lib/gathering.js';
+import { datesRange, tripSpan } from '../lib/stages.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
 // mode 'followers': tick people and invite them to follow along (email);
 // mode 'guests': send a trip's or gathering's guest link (email to everyone ticked, or a text each);
+//   with `update`, it's "Send an update": the people already sent the link are ticked, and the message
+//   says what's new or changed since the last one. onSent(contact ids) remembers who was sent it, and when.
 // mode 'manage': just the list. In every mode you can add, change or remove a contact.
-export default function ContactsSheet({ mode, contacts, followers, trip, link, gathering, onClose, toast }) {
-  const [picked, setPicked] = useState(() => new Set());
+export default function ContactsSheet({ mode, contacts, followers, trip, link, gathering, update = false, onSent, onClose, toast }) {
+  const [picked, setPicked] = useState(() => new Set(update && trip ? trip.guestIds || [] : []));
   const [editing, setEditing] = useState(null); // contact id, or 'new'
   const [busy, setBusy] = useState(false);
 
@@ -33,7 +36,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   };
 
   const guestText = trip ? (gathering
-    ? guestMessage(trip, link)
+    ? (update ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : guestMessage(trip, link))
     : `${trip.title}: see the plan and add your photos and notes from the trip.\n\n${link}`) : '';
 
   const inviteFollowers = () => run(async () => {
@@ -43,11 +46,14 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
     toast(`${chosen.length} invited to follow along`);
     setPicked(new Set());
   });
+  const sent = () => { if (onSent) onSent(chosen.map((c) => c.id)); };
   const emailGuests = () => {
+    sent();
     window.location.href = mailtoMany(toEmail.map((c) => c.email), trip.title, guestText);
   };
   // one group text to everyone ticked who has a mobile number
   const textGuests = () => {
+    sent();
     window.location.href = smsMany(toText.map((c) => c.phone), guestText);
   };
   const copyMessage = async () => {
@@ -55,8 +61,9 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
     catch (e) { toast('Could not copy. Try Email or Text instead'); }
   };
 
-  const title = mode === 'followers' ? 'Invite followers' : mode === 'guests' ? (gathering ? 'Send the guest link' : 'Send the trip link') : 'Contacts';
+  const title = mode === 'followers' ? 'Invite followers' : mode === 'guests' ? (update ? 'Send an update' : gathering ? 'Send the guest link' : 'Send the trip link') : 'Contacts';
   const sub = mode === 'followers' ? 'Tick the people to invite. They get an email with how to sign in.'
+    : mode === 'guests' && update ? (trip && trip.guestIds && trip.guestIds.length ? 'Everyone you sent the link to is ticked. Check the message, then text or email them.' : 'Tick who to tell, check the message, then text or email them.')
     : mode === 'guests' ? 'Tick people, then send them all one text or one email with the link.'
       : 'People you invite again and again. Only your family sees this list.';
 

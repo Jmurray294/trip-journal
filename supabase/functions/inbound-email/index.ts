@@ -1203,7 +1203,7 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     const later = ((all || []) as { id: string; doc: Record<string, any> }[]).filter((r) => r.doc.kind === "Plan" && r.doc.planType === "time" &&
       r.doc.date === cur.doc.date && planMinutes(r.doc.time) != null && (planMinutes(r.doc.time) as number) >= from);
     for (const r of later) {
-      const doc = { ...r.doc, time: planShift(r.doc.time, minutes) };
+      const doc = { ...r.doc, time: planShift(r.doc.time, minutes), changed: Date.now() };
       if (planMinutes(r.doc.until) != null) doc.until = planShift(r.doc.until, minutes);
       const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", r.id);
       if (error) return ok({ error: error.message }, 500);
@@ -1247,6 +1247,7 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
   }
   if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); }
   if (type !== "coming") set("detail", 300);
+  doc.changed = Date.now(); // for the family's "Send an update"
   const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
   if (error) return ok({ error: error.message }, 500);
   return ok({ edited: 1 });

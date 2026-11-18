@@ -96,6 +96,7 @@ function SharingCard({ trip, followers, link, p }) {
           <button className="btn-muted press" onClick={p.onCopyLink}>Copy link</button>
         </div>
         {p.onPickGuests && <button className="btn-secondary press" style={{ marginTop: 8 }} onClick={p.onPickGuests}>Send to contacts</button>}
+        {p.onSendUpdate && <button className="btn-secondary press" style={{ marginTop: 8 }} onClick={p.onSendUpdate}>Send an update</button>}
         <div className="trip-link-url">{link}</div>
       </ShareRow>
       <button className="btn-link inline share-copy" onClick={p.onShare}>{g ? 'Copy the plan as text' : 'Copy itinerary as text'}</button>
@@ -287,6 +288,12 @@ export default function TripDetail(p) {
           ))}
         </div>
 
+        {tab === 'plan' && p.onSendUpdate && (
+          <div className="plan-update">
+            <span>Changed the plan? Let your guests know.</span>
+            <button className="btn-primary small press" onClick={p.onSendUpdate}>Send an update</button>
+          </div>
+        )}
         {tab === 'plan' && trip.place && (
           <div className="plan-sec plan-where">
             <div className="plan-title">Where</div>

@@ -526,11 +526,11 @@ export default function App() {
     return n ? n.charAt(0).toUpperCase() + n.slice(1) : '';
   })();
   const goPlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? toggleVote(d, myName) : d)) }));
-  const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? editPlanItem(d, changes) : d)) }));
-  const schedulePlan = (tripId, id, time, day) => { updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? scheduleIdea(d, time, day) : d)) })); showToast('On the schedule'); };
+  const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? { ...editPlanItem(d, changes), changed: Date.now() } : d)) }));
+  const schedulePlan = (tripId, id, time, day) => { updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? { ...scheduleIdea(d, time, day), changed: Date.now() } : d)) })); showToast('On the schedule'); };
   // running late: this item and the rest of its day move back
   const shiftPlan = (tripId, id, minutes) => updateTrip(tripId, (t) => {
-    const moved = new Map(shiftFrom(t.days, id, minutes).map((d) => [d.id, d]));
+    const moved = new Map(shiftFrom(t.days, id, minutes).map((d) => [d.id, { ...d, changed: Date.now() }]));
     return { ...t, days: t.days.map((d) => moved.get(d.id) || d) };
   });
   const removePlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: sortDays(t.days.filter((d) => d.id !== id)) }));
@@ -867,6 +867,7 @@ export default function App() {
               onMakeLink={() => makeTripLink(trip.id)}
               onSendLink={() => sendTripLink(trip)}
               onPickGuests={family.household ? () => setContactsOpen({ mode: 'guests', tripId: trip.id }) : null}
+              onSendUpdate={family.household && trip.gathering && trip.shareToken ? () => setContactsOpen({ mode: 'guests', tripId: trip.id, update: true }) : null}
               tripLink={trip.shareToken ? tripLink(trip) : ''}
               onCopyLink={async () => showToast((await copyText(tripLink(trip))) ? 'Trip link copied' : 'Could not copy — press and hold the link instead')}
               onStopLink={() => stopTripLink(trip.id)}
@@ -1006,7 +1007,8 @@ export default function App() {
         {contactsOpen && (() => {
           const t = contactsOpen.tripId ? trips.find((x) => x.id === contactsOpen.tripId) : null;
           return <ContactsSheet mode={contactsOpen.mode} contacts={contacts} followers={followers} toast={showToast}
-            trip={t} link={t && t.shareToken ? tripLink(t) : ''} gathering={!!(t && t.gathering)}
+            trip={t} link={t && t.shareToken ? tripLink(t) : ''} gathering={!!(t && t.gathering)} update={!!contactsOpen.update}
+            onSent={t ? (ids) => updateTrip(t.id, (x) => ({ ...x, guestIds: [...new Set([...(x.guestIds || []), ...ids])], updateSentAt: Date.now() })) : null}
             onClose={() => setContactsOpen(null)} />;
         })()}
         {followPreview && <Portal preview onClose={() => { setFollowPreview(false); followers.reload(); }} />}
