@@ -1076,7 +1076,7 @@ async function sharedTrip(req: Request, url: URL) {
       ...(!t.doc.gathering && typeof d.lon === "number" && typeof d.lat === "number" ? { lon: d.lon, lat: d.lat } : {}),
       ...(d.kind === "Plan" ? { planType: String(d.planType || "time"), time: String(d.time || ""), who: String(d.who || ""), added: Number(d.added) || 0,
         detail: String(d.detail || ""), votes: Array.isArray(d.votes) ? d.votes.map(String) : [],
-        until: String(d.until || ""), group: String(d.group || ""), course: String(d.course || "") } : {}),
+        until: String(d.until || ""), group: String(d.group || ""), course: String(d.course || ""), event: String(d.event || "") } : {}),
       // a booking shows when and where, not its confirmation number or who holds it
       note: d.booking ? [d.booking.time && "Starts " + d.booking.time, d.booking.address].filter(Boolean).join(" \u00b7 ") : noConf(String(d.note || "")),
       photos: (d.photos || []).map((p: Record<string, any>) => ({
@@ -1165,6 +1165,8 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     ...(type === "time" && planClean(body.group, 40) ? { group: planClean(body.group, 40) } : {}),
     ...(type === "bring" ? { course: planCourse(body.course) } : {}),
     ...(type === "bring" && planClean(body.who, 40) ? { who: planClean(body.who, 40) } : {}),
+    // which event on the schedule it's for (a schedule item's id)
+    ...(type === "bring" && planClean(body.event, 40) ? { event: planClean(body.event, 40) } : {}),
     ...(type !== "coming" && planClean(body.detail, 300) ? { detail: planClean(body.detail, 300) } : {}),
   });
   const day = /^[A-Z][a-z]{2} \d{1,2}$/.test(planClean(body.day, 12)) ? planClean(body.day, 12) : "";
@@ -1245,7 +1247,7 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     // who's going, typed as names ("Joe, Roger")
     if (has("going")) doc.votes = [...new Set(String(body.going || "").split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean))];
   }
-  if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); }
+  if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); set("event", 40); }
   if (type !== "coming") set("detail", 300);
   doc.changed = Date.now(); // for the family's "Send an update"
   const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);

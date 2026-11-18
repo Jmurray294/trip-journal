@@ -230,3 +230,25 @@ test('the update text says what is new and changed since the last one, what is s
   const first = updateMessage(trip, 'https://link', 0, days);
   assert.match(first, /Wed: 7am Golfing\nThu: 1pm Dinner\nFri: 7am Pickleball/);
 });
+
+import { bringByEvent, bringCounts, defaultEvent, eventLabel } from '../src/lib/gathering.js';
+
+test('the bring list goes event by event; things for no event (or a removed one) come last', () => {
+  const at = { first: 'Nov 26', place: 'Home' };
+  const days = gatheringDays([new Date(2026, 10, 24), new Date(2026, 10, 26)]);
+  const party = makePlanItem({ planType: 'time', text: "Lucy's Birthday Party", time: '3pm', day: 'Nov 24' }, { ...at, id: 'party', now: 1 });
+  const dinner = makePlanItem({ planType: 'time', text: 'Thanksgiving Dinner', time: 'noon' }, { ...at, id: 'dinner', now: 2 });
+  const golf = makePlanItem({ planType: 'time', text: 'Golf', time: '7am', day: 'Nov 25' }, { ...at, id: 'golf', now: 3 });
+  const b = (text, event, who) => makePlanItem({ planType: 'bring', text, event, who }, { ...at, id: text, now: 9 });
+  const bring = [b('Rolls', 'dinner'), b('Cake', 'party', 'Diane'), b('Ice'), b('Pie', 'dinner', 'Krys'), b('Old', 'gone')];
+  const g = bringByEvent(bring, [dinner, party, golf], days);
+  assert.deepEqual(g.map((x) => x.event && x.event.id), ['party', 'dinner', null]);
+  assert.deepEqual(g[2].items.map((d) => d.id), ['Ice', 'Old']);
+  assert.deepEqual(bringCounts(bring, 'dinner'), { total: 2, needed: 1 });
+  assert.equal(eventLabel(dinner, days), 'Thanksgiving Dinner · Thu noon');
+  assert.equal(defaultEvent(bring, [dinner, party, golf]), 'dinner');
+  assert.equal(defaultEvent([], [golf, party, dinner]), 'party');
+  assert.equal(defaultEvent([], [golf]), '');
+  assert.equal(editPlanItem(bring[2], { event: 'party' }).event, 'party');
+  assert.ok(!('event' in editPlanItem(bring[0], { event: '' })));
+});

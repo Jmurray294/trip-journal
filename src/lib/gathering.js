@@ -83,7 +83,7 @@ export function scheduleIdea(d, time, day) {
 // Schedule items can name their day (`day`, a label like "Nov 27"), an end time (`until`) and who it's
 // for (`group`: "Kids"); things to bring have a course and a note (`detail`), and no `who` until
 // someone says they'll bring it.
-export function makePlanItem({ planType, text, time, until, group, day, course, who, detail, by }, { id, first, place, now }) {
+export function makePlanItem({ planType, text, time, until, group, day, course, who, detail, event, by }, { id, first, place, now }) {
   const type = PLAN_TYPES.includes(planType) ? planType : 'time';
   return {
     id, kind: 'Plan', planType: type, title: clean(text, 120), date: (type === 'time' && clean(day, 12)) || first || '', place: place || '',
@@ -91,6 +91,7 @@ export function makePlanItem({ planType, text, time, until, group, day, course, 
     ...(type === 'time' && clean(time, 20) && clean(until, 20) ? { until: clean(until, 20) } : {}),
     ...(type === 'time' && clean(group, 40) ? { group: clean(group, 40) } : {}),
     ...(type === 'bring' ? { course: courseOf({ course }) } : {}),
+    ...(type === 'bring' && clean(event, 40) ? { event: clean(event, 40) } : {}),
     ...(type === 'bring' && clean(who, 40) ? { who: clean(who, 40) } : {}),
     ...(type !== 'coming' && clean(detail, 300) ? { detail: clean(detail, 300) } : {}),
     ...(type === 'idea' ? { votes: [] } : {}),
@@ -100,7 +101,7 @@ export function makePlanItem({ planType, text, time, until, group, day, course, 
 }
 
 // apply an edit to a plan entry: its words, and for the schedule its day and times
-export function editPlanItem(d, { text, time, until, group, day, course, who, detail, going }) {
+export function editPlanItem(d, { text, time, until, group, day, course, who, detail, going, event }) {
   const next = { ...d };
   const set = (k, v, n) => { const c = clean(v, n); if (c) next[k] = c; else delete next[k]; };
   if (text !== undefined) next.title = clean(text, 120);
@@ -110,6 +111,7 @@ export function editPlanItem(d, { text, time, until, group, day, course, who, de
   if (group !== undefined) set('group', group, 40);
   if (day !== undefined && clean(day, 12)) next.date = clean(day, 12);
   if (course !== undefined && d.planType === 'bring') next.course = courseOf({ course });
+  if (event !== undefined && d.planType === 'bring') set('event', event, 40);
   if (who !== undefined) set('who', who, 40);
   if (detail !== undefined) set('detail', detail, 300);
   if (going !== undefined && d.planType === 'time') next.votes = namesFrom(going);
@@ -298,7 +300,45 @@ export function updateMessage(trip, link, since = 0, days = []) {
     const sched = scheduleByDay(items.filter((d) => d.planType === 'time'), days).filter((g) => g.items.length);
     if (sched.length) out.push('', ...sched.map((g) => `${g.name.split(' ')[0]}: ${g.items.map((d) => (d.time ? d.time + ' ' : '') + d.title).join(', ')}`));
   }
-  if (needed.length) out.push('', `Still needed: ${needed.map((d) => d.title).join(', ')}. Tap "I'll bring it" if you can.`);
+  if (needed.length) {
+    const groups = bringByEvent(needed, items.filter((d) => d.planType === 'time'), days);
+    out.push('', ...groups.map((g) => `Still needed${g.event ? ' for ' + g.event.title : ''}: ${g.items.map((d) => d.title).join(', ')}.`), 'Tap "I’ll bring it" if you can.');
+  }
   out.push('', `See the plan and tap "I'm in" on what you're doing: ${link}`);
   return out.join('\n');
+}
+
+// ---- what each event needs: the bring list, event by event ----
+// a bring item's `event` is the id of a schedule item ("Thanksgiving Dinner"); none = the whole gathering
+const dayShort = (label, days) => { const d = (days || []).find((x) => x.label === label); return d ? d.name.split(' ')[0] : label || ''; };
+export const eventLabel = (e, days) => [e.title, [dayShort(e.date, days), e.time].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+
+// [{ event (a schedule item, or null), items }]: events in schedule order, then anything not tied to
+// one (or tied to an event that's gone)
+export function bringByEvent(bring, schedule, days = []) {
+  const events = scheduleByDay(schedule || [], days).flatMap((g) => g.items);
+  const ids = new Set(events.map((e) => e.id));
+  const groups = events.map((e) => ({ event: e, items: (bring || []).filter((d) => d.event === e.id) })).filter((g) => g.items.length);
+  const loose = (bring || []).filter((d) => !d.event || !ids.has(d.event));
+  if (loose.length) groups.push({ event: null, items: loose });
+  return groups;
+}
+
+// counts for a schedule item's line: { total, needed } of the things to bring for it
+export function bringCounts(bring, eventId) {
+  const mine = (bring || []).filter((d) => d.event === eventId);
+  return { total: mine.length, needed: mine.filter(stillNeeded).length };
+}
+
+// which event a new thing to bring is for, before anyone picks: the one with the most on its list,
+// else the first meal or party on the schedule, else none
+const MEAL = /\b(dinner|lunch|breakfast|brunch|supper|party|potluck|bbq|barbecue|cookout|picnic|feast|thanksgiving|christmas)\b/i;
+export function defaultEvent(bring, schedule) {
+  const counts = new Map();
+  for (const d of bring || []) if (d.event) counts.set(d.event, (counts.get(d.event) || 0) + 1);
+  const live = new Set((schedule || []).map((e) => e.id));
+  const best = [...counts.entries()].filter(([id]) => live.has(id)).sort((a, b) => b[1] - a[1])[0];
+  if (best) return best[0];
+  const meal = (schedule || []).find((e) => MEAL.test(e.title || ''));
+  return meal ? meal.id : '';
 }

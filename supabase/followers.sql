@@ -66,8 +66,8 @@ create or replace function public.follower_entry(p_id text, d jsonb) returns jso
     'pos', d->'pos', 'by', d->'by', 'added', d->'added', 'lat', d->'lat', 'lon', d->'lon', 'source', d->'source',
     -- a gathering's plan item: which list it's on, its time, who's bringing it
     'planType', d->'planType', 'time', d->'time', 'who', d->'who',
-    -- the schedule's end time and who it's for; the bring list's course
-    'until', d->'until', 'group', d->'group', 'course', d->'course',
+    -- the schedule's end time and who it's for; the bring list's course and event
+    'until', d->'until', 'group', d->'group', 'course', d->'course', 'event', d->'event',
     -- what the family wrote; a booking's note (confirmation numbers, who holds it) stays private
     'note', case when jsonb_typeof(d->'booking') = 'object' or coalesce(d->>'kind', '') <> '' then null else d->'note' end,
     'booking', case when jsonb_typeof(d->'booking') = 'object' then jsonb_build_object(

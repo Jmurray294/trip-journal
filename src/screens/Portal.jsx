@@ -9,7 +9,7 @@ import RouteMap from '../components/RouteMap.jsx';
 import { awayStops } from '../lib/geo.js';
 import { BookReader } from './PhotoBook.jsx';
 import '../portal.css';
-import { isGathering, planLists, PLAN_SECTIONS, scheduleByDay, gatheringDays, bringByCourse } from '../lib/gathering.js';
+import { isGathering, planLists, PLAN_SECTIONS, scheduleByDay, gatheringDays, bringByEvent, eventLabel } from '../lib/gathering.js';
 
 // The family portal (?follow): people a family invited to follow along. Sign in with an emailed
 // 6-digit code, then see the trips the family shared — what's happening now on a trip underway
@@ -209,7 +209,7 @@ function GatheringPlanView({ trip }) {
         // the schedule day by day, the bring list course by course
         <div key={k} className="pt-plan-group">
           <div className="pt-plan-head">{title}</div>
-          {(k === 'time' ? scheduleByDay(lists.time, gatheringDays(datesRange(trip.dates))).filter((g) => g.items.length) : bringByCourse(lists.bring).map((g) => ({ name: g.course, items: g.items }))).map((g) => (
+          {(k === 'time' ? scheduleByDay(lists.time, gatheringDays(datesRange(trip.dates))).filter((g) => g.items.length) : bringByEvent(lists.bring, lists.time, gatheringDays(datesRange(trip.dates))).map((g) => ({ name: g.event ? 'For ' + eventLabel(g.event, gatheringDays(datesRange(trip.dates))) : 'For the whole gathering', items: g.items }))).map((g) => (
             <div key={g.name} className="pt-plan-sub">
               <div className="pt-plan-subhead">{g.name}</div>
               {g.items.map((d) => (

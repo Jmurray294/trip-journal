@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import {
   PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
-  COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel,
+  COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel, bringByEvent, bringCounts, defaultEvent, eventLabel,
 } from '../lib/gathering.js';
 
 // A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
 // course), who's coming. Anyone who can see it here can add to it, change an item (tap it) or take one
 // off. Used in the family's app and on the guests' link page.
 //   lists: planLists(trip); days: gatheringDays(span) — the gathering's days, for the schedule
-//   onAdd({ planType, text, time, until, group, day, course, who, detail }) → true when added
+//   onAdd({ planType, text, time, until, group, day, course, who, detail, event }) → true when added
+//   (a thing to bring is for an `event`: a schedule item's id; none = the whole gathering)
 //   onEdit(id, changes); onRemove(id); onShift(id, minutes) moves that item and the rest of its day
 // Ideas: onVote(id) says "I'm in" (or takes it back) as `me` — the guests' page passes both; the family
 // app passes onSchedule(id, time, day) to put a chosen idea on the schedule.
@@ -20,8 +21,8 @@ export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemov
     <div className="plan">
       {PLAN_SECTIONS.map(([type, title, hint, extra]) => {
         const items = lists[type] || [];
-        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} onShift={onShift} onGo={me ? onGo : null} me={me} {...common} />;
-        if (type === 'bring') return <BringSection key={type} title={title} items={items} me={me} onClaim={onClaim} {...common} />;
+        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} bring={lists.bring || []} onShift={onShift} onGo={me ? onGo : null} me={me} {...common} />;
+        if (type === 'bring') return <BringSection key={type} title={title} items={items} schedule={lists.time || []} me={me} onClaim={onClaim} {...common} />;
         return (
           <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={items}
             onVote={onVote} onSchedule={onSchedule} me={me} {...common} />
@@ -70,7 +71,7 @@ function DaySelect({ days, value, onChange, label = 'Day' }) {
 }
 
 // ---------- the schedule ----------
-function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift, onGo, me, busy }) {
+function ScheduleSection({ title, items, bring, days, onAdd, onEdit, onRemove, onShift, onGo, me, busy }) {
   const groups = scheduleByDay(items, days);
   const [open, setOpen] = useState(null); // id
   const [day, setDay] = useState(days[0] ? days[0].label : '');
@@ -104,7 +105,7 @@ function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift,
             const row = (d) => (open === d.id
               ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
                   onRemove={async () => { await onRemove(d.id); setOpen(null); }} onClose={() => setOpen(null)} />
-              : <ScheduleRow key={d.id} d={d} me={me} busy={busy} onGo={onGo} onOpen={() => setOpen(d.id)} />);
+              : <ScheduleRow key={d.id} d={d} me={me} busy={busy} onGo={onGo} bring={bringCounts(bring, d.id)} onOpen={() => setOpen(d.id)} />);
             if (slot.length === 1) return row(slot[0]);
             // things at the same time: side by side, pick one
             return (
@@ -126,7 +127,7 @@ function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift,
   );
 }
 
-function ScheduleRow({ d, me, busy, onGo, onOpen }) {
+function ScheduleRow({ d, me, busy, onGo, bring, onOpen }) {
   const going = votesOf(d);
   const mine = hasVoted(d, me);
   return (
@@ -138,6 +139,7 @@ function ScheduleRow({ d, me, busy, onGo, onOpen }) {
         {d.group && <span className="plan-group">{d.group}</span>}
         {d.detail && <Detail text={d.detail} />}
         {going.length > 0 && <span className="plan-votes"><b>Going ({going.length})</b> · {going.join(', ')}</span>}
+        {bring && bring.total > 0 && <span className="plan-votes plan-bring-count">{bring.total} to bring{bring.needed ? <> · <b className="plan-needed-count">{bring.needed} still needed</b></> : ' · all covered'}</span>}
         {d.by && <span className="plan-by">added by {d.by}</span>}
       </button>
       {onGo && (
@@ -159,6 +161,7 @@ function ScheduleEdit({ d, days, busy, onEdit, onShift, onRemove, onClose }) {
     <div className="plan-edit">
       <div className="plan-move">
         <span className="plan-move-what"><b>{whenOf(d)}</b> {d.title}</span>
+        <span className="plan-move-label" style={{ flexBasis: "auto" }}>Move it:</span>
         <div className="plan-move-btns">
           {timed && <button className="plan-chip press" disabled={busy || !early} onClick={() => move(-30)}>− 30 min</button>}
           {timed && <button className="plan-chip press" disabled={busy || !late} onClick={() => move(30)}>+ 30 min</button>}
@@ -173,6 +176,7 @@ function ScheduleEdit({ d, days, busy, onEdit, onShift, onRemove, onClose }) {
           </div>
         )}
       </div>
+      <div className="plan-edit-head">Change the details</div>
       {/* the full edit; keyed so it shows the new day and time after a quick move */}
       <ScheduleForm key={`${d.date}|${d.time}|${d.until}`} d={d} days={days} busy={busy} onRemove={onRemove} onClose={onClose}
         onSave={async (c) => { await onEdit(d.id, c); onClose(); }} />
@@ -218,18 +222,38 @@ function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
 }
 
 // ---------- who's bringing what ----------
-function BringSection({ title, items, me, onAdd, onEdit, onRemove, onClaim, busy }) {
+function EventSelect({ events, days, value, onChange }) {
+  return (
+    <select className="field plan-event" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Which event it's for">
+      {events.map((e) => <option key={e.id} value={e.id}>For {eventLabel(e, days)}</option>)}
+      <option value="">For the whole gathering</option>
+    </select>
+  );
+}
+
+function BringSection({ title, items, schedule, days, me, onAdd, onEdit, onRemove, onClaim, busy }) {
   const [open, setOpen] = useState(null);
   const [text, setText] = useState('');
   const [course, setCourse] = useState('Sides');
   const [who, setWho] = useState('');
+  // which event new things are for: the last one picked, else the likeliest
+  const [picked, setPicked] = useState(null);
+  const [moveTo, setMoveTo] = useState(null);
+  const events = scheduleByDay(schedule, days).flatMap((g) => g.items);
+  const guess = defaultEvent(items, schedule);
+  const event = picked !== null && (picked === '' || events.some((e) => e.id === picked)) ? picked : guess;
   const needed = items.filter(stillNeeded).length;
+  const groups = bringByEvent(items, schedule, days);
+  const loose = groups.find((g) => !g.event);
+  const target = moveTo !== null ? moveTo : (guess || (events[0] && events[0].id) || '');
   const add = async () => {
     if (!text.trim() || busy) return;
-    const ok = await onAdd({ planType: 'bring', text, course, who });
+    const ok = await onAdd({ planType: 'bring', text, course, who, event });
     if (ok !== false) { setText(''); setWho(''); }
   };
+  const moveLoose = async () => { for (const d of loose.items) await onEdit(d.id, { event: target }); };
   const key = (e) => { if (e.key === 'Enter') add(); };
+  const titled = groups.some((g) => g.event);
   return (
     <div className="plan-sec plan-sec-bring">
       <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
@@ -237,19 +261,37 @@ function BringSection({ title, items, me, onAdd, onEdit, onRemove, onClaim, busy
         {needed > 0 && <b className="plan-needed-count">{needed} still needed. </b>}
         {onClaim ? 'Tap “I’ll bring it” on anything still needed, or add what you’re bringing.' : 'List what’s needed and leave Who empty; guests tap “I’ll bring it” on their link.'}
       </div>
+      {/* things from before the list knew about events: put them with one */}
+      {!onClaim && loose && events.length > 0 && (
+        <div className="plan-link-event">
+          <span>{titled ? `${loose.items.length} not tied to an event.` : 'Which event are these for?'}</span>
+          <EventSelect events={events} days={days} value={target} onChange={setMoveTo} />
+          <button className="btn-primary small press" disabled={busy || !target} onClick={moveLoose}>Move {loose.items.length === 1 ? 'it' : `all ${loose.items.length}`}</button>
+        </div>
+      )}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
-      {bringByCourse(items).map((g) => (
-        <div key={g.course} className="plan-course">
-          <div className="plan-day-head">{g.course}</div>
-          {g.items.map((d) => (open === d.id
-            ? <BringEdit key={d.id} d={d} busy={busy} onClose={() => setOpen(null)}
-                onSave={async (c) => { await onEdit(d.id, c); setOpen(null); }}
-                onRemove={async () => { await onRemove(d.id); setOpen(null); }} />
-            : <BringRow key={d.id} d={d} me={me} busy={busy} onClaim={onClaim} onOpen={() => setOpen(d.id)} />))}
+      {groups.map((g) => (
+        <div key={g.event ? g.event.id : 'loose'} className="plan-bring-event">
+          {(titled || g.event) && (
+            <div className="plan-event-head">
+              {g.event ? <>For <b>{g.event.title}</b>{[dayShortOf(g.event, days), g.event.time].filter(Boolean).length > 0 && <span> · {[dayShortOf(g.event, days), g.event.time].filter(Boolean).join(' ')}</span>}</> : <b>For the whole gathering</b>}
+            </div>
+          )}
+          {bringByCourse(g.items).map((c) => (
+            <div key={c.course} className="plan-course">
+              <div className="plan-day-head">{c.course}</div>
+              {c.items.map((d) => (open === d.id
+                ? <BringEdit key={d.id} d={d} events={events} days={days} busy={busy} onClose={() => setOpen(null)}
+                    onSave={async (ch) => { await onEdit(d.id, ch); setOpen(null); }}
+                    onRemove={async () => { await onRemove(d.id); setOpen(null); }} />
+                : <BringRow key={d.id} d={d} me={me} busy={busy} onClaim={onClaim} onOpen={() => setOpen(d.id)} />))}
+            </div>
+          ))}
         </div>
       ))}
       <div className="plan-add t-bring">
         <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={key} placeholder="e.g. Green bean casserole" aria-label="Add something to bring" />
+        {events.length > 0 && <EventSelect events={events} days={days} value={event} onChange={setPicked} />}
         <select className="field plan-x" value={course} onChange={(e) => setCourse(e.target.value)} aria-label="Course">
           {COURSES.map((c) => <option key={c}>{c}</option>)}
         </select>
@@ -259,6 +301,7 @@ function BringSection({ title, items, me, onAdd, onEdit, onRemove, onClaim, busy
     </div>
   );
 }
+const dayShortOf = (e, days) => { const d = days.find((x) => x.label === e.date); return d ? d.name.split(' ')[0] : ''; };
 
 function BringRow({ d, me, busy, onClaim, onOpen }) {
   const need = stillNeeded(d);
@@ -279,17 +322,19 @@ function BringRow({ d, me, busy, onClaim, onOpen }) {
   );
 }
 
-function BringEdit({ d, busy, onSave, onRemove, onClose }) {
+function BringEdit({ d, events, days, busy, onSave, onRemove, onClose }) {
   const [text, setText] = useState(d.title || '');
   const [course, setCourse] = useState(courseOf(d));
   const [who, setWho] = useState(d.who || '');
   const [detail, setDetail] = useState(d.detail || '');
-  const save = () => { if (text.trim()) onSave({ text, course, who, detail }); };
+  const [event, setEvent] = useState(events.some((e) => e.id === d.event) ? d.event : '');
+  const save = () => { if (text.trim()) onSave({ text, course, who, detail, event }); };
   const key = (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onClose(); };
   return (
     <div className="plan-edit">
       <div className="plan-form">
         <label className="plan-f wide"><span>What</span><input className="field" value={text} autoFocus onChange={(e) => setText(e.target.value)} onKeyDown={key} aria-label="What" /></label>
+        {events.length > 0 && <label className="plan-f wide"><span>For</span><EventSelect events={events} days={days} value={event} onChange={setEvent} /></label>}
         <label className="plan-f"><span>Course</span>
           <select className="field" value={course} onChange={(e) => setCourse(e.target.value)} aria-label="Course">{COURSES.map((c) => <option key={c}>{c}</option>)}</select></label>
         <label className="plan-f"><span>Who’s bringing it</span><input className="field" value={who} onChange={(e) => setWho(e.target.value)} onKeyDown={key} placeholder="Empty = still needed" aria-label="Who" /></label>

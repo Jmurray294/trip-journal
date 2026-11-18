@@ -1010,6 +1010,19 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
   .plan-choice-items > .plan-row + .plan-row { border-left: 1px solid rgba(42,37,32,0.08); padding-left: 12px; }
 }
 
+/* the bring list, event by event */
+.plan-event-head { font-size: 14px; color: var(--secondary); margin: 14px 0 0; padding: 8px 10px; background: #FBF1DC; border-radius: 10px; }
+.plan-event-head b { color: var(--ink); }
+.plan-bring-event:first-of-type .plan-event-head { margin-top: 6px; }
+.plan-add.t-bring > .plan-event { grid-column: 1 / -1; }
+.plan-event { padding: 10px 12px; font-size: 15px; border-radius: 10px; min-width: 0; }
+.plan-link-event { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: #FFF6E5; border: 1px solid #F0D9A8; border-radius: 12px; padding: 10px 12px; margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
+.plan-link-event .plan-event { flex: 1; min-width: 200px; }
+.plan-link-event .btn-primary.small { width: auto; flex: none; min-height: 40px; padding: 0 16px; margin: 0; }
+.plan-bring-count { color: var(--secondary); }
+.plan-votes b.plan-needed-count { color: #9A5B00; }
+.plan-edit-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--secondary); margin: 4px 0 8px; }
+
 /* "Send an update" on a gathering's plan */
 .plan-update { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; background: #F4F7FD; border: 1px solid rgba(27,63,168,0.18); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; color: var(--secondary); }
 .plan-update .btn-primary.small { width: auto; flex: none; min-height: 40px; padding: 0 16px; margin: 0; }
