@@ -40,7 +40,7 @@ import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
 import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
-import { makePlanItem, editPlanItem, scheduleIdea, shiftFrom, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
+import { makePlanItem, editPlanItem, scheduleIdea, shiftFrom, toggleVote, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
 
 
 async function copyText(text) {
@@ -519,6 +519,13 @@ export default function App() {
     });
     return true;
   };
+  // "I'm in" on a schedule item, as the family member signed in here
+  const myName = (() => {
+    const m = (family.members || []).find((x) => x.user_id === family.uid);
+    const n = (m && m.display_name) || String(family.email || '').split('@')[0].split(/[._-]/)[0];
+    return n ? n.charAt(0).toUpperCase() + n.slice(1) : '';
+  })();
+  const goPlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? toggleVote(d, myName) : d)) }));
   const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? editPlanItem(d, changes) : d)) }));
   const schedulePlan = (tripId, id, time, day) => { updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? scheduleIdea(d, time, day) : d)) })); showToast('On the schedule'); };
   // running late: this item and the rest of its day move back
@@ -878,6 +885,7 @@ export default function App() {
               onEditPlan={(id, changes) => editPlan(trip.id, id, changes)}
               onRemovePlan={(id) => removePlan(trip.id, id)}
               onSchedulePlan={(id, time, day) => schedulePlan(trip.id, id, time, day)}
+              onGoPlan={(id) => goPlan(trip.id, id)} myName={myName}
               onShiftPlan={(id, minutes) => shiftPlan(trip.id, id, minutes)}
               onDeletePhoto={(i, pi) => deletePhoto(trip.id, i, pi)}
               onSetCover={(dayId, pi) => setTripCover(trip.id, dayId, pi)}

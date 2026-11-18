@@ -1046,7 +1046,8 @@ async function filePhoto(admin: ReturnType<typeof createClient>, hid: string, tr
 //       and on ideas (planType "idea", with detail?) { action: "plan-vote", name, id } says "I'm in" or takes it back.
 //       Schedule items also take day ("Nov 27"), until and group; { action: "plan-shift", name, id, minutes } moves
 //       that item and the rest of its day; things to bring take course and detail, and { action: "plan-claim", name, id }
-//       says "I'll bring it" (or takes it back)
+//       says "I'll bring it" (or takes it back). plan-vote works on schedule items too ("I'm in" = going), and
+//       plan-edit takes going ("Joe, Roger") for them
 //       (plan entries only; the same rules as src/lib/gathering.js).
 const noConf = (s: string) => s.replace(/\s*(\u00b7\s*)?\b(conf(irmation)?|record locator|pnr)\b[\s#:.]*[A-Z0-9-]{4,}/gi, "").trim().replace(/^\u00b7\s*/, "");
 async function sharedTrip(req: Request, url: URL) {
@@ -1221,7 +1222,8 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     return ok({ claimed: !!doc.who });
   }
   if (body.action === "plan-vote") {
-    if (cur.doc.planType !== "idea") return ok({ error: "That's already on the schedule" }, 400);
+    // an idea: "I'm in"; a schedule item: "I'm going"
+    if (cur.doc.planType !== "idea" && cur.doc.planType !== "time") return ok({ error: "That can't be voted on" }, 400);
     const same = (v: unknown) => planClean(v, 40).toLowerCase() === name.toLowerCase();
     const votes = (Array.isArray(cur.doc.votes) ? cur.doc.votes : []).map(String);
     const doc = { ...cur.doc, votes: votes.some(same) ? votes.filter((v: string) => !same(v)) : [...votes, name] };
@@ -1240,6 +1242,8 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     set("time", 20); set("until", 20); set("group", 40);
     if (!doc.time) delete doc.until;
     if (day) doc.date = day;
+    // who's going, typed as names ("Joe, Roger")
+    if (has("going")) doc.votes = [...new Set(String(body.going || "").split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean))];
   }
   if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); }
   if (type !== "coming") set("detail", 300);

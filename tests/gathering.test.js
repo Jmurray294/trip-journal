@@ -76,7 +76,7 @@ test('ideas: "I am in" toggles by name, the most wanted come first, and a picked
   assert.equal(s.planType, 'time');
   assert.equal(s.time, 'Fri 6pm');
   assert.equal(s.detail, 'Trail of Lights, after dark');
-  assert.ok(!('votes' in s));
+  assert.deepEqual(s.votes, lights.votes); // who was in is who's going
   assert.deepEqual(planLists({ days: [s] }).time.map((d) => d.id), ['i1']);
   assert.equal(editPlanItem(lights, { detail: '' }).detail, undefined);
 });
@@ -178,4 +178,34 @@ test('an idea put on the schedule lands on the day picked', () => {
   assert.equal(s.planType, 'time');
   assert.equal(s.date, 'Nov 28');
   assert.equal(s.time, '6pm');
+});
+
+import { daySlots, linkLabel, namesFrom } from '../src/lib/gathering.js';
+
+test('links are named for where they go', () => {
+  assert.equal(linkLabel('https://www.bing.com/maps?q=Stewart+Peninsula+Golf+C'), 'Map');
+  assert.equal(linkLabel('https://www.google.com/maps/place/Galleria'), 'Map');
+  assert.equal(linkLabel('https://maps.app.goo.gl/abc'), 'Map');
+  assert.equal(linkLabel('https://www.alltrails.com/trail/us/texas/blackjack-t'), 'AllTrails');
+  assert.equal(linkLabel('https://raceroster.com/events/2026/117103/2026-d'), 'Race Roster');
+  assert.equal(linkLabel('https://www.dallascowboys.com/tickets'), 'dallascowboys.com');
+  assert.equal(linkLabel('not a link'), 'Link');
+});
+
+test('things at the same time share a slot; anytime items stand alone', () => {
+  const at = { first: 'Nov 25', place: 'Home' };
+  let n = 0;
+  const mk = (text, time, until) => makePlanItem({ planType: 'time', text, time, until }, { ...at, id: text, now: n++ });
+  const day = [mk('Golf', '7am', '11am'), mk('Hike', '10am'), mk('Universal', '10am'), mk('Shopping', '1pm'), mk('Game', '7:30pm'), mk('Games')];
+  assert.deepEqual(daySlots(day).map((s) => s.map((d) => d.id)), [['Golf', 'Hike', 'Universal'], ['Shopping'], ['Game'], ['Games']]);
+  const noEnds = [mk('A', '10am'), mk('B', '10am'), mk('C', '10:30am')];
+  assert.deepEqual(daySlots(noEnds).map((s) => s.length), [2, 1]);
+});
+
+test('who is going: I am in on a schedule item, or typed names', () => {
+  const d = makePlanItem({ planType: 'time', text: 'Golf', time: '7am' }, { id: 'g', first: 'Nov 25', place: 'Home', now: 1 });
+  assert.deepEqual(toggleVote(d, 'Joe').votes, ['Joe']);
+  assert.deepEqual(namesFrom('Joe, Roger and Randy & Joe'), ['Joe', 'Roger', 'Randy']);
+  assert.deepEqual(editPlanItem(d, { going: 'Joe, Roger' }).votes, ['Joe', 'Roger']);
+  assert.deepEqual(editPlanItem(d, { going: '' }).votes, []);
 });

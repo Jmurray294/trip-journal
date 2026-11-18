@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
-  COURSES, courseOf, bringByCourse, stillNeeded,
+  COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel,
 } from '../lib/gathering.js';
 
 // A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
@@ -13,13 +13,14 @@ import {
 // Ideas: onVote(id) says "I'm in" (or takes it back) as `me` — the guests' page passes both; the family
 // app passes onSchedule(id, time, day) to put a chosen idea on the schedule.
 // Bring: onClaim(id) says "I'll bring it" as `me` (the guests' page).
-export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemove, onShift, onVote, onSchedule, onClaim, me = '', busy = false }) {
+// Schedule: onGo(id) says "I'm in" (going) or takes it back, as `me` (both pages, when there's a name).
+export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemove, onShift, onVote, onSchedule, onClaim, onGo, me = '', busy = false }) {
   const common = { onAdd, onEdit, onRemove, busy, days };
   return (
     <div className="plan">
       {PLAN_SECTIONS.map(([type, title, hint, extra]) => {
         const items = lists[type] || [];
-        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} onShift={onShift} {...common} />;
+        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} onShift={onShift} onGo={me ? onGo : null} me={me} {...common} />;
         if (type === 'bring') return <BringSection key={type} title={title} items={items} me={me} onClaim={onClaim} {...common} />;
         return (
           <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={items}
@@ -34,15 +35,15 @@ export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemov
 const fromPicker = (v) => (v ? fmtTime(timeMinutes(v)) : '');
 const whenOf = (d) => (d.time ? (d.until ? `${d.time}–${d.until}` : d.time) : 'Anytime');
 
-// details with any web address made into a link
-const URL_RE = /(https?:\/\/[^\s]+)/g;
+// details, with any web address made into a small button named for the site ("Map", "AllTrails")
+const URL_RE = /(https?:\/\/[^\s]*[^\s.,;:!?)])/g;
 function Detail({ text }) {
   const parts = String(text || '').split(URL_RE);
   return (
     <span className="plan-detail">
       {parts.map((s, i) => (i % 2
-        ? <a key={i} href={s} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{s.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}</a>
-        : s))}
+        ? <a key={i} className="plan-link" href={s} target="_blank" rel="noopener noreferrer" title={s} onClick={(e) => e.stopPropagation()}>{linkLabel(s)} ↗</a>
+        : s.trim() ? <span key={i}>{s.trim()} </span> : null))}
     </span>
   );
 }
@@ -69,7 +70,7 @@ function DaySelect({ days, value, onChange, label = 'Day' }) {
 }
 
 // ---------- the schedule ----------
-function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift, busy }) {
+function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift, onGo, me, busy }) {
   const groups = scheduleByDay(items, days);
   const [open, setOpen] = useState(null); // id
   const [day, setDay] = useState(days[0] ? days[0].label : '');
@@ -99,19 +100,20 @@ function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift,
           onDragLeave={() => setOver((o) => (o === g.label ? '' : o))} onDrop={drop(g.label)}>
           {many && <div className="plan-day-head">{g.name}</div>}
           {g.items.length === 0 && <div className="plan-empty">Nothing planned{many ? ' this day' : ''} yet.</div>}
-          {g.items.map((d) => (open === d.id
-            ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
-                onRemove={async () => { await onRemove(d.id); setOpen(null); }} onClose={() => setOpen(null)} />
-            : (
-              <button key={d.id} className="plan-row" onClick={() => setOpen(d.id)} title="Tap to change or move"
-                draggable onDragStart={(e) => { e.dataTransfer.setData('text/plan-id', d.id); e.dataTransfer.effectAllowed = 'move'; }}>
-                <span className={'plan-time' + (d.time ? '' : ' none')}>{whenOf(d)}</span>
-                <span className="plan-text">{d.title}</span>
-                {d.group && <span className="plan-group">{d.group}</span>}
-                {d.detail && <Detail text={d.detail} />}
-                {d.by && <span className="plan-by">added by {d.by}</span>}
-              </button>
-            )))}
+          {daySlots(g.items).map((slot) => {
+            const row = (d) => (open === d.id
+              ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
+                  onRemove={async () => { await onRemove(d.id); setOpen(null); }} onClose={() => setOpen(null)} />
+              : <ScheduleRow key={d.id} d={d} me={me} busy={busy} onGo={onGo} onOpen={() => setOpen(d.id)} />);
+            if (slot.length === 1) return row(slot[0]);
+            // things at the same time: side by side, pick one
+            return (
+              <div key={slot[0].id} className={'plan-choice' + (slot.some((d) => d.id === open) ? ' editing' : '')}>
+                <div className="plan-choice-head">Same time · pick one</div>
+                <div className="plan-choice-items">{slot.map(row)}</div>
+              </div>
+            );
+          })}
         </div>
       ))}
       <div className={'plan-add t-time' + (days.length > 1 ? ' with-day' : '')}>
@@ -120,6 +122,29 @@ function ScheduleSection({ title, items, days, onAdd, onEdit, onRemove, onShift,
         <input className="field" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="e.g. Dinner" aria-label="Add to the schedule" />
         <button className="btn-primary small press plan-btn" disabled={!text.trim() || busy} onClick={add}>Add</button>
       </div>
+    </div>
+  );
+}
+
+function ScheduleRow({ d, me, busy, onGo, onOpen }) {
+  const going = votesOf(d);
+  const mine = hasVoted(d, me);
+  return (
+    <div className="plan-row plan-idea plan-sched">
+      <button className="plan-idea-main" onClick={onOpen} title="Tap to change or move"
+        draggable onDragStart={(e) => { e.dataTransfer.setData('text/plan-id', d.id); e.dataTransfer.effectAllowed = 'move'; }}>
+        <span className={'plan-time' + (d.time ? '' : ' none')}>{whenOf(d)}</span>
+        <span className="plan-text">{d.title}</span>
+        {d.group && <span className="plan-group">{d.group}</span>}
+        {d.detail && <Detail text={d.detail} />}
+        {going.length > 0 && <span className="plan-votes"><b>Going ({going.length})</b> · {going.join(', ')}</span>}
+        {d.by && <span className="plan-by">added by {d.by}</span>}
+      </button>
+      {onGo && (
+        <button className={'plan-vote press' + (mine ? ' on' : '')} disabled={busy} onClick={() => onGo(d.id)} aria-pressed={mine}>
+          {mine ? '✓ I’m in' : 'I’m in'}
+        </button>
+      )}
     </div>
   );
 }
@@ -162,12 +187,13 @@ function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
   const [until, setUntil] = useState(pickerTime(d.until));
   const [group, setGroup] = useState(d.group || '');
   const [detail, setDetail] = useState(d.detail || '');
+  const [going, setGoing] = useState(votesOf(d).join(', '));
   // a time written by hand that the picker can't show ("after dinner") stays unless it's changed
   const odd = !!d.time && timeMinutes(d.time) == null;
   const [timeTouched, setTimeTouched] = useState(false);
   const save = () => {
     if (!text.trim()) return;
-    const c = { text, day, group, detail };
+    const c = { text, day, group, detail, going };
     if (!odd || timeTouched) { c.time = fromPicker(time); c.until = time ? fromPicker(until) : ''; }
     onSave(c);
   };
@@ -182,6 +208,7 @@ function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
         <label className="plan-f"><span>Until (optional)</span>
           <input className="field" type="time" value={until} disabled={!time} onChange={(e) => { setUntil(e.target.value); setTimeTouched(true); }} aria-label="Until" /></label>
         <label className="plan-f"><span>For (optional)</span><input className="field" value={group} onChange={(e) => setGroup(e.target.value)} onKeyDown={key} placeholder="e.g. Kids, Everyone" aria-label="For" /></label>
+        <label className="plan-f wide"><span>Who’s going (optional)</span><input className="field" value={going} onChange={(e) => setGoing(e.target.value)} onKeyDown={key} placeholder="e.g. Joe, Roger" aria-label="Who's going" /></label>
         <label className="plan-f wide"><span>Notes or link (optional)</span><input className="field" value={detail} onChange={(e) => setDetail(e.target.value)} onKeyDown={key} aria-label="Notes or link" /></label>
       </div>
       {time && <button className="btn-link inline plan-anytime" onClick={() => { setTime(''); setUntil(''); setTimeTouched(true); }}>No set time (anytime)</button>}

@@ -203,6 +203,7 @@ export default function GuestTrip({ token }) {
                 onRemove={(id) => planCall({ action: 'plan-remove', id }, 'Taken off the plan')}
                 onShift={(id, minutes) => planCall({ action: 'plan-shift', id, minutes }, 'Moved')}
                 onClaim={(id) => planCall({ action: 'plan-claim', id })}
+                onGo={(id) => planCall({ action: 'plan-vote', id })}
                 me={name} onVote={(id) => planCall({ action: 'plan-vote', id })} />
             </div>
           )}

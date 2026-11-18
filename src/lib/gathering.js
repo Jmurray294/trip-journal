@@ -71,9 +71,10 @@ export function toggleVote(d, name) {
   return { ...d, votes };
 }
 
-// the family picks an idea: it goes on the schedule (at a time, if given) and keeps its details
+// the family picks an idea: it goes on the schedule (at a time, if given) and keeps its details and
+// everyone who said "I'm in" (on the schedule, that's who's going)
 export function scheduleIdea(d, time, day) {
-  const { votes: _v, ...rest } = d;
+  const rest = { ...d };
   const t = clean(time, 20);
   return { ...rest, planType: 'time', ...(t ? { time: t } : {}), ...(clean(day, 12) ? { date: clean(day, 12) } : {}) };
 }
@@ -99,7 +100,7 @@ export function makePlanItem({ planType, text, time, until, group, day, course, 
 }
 
 // apply an edit to a plan entry: its words, and for the schedule its day and times
-export function editPlanItem(d, { text, time, until, group, day, course, who, detail }) {
+export function editPlanItem(d, { text, time, until, group, day, course, who, detail, going }) {
   const next = { ...d };
   const set = (k, v, n) => { const c = clean(v, n); if (c) next[k] = c; else delete next[k]; };
   if (text !== undefined) next.title = clean(text, 120);
@@ -111,6 +112,7 @@ export function editPlanItem(d, { text, time, until, group, day, course, who, de
   if (course !== undefined && d.planType === 'bring') next.course = courseOf({ course });
   if (who !== undefined) set('who', who, 40);
   if (detail !== undefined) set('detail', detail, 300);
+  if (going !== undefined && d.planType === 'time') next.votes = namesFrom(going);
   return next;
 }
 
@@ -236,4 +238,43 @@ export function guestMessage(trip, link) {
 export function gatheringsInOrder(trips, today = new Date()) {
   const g = groupTrips((trips || []).filter(isGathering), today);
   return [...g.upcoming, ...g.possible, ...g.past].map((t) => ({ t, upcoming: tripStage(t, today) !== 'past' }));
+}
+
+// ---- who's going, and things at the same time ----
+// "Joe, Roger" → ['Joe', 'Roger'] (the family types who's in when they change an item)
+export const namesFrom = (s) => [...new Set(String(s || '').split(/[,;&]|\band\b/).map((x) => clean(x, 40)).filter(Boolean))];
+
+// a day's schedule in slots: things whose times overlap (the same start, or starting before another
+// ends) share a slot, so they show side by side as a choice; anything without a time is its own slot
+export function daySlots(items) {
+  const slots = [];
+  let cur = null, end = -1, start = -1;
+  for (const d of items || []) {
+    const a = timeMinutes(d.time);
+    if (a == null) { slots.push([d]); cur = null; continue; }
+    const z = timeMinutes(d.until);
+    const e = z != null && z > a ? z : a;
+    if (cur && (a < end || a === start)) { cur.push(d); end = Math.max(end, e); continue; }
+    cur = [d]; slots.push(cur); end = e; start = a;
+  }
+  return slots;
+}
+
+// a short name for a link: "Map" for directions, the site's name for the rest ("AllTrails")
+const SITES = {
+  alltrails: 'AllTrails', raceroster: 'Race Roster', ticketmaster: 'Ticketmaster', opentable: 'OpenTable', eventbrite: 'Eventbrite',
+  tripadvisor: 'Tripadvisor', youtube: 'YouTube', youtu: 'YouTube', facebook: 'Facebook', instagram: 'Instagram', resy: 'Resy',
+  stubhub: 'StubHub', seatgeek: 'SeatGeek', yelp: 'Yelp', espn: 'ESPN', nfl: 'NFL', golfnow: 'GolfNow',
+};
+export function linkLabel(url) {
+  let u;
+  try { u = new URL(url); } catch (e) { return 'Link'; }
+  const host = u.hostname.toLowerCase().replace(/^www\./, '');
+  const path = u.pathname.toLowerCase();
+  if (/^maps\./.test(host) || host === 'maps.app.goo.gl' || host === 'waze.com'
+    || ((host === 'goo.gl' || /(^|\.)(google|bing)\.[a-z.]+$/.test(host)) && path.startsWith('/maps'))) return 'Map';
+  const parts = host.split('.');
+  // "bbc.co.uk" → bbc; "events.raceroster.com" → raceroster
+  const at = parts.length > 2 && parts[parts.length - 2].length <= 3 && parts[parts.length - 1].length === 2 ? parts.length - 3 : Math.max(0, parts.length - 2);
+  return SITES[parts[at]] || parts.slice(at).join('.');
 }
