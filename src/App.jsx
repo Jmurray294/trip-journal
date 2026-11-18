@@ -40,7 +40,7 @@ import { repairTrips } from './lib/mojibake.js';
 import Sidebar from './components/Sidebar.jsx';
 import { attention, urgentCount } from './lib/attention.js';
 import { tripSpan, tripForDay, tripStage, currentTrip } from './lib/stages.js';
-import { makePlanItem, editPlanItem, scheduleIdea, shiftFrom, toggleVote, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
+import { makePlanItem, editPlanItem, scheduleIdea, shiftFrom, toggleVote, toggleGoing, guestNames, isGoing, planLists, planLine, PLAN_SECTIONS } from './lib/gathering.js';
 
 
 async function copyText(text) {
@@ -525,7 +525,24 @@ export default function App() {
     const n = (m && m.display_name) || String(family.email || '').split('@')[0].split(/[._-]/)[0];
     return n ? n.charAt(0).toUpperCase() + n.slice(1) : '';
   })();
-  const goPlan = (tripId, id) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? toggleVote(d, myName) : d)) }));
+  // "I'm in" on an event (an idea is a plain vote); someone going who isn't on Who's coming is added to it
+  const goPlan = (tripId, id) => updateTrip(tripId, (t) => {
+    const guests = guestNames(t.days);
+    let joined = false;
+    const days = t.days.map((d) => {
+      if (d.id !== id) return d;
+      if (d.planType !== 'time') return toggleVote(d, myName);
+      const next = toggleGoing(d, myName, guests);
+      joined = isGoing(next, myName);
+      return next;
+    });
+    if (joined && !guests.some((g) => g.toLowerCase() === myName.toLowerCase())) {
+      const sp = tripSpan(t);
+      const first = sp ? MON3[sp[0].getMonth()] + ' ' + sp[0].getDate() : todayLabel();
+      days.push(makePlanItem({ planType: 'coming', text: myName }, { id: newEntryId(), first, place: t.place, now: Date.now() }));
+    }
+    return { ...t, days: sortDays(days) };
+  });
   const editPlan = (tripId, id, changes) => updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? { ...editPlanItem(d, changes), changed: Date.now() } : d)) }));
   const schedulePlan = (tripId, id, time, day) => { updateTrip(tripId, (t) => ({ ...t, days: t.days.map((d) => (d.id === id ? { ...scheduleIdea(d, time, day), changed: Date.now() } : d)) })); showToast('On the schedule'); };
   // running late: this item and the rest of its day move back

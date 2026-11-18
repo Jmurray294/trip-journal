@@ -1228,10 +1228,33 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     if (cur.doc.planType !== "idea" && cur.doc.planType !== "time") return ok({ error: "That can't be voted on" }, 400);
     const same = (v: unknown) => planClean(v, 40).toLowerCase() === name.toLowerCase();
     const votes = (Array.isArray(cur.doc.votes) ? cur.doc.votes : []).map(String);
-    const doc = { ...cur.doc, votes: votes.some(same) ? votes.filter((v: string) => !same(v)) : [...votes, name] };
+    // Who's coming is the guest list (same as guestNames / toggleGoing in src/lib/gathering.js)
+    const { data: all } = await admin.from("entries").select("id, doc").eq("household_id", hid).eq("trip_id", t.id).eq("deleted", false);
+    const guests: string[] = [];
+    for (const r of (all || []) as { id: string; doc: Record<string, any> }[]) {
+      if (r.doc.kind !== "Plan" || r.doc.planType !== "coming") continue;
+      for (const n of String(r.doc.title || "").split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean)) {
+        if (!guests.some((g) => g.toLowerCase() === n.toLowerCase())) guests.push(n);
+      }
+    }
+    let doc: Record<string, any>;
+    if (cur.doc.planType === "time" && cur.doc.everyone) {
+      // leaving an "everyone" event: everyone else stays on it
+      const { everyone: _e, ...rest } = cur.doc;
+      doc = { ...rest, votes: [...guests, ...votes].filter((g, i, a) => !same(g) && a.findIndex((x) => x.toLowerCase() === g.toLowerCase()) === i) };
+    } else doc = { ...cur.doc, votes: votes.some(same) ? votes.filter((v: string) => !same(v)) : [...votes, name] };
     const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
     if (error) return ok({ error: error.message }, 500);
-    return ok({ voted: doc.votes.length });
+    // going to an event but not on Who's coming yet: add them
+    const going = cur.doc.planType === "time" && (doc.everyone || (doc.votes as string[]).some(same));
+    if (going && !guests.some(same)) {
+      const gid = "plan-" + crypto.randomUUID().slice(0, 13);
+      const now = Date.now();
+      await admin.from("entries").upsert({ household_id: hid, id: gid, trip_id: t.id, deleted: false, doc: {
+        id: gid, kind: "Plan", planType: "coming", title: name, date: String(cur.doc.date || ""), place: String(t.doc.place || ""),
+        by: name, photos: [], source: "plan", pos: now, added: now } }, { onConflict: "household_id,id" });
+    }
+    return ok({ voted: (doc.votes || []).length });
   }
   if (body.action !== "plan-edit") return ok({ error: "unknown action" }, 400);
   const has = (k: string) => body[k] !== undefined;
@@ -1242,10 +1265,11 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
   if (has("text")) doc.title = text;
   if (type === "time") {
     set("time", 20); set("until", 20); set("group", 40);
+    if (has("everyone")) { if (body.everyone) doc.everyone = true; else delete doc.everyone; }
     if (!doc.time) delete doc.until;
     if (day) doc.date = day;
     // who's going, typed as names ("Joe, Roger")
-    if (has("going")) doc.votes = [...new Set(String(body.going || "").split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean))];
+    if (has("going")) doc.votes = [...new Set((Array.isArray(body.going) ? body.going.join(",") : String(body.going || "")).split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean))];
   }
   if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); set("event", 40); }
   if (type !== "coming") set("detail", 300);

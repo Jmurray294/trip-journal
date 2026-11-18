@@ -252,3 +252,33 @@ test('the bring list goes event by event; things for no event (or a removed one)
   assert.equal(editPlanItem(bring[2], { event: 'party' }).event, 'party');
   assert.ok(!('event' in editPlanItem(bring[0], { event: '' })));
 });
+
+import { guestNames, isGoing, toggleGoing, missingGuests, nameLines } from '../src/lib/gathering.js';
+
+test('one list of people: the guest list, events marked Everyone, and names to add', () => {
+  const at = { first: 'Nov 26', place: 'Home' };
+  const coming = [
+    makePlanItem({ planType: 'coming', text: 'Diane, Dallas, Zach' }, { ...at, id: 'c1', now: 1 }),
+    makePlanItem({ planType: 'coming', text: 'Grandma Murray' }, { ...at, id: 'c2', now: 2 }),
+    makePlanItem({ planType: 'coming', text: 'diane' }, { ...at, id: 'c3', now: 3 }),
+  ];
+  const guests = guestNames(coming);
+  assert.deepEqual(guests, ['Diane', 'Dallas', 'Zach', 'Grandma Murray']);
+  const dinner = editPlanItem(makePlanItem({ planType: 'time', text: 'Dinner', time: 'noon' }, { ...at, id: 'd', now: 4 }), { everyone: true });
+  assert.ok(dinner.everyone && isGoing(dinner, 'Zach') && isGoing(dinner, 'Someone new'));
+  // leaving an Everyone event leaves everyone else on it
+  const left = toggleGoing(dinner, 'Zach', guests);
+  assert.ok(!left.everyone);
+  assert.deepEqual(left.votes, ['Diane', 'Dallas', 'Grandma Murray']);
+  assert.ok(!isGoing(left, 'zach'));
+  assert.deepEqual(toggleGoing(left, 'Zach', guests).votes, ['Diane', 'Dallas', 'Grandma Murray', 'Zach']);
+  // picked names from the form (an array) and clearing Everyone
+  const golf = editPlanItem(makePlanItem({ planType: 'time', text: 'Golf', time: '7am' }, { ...at, id: 'g', now: 5 }), { going: ['Joe', 'Roger'], everyone: false });
+  assert.deepEqual(golf.votes, ['Joe', 'Roger']);
+  assert.ok(!('everyone' in golf));
+  assert.deepEqual(missingGuests([...coming, golf, dinner]), ['Joe', 'Roger']);
+  const many = Array.from({ length: 30 }, (_, i) => 'Person' + i);
+  const lines = nameLines(many);
+  assert.ok(lines.length > 1 && lines.every((l) => l.length <= 120));
+  assert.deepEqual(lines.flatMap((l) => l.split(', ')), many);
+});

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
   COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel, bringByEvent, bringCounts, defaultEvent, eventLabel,
-  emojiFor, COURSE_EMOJI, SECTION_EMOJI, dayParts, namesFrom,
+  emojiFor, COURSE_EMOJI, SECTION_EMOJI, dayParts, namesFrom, guestNames, isGoing, missingGuests, nameLines,
 } from '../lib/gathering.js';
 
 // A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
@@ -18,14 +18,17 @@ import {
 // Schedule: onGo(id) says "I'm in" (going) or takes it back, as `me` (both pages, when there's a name).
 export default function GatheringPlan({ lists, days = [], onAdd, onEdit, onRemove, onShift, onVote, onSchedule, onClaim, onGo, me = '', busy = false }) {
   const common = { onAdd, onEdit, onRemove, busy, days };
+  // "Who's coming" is the one list of people; events pick who's going from it
+  const guests = guestNames(lists.coming || []);
+  const missing = onClaim ? [] : missingGuests([...(lists.time || []), ...(lists.coming || [])]);
   return (
     <div className="plan">
       {PLAN_SECTIONS.map(([type, title, hint, extra]) => {
         const items = lists[type] || [];
-        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} bring={lists.bring || []} onShift={onShift} onGo={me ? onGo : null} me={me} {...common} />;
+        if (type === 'time') return <ScheduleSection key={type} title={title} items={items} bring={lists.bring || []} guests={guests} onShift={onShift} onGo={me ? onGo : null} me={me} {...common} />;
         if (type === 'bring') return <BringSection key={type} title={title} items={items} schedule={lists.time || []} me={me} onClaim={onClaim} {...common} />;
         return (
-          <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={items}
+          <PlanSection key={type} type={type} title={title} hint={hint} extra={extra} items={items} missing={type === 'coming' ? missing : []}
             onVote={onVote} onSchedule={onSchedule} me={me} {...common} />
         );
       })}
@@ -72,7 +75,7 @@ function DaySelect({ days, value, onChange, label = 'Day' }) {
 }
 
 // ---------- the schedule ----------
-function ScheduleSection({ title, items, bring, days, onAdd, onEdit, onRemove, onShift, onGo, me, busy }) {
+function ScheduleSection({ title, items, bring, guests, days, onAdd, onEdit, onRemove, onShift, onGo, me, busy }) {
   const groups = scheduleByDay(items, days);
   const [open, setOpen] = useState(null); // id
   const [day, setDay] = useState(days[0] ? days[0].label : '');
@@ -104,7 +107,7 @@ function ScheduleSection({ title, items, bring, days, onAdd, onEdit, onRemove, o
           {g.items.length === 0 && <div className="plan-empty">Free day so far ☀️ Nothing planned yet.</div>}
           {daySlots(g.items).map((slot) => {
             const row = (d) => (open === d.id
-              ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
+              ? <ScheduleEdit key={d.id} d={d} days={days} guests={guests} busy={busy} onEdit={onEdit} onShift={onShift}
                   onRemove={async () => { await onRemove(d.id); setOpen(null); }} onClose={() => setOpen(null)} />
               : <ScheduleRow key={d.id} d={d} me={me} busy={busy} onGo={onGo} bring={bringCounts(bring, d.id)} onOpen={() => setOpen(d.id)} />);
             if (slot.length === 1) return row(slot[0]);
@@ -130,7 +133,7 @@ function ScheduleSection({ title, items, bring, days, onAdd, onEdit, onRemove, o
 
 function ScheduleRow({ d, me, busy, onGo, bring, onOpen }) {
   const going = votesOf(d);
-  const mine = hasVoted(d, me);
+  const mine = isGoing(d, me);
   return (
     <div className="plan-row plan-idea plan-sched">
       <button className="plan-idea-main" onClick={onOpen} title="Tap to change or move"
@@ -139,7 +142,9 @@ function ScheduleRow({ d, me, busy, onGo, bring, onOpen }) {
         <span className="plan-text">{emojiFor(d.title) && <span className="plan-emoji">{emojiFor(d.title)}</span>}{d.title}</span>
         {d.group && <span className="plan-group">{d.group}</span>}
         {d.detail && <Detail text={d.detail} />}
-        {going.length > 0 && <span className="plan-votes"><b>Going ({going.length})</b> · {going.join(', ')}</span>}
+        {d.everyone
+          ? <span className="plan-votes"><b>Going: everyone</b></span>
+          : going.length > 0 && <span className="plan-votes"><b>Going ({going.length})</b> · {going.join(', ')}</span>}
         {bring && bring.total > 0 && <span className="plan-votes plan-bring-count">{bring.total} to bring{bring.needed ? <> · <b className="plan-needed-count">{bring.needed} still needed</b></> : ' · all covered 🎉'}</span>}
         {d.by && <span className="plan-by">added by {d.by}</span>}
       </button>
@@ -152,7 +157,7 @@ function ScheduleRow({ d, me, busy, onGo, bring, onOpen }) {
   );
 }
 
-function ScheduleEdit({ d, days, busy, onEdit, onShift, onRemove, onClose }) {
+function ScheduleEdit({ d, days, guests, busy, onEdit, onShift, onRemove, onClose }) {
   const timed = timeMinutes(d.time) != null;
   const i = days.findIndex((x) => x.label === d.date);
   const move = (mins) => onEdit(d.id, { time: fmtTime(timeMinutes(d.time) + mins), ...(timeMinutes(d.until) != null ? { until: fmtTime(timeMinutes(d.until) + mins) } : {}) });
@@ -179,26 +184,31 @@ function ScheduleEdit({ d, days, busy, onEdit, onShift, onRemove, onClose }) {
       </div>
       <div className="plan-edit-head">Change the details</div>
       {/* the full edit; keyed so it shows the new day and time after a quick move */}
-      <ScheduleForm key={`${d.date}|${d.time}|${d.until}`} d={d} days={days} busy={busy} onRemove={onRemove} onClose={onClose}
+      <ScheduleForm key={`${d.date}|${d.time}|${d.until}`} d={d} days={days} guests={guests} busy={busy} onRemove={onRemove} onClose={onClose}
         onSave={async (c) => { await onEdit(d.id, c); onClose(); }} />
     </div>
   );
 }
 
-function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
+function ScheduleForm({ d, days, guests = [], busy, onSave, onRemove, onClose }) {
   const [text, setText] = useState(d.title || '');
   const [day, setDay] = useState(d.date || (days[0] && days[0].label) || '');
   const [time, setTime] = useState(pickerTime(d.time));
   const [until, setUntil] = useState(pickerTime(d.until));
   const [group, setGroup] = useState(d.group || '');
   const [detail, setDetail] = useState(d.detail || '');
-  const [going, setGoing] = useState(votesOf(d).join(', '));
+  // who's going: tap names from the guest list, or Everyone
+  const [going, setGoing] = useState(() => votesOf(d));
+  const [everyone, setEveryone] = useState(!!d.everyone);
+  const pool = [...guests, ...votesOf(d).filter((v) => !guests.some((g) => g.toLowerCase() === v.toLowerCase()))];
+  const picked = (n) => going.some((v) => v.toLowerCase() === n.toLowerCase());
+  const pick = (n) => setGoing((g) => (picked(n) ? g.filter((v) => v.toLowerCase() !== n.toLowerCase()) : [...g, n]));
   // a time written by hand that the picker can't show ("after dinner") stays unless it's changed
   const odd = !!d.time && timeMinutes(d.time) == null;
   const [timeTouched, setTimeTouched] = useState(false);
   const save = () => {
     if (!text.trim()) return;
-    const c = { text, day, group, detail, going };
+    const c = { text, day, group, detail, going: everyone ? [] : going, everyone };
     if (!odd || timeTouched) { c.time = fromPicker(time); c.until = time ? fromPicker(until) : ''; }
     onSave(c);
   };
@@ -213,7 +223,15 @@ function ScheduleForm({ d, days, busy, onSave, onRemove, onClose }) {
         <label className="plan-f"><span>Until (optional)</span>
           <input className="field" type="time" value={until} disabled={!time} onChange={(e) => { setUntil(e.target.value); setTimeTouched(true); }} aria-label="Until" /></label>
         <label className="plan-f"><span>For (optional)</span><input className="field" value={group} onChange={(e) => setGroup(e.target.value)} onKeyDown={key} placeholder="e.g. Kids, Everyone" aria-label="For" /></label>
-        <label className="plan-f wide"><span>Who’s going (optional)</span><input className="field" value={going} onChange={(e) => setGoing(e.target.value)} onKeyDown={key} placeholder="e.g. Joe, Roger" aria-label="Who's going" /></label>
+        <div className="plan-f wide"><span>Who’s going</span>
+          <div className="plan-picks">
+            <button type="button" className={'plan-pick everyone' + (everyone ? ' on' : '')} aria-pressed={everyone} onClick={() => setEveryone(!everyone)}>🎉 Everyone</button>
+            {pool.map((n) => (
+              <button key={n} type="button" className={'plan-pick' + (everyone || picked(n) ? ' on' : '')} aria-pressed={everyone || picked(n)} disabled={everyone} onClick={() => pick(n)}>{n}</button>
+            ))}
+          </div>
+          {pool.length === 0 && <span className="plan-picks-hint">Add people under Who’s coming, then tap them here.</span>}
+        </div>
         <label className="plan-f wide"><span>Notes or link (optional)</span><input className="field" value={detail} onChange={(e) => setDetail(e.target.value)} onKeyDown={key} aria-label="Notes or link" /></label>
       </div>
       {time && <button className="btn-link inline plan-anytime" onClick={() => { setTime(''); setUntil(''); setTimeTouched(true); }}>No set time (anytime)</button>}
@@ -359,7 +377,7 @@ const headcount = (items) => items.reduce((n, d) => n + Math.max(1, namesFrom(d.
 const extraOf = (type, d) => (type === 'idea' ? d.detail : '') || '';
 const withExtra = (type, text, x) => ({ text, ...(type === 'idea' ? { detail: x } : {}) });
 
-function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onRemove, onVote, onSchedule, me, busy }) {
+function PlanSection({ type, title, hint, extra, items, missing = [], days, onAdd, onEdit, onRemove, onVote, onSchedule, me, busy }) {
   const [text, setText] = useState('');
   const [x, setX] = useState('');
   const [editing, setEditing] = useState(null); // id
@@ -376,6 +394,13 @@ function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onR
     <div className={'plan-sec plan-sec-' + type}>
       <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI[type]}</span>{title} {items.length > 0 && <span className="plan-count">{type === 'coming' ? headcount(items) : items.length}</span>}</div>
       {note && <div className="plan-note">{note}</div>}
+      {type === 'coming' && <div className="plan-note">Everyone at the gathering. On each event, tap who’s going from this list.</div>}
+      {missing.length > 0 && (
+        <div className="plan-link-event">
+          <span>{missing.length === 1 ? `${missing[0]} is going to an event but isn’t on this list.` : `${missing.length} people going to events aren’t on this list yet.`}</span>
+          <button className="btn-primary small press" disabled={busy} onClick={async () => { for (const line of nameLines(missing)) await onAdd({ planType: 'coming', text: line }); }}>Add {missing.length === 1 ? 'them' : `all ${missing.length}`}</button>
+        </div>
+      )}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
       {items.map((d) => (editing === d.id
         ? <PlanEdit key={d.id} type={type} d={d} extra={extra} days={days} busy={busy} onSchedule={onSchedule ? (t, day) => onSchedule(d.id, t, day) : null}

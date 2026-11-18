@@ -101,7 +101,7 @@ export function makePlanItem({ planType, text, time, until, group, day, course, 
 }
 
 // apply an edit to a plan entry: its words, and for the schedule its day and times
-export function editPlanItem(d, { text, time, until, group, day, course, who, detail, going, event }) {
+export function editPlanItem(d, { text, time, until, group, day, course, who, detail, going, everyone, event }) {
   const next = { ...d };
   const set = (k, v, n) => { const c = clean(v, n); if (c) next[k] = c; else delete next[k]; };
   if (text !== undefined) next.title = clean(text, 120);
@@ -114,7 +114,8 @@ export function editPlanItem(d, { text, time, until, group, day, course, who, de
   if (event !== undefined && d.planType === 'bring') set('event', event, 40);
   if (who !== undefined) set('who', who, 40);
   if (detail !== undefined) set('detail', detail, 300);
-  if (going !== undefined && d.planType === 'time') next.votes = namesFrom(going);
+  if (going !== undefined && d.planType === 'time') next.votes = namesFrom(Array.isArray(going) ? going.join(',') : going);
+  if (everyone !== undefined && d.planType === 'time') { if (everyone) next.everyone = true; else delete next.everyone; }
   return next;
 }
 
@@ -371,4 +372,47 @@ const WEEKDAYS = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday
 export function dayParts(name) {
   const m = /^(\w{3}) (.+)$/.exec(String(name || ''));
   return m && WEEKDAYS[m[1]] ? [WEEKDAYS[m[1]], m[2]] : [String(name || ''), ''];
+}
+
+// ---- one list of people: "Who's coming" is the guest list; each event picks from it ----
+// everyone on the guest list, one name each (lines like "Diane, Dallas, Zach" count each name)
+export function guestNames(items) {
+  const out = [];
+  for (const d of items || []) {
+    if (!d || d.planType !== 'coming') continue;
+    for (const n of namesFrom(d.title)) if (!out.some((x) => sameName(x, n))) out.push(n);
+  }
+  return out;
+}
+export const isGoing = (d, name) => !!clean(name, 40) && (!!(d && d.everyone) || hasVoted(d, name));
+// "I'm in" on an event, or take it back. Leaving an "Everyone" event leaves everyone else on it.
+export function toggleGoing(d, name, guests = []) {
+  const n = clean(name, 40);
+  if (!n) return d;
+  if (d.everyone) {
+    const { everyone: _e, ...rest } = d;
+    return { ...rest, votes: [...(guests || []), ...votesOf(d)].filter((g, i, a) => !sameName(g, n) && a.findIndex((x) => sameName(x, g)) === i) };
+  }
+  return toggleVote(d, n);
+}
+// names going to events who aren't on the guest list yet (typed in before the two were joined)
+export function missingGuests(items) {
+  const guests = guestNames(items);
+  const out = [];
+  for (const d of items || []) {
+    if (!d || d.planType !== 'time') continue;
+    for (const v of votesOf(d)) if (!guests.some((g) => sameName(g, v)) && !out.some((x) => sameName(x, v))) out.push(v);
+  }
+  return out;
+}
+// names in lines short enough for a plan item (120 characters)
+export function nameLines(names) {
+  const lines = [];
+  let cur = '';
+  for (const n of names || []) {
+    const next = cur ? cur + ', ' + n : n;
+    if (next.length > 110 && cur) { lines.push(cur); cur = n; } else cur = next;
+  }
+  if (cur) lines.push(cur);
+  return lines;
 }
