@@ -3,10 +3,12 @@ import { GRADIENTS } from '../lib/derive.js';
 import { rangeText, datesForEdit } from '../lib/dates.js';
 import PlaceMap from '../components/PlaceMap.jsx';
 import TripPicker from '../components/TripPicker.jsx';
+import { Trash } from '../components/Icons.jsx';
 
 // Change a trip's or gathering's name, place, dates and cover (and which of the two it is).
 // `others` / `onMoveInto`: move everything here into another trip or gathering, and remove this one.
-export default function TripEditSheet({ trip, home, onSave, onClose, others = [], onMoveInto }) {
+// onDelete: deletes the whole trip or gathering (it asks first); it lives here, out of the way, not at the bottom of the trip
+export default function TripEditSheet({ trip, home, onSave, onClose, others = [], onMoveInto, onDelete }) {
   const [moveTo, setMoveTo] = useState('');
   const [f, setF] = useState({ title: trip.title || '', place: trip.place || '', grad: trip.grad || GRADIENTS[0], gathering: !!trip.gathering });
   const [when, setWhen] = useState(() => datesForEdit(trip.dates));
@@ -83,6 +85,11 @@ export default function TripEditSheet({ trip, home, onSave, onClose, others = []
               </button>
             )}
           </div>
+        )}
+        {onDelete && (
+          <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={onDelete}>
+            <Trash color="#9E1B1B" /> {g ? 'Delete this gathering' : 'Delete this trip'}
+          </button>
         )}
       </div>
     </div>

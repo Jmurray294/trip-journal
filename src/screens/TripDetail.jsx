@@ -357,7 +357,6 @@ export default function TripDetail(p) {
         ))}
         </>}
 
-        <button className="btn-delete-trip press" style={{ marginTop: 26 }} onClick={p.onDeleteTrip}><Trash color="#9E1B1B" /> {gathering ? 'Delete this gathering' : 'Delete this trip'}</button>
       </div>
       </div>
     </div>

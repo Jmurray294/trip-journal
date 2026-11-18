@@ -624,14 +624,17 @@ export default function App() {
   };
 
   const deleteTrip = (id) => {
-    if (!window.confirm('Delete this whole trip and all of its memories? This cannot be undone.')) return;
+    const gone = trips.find((t) => t.id === id) || {};
+    const what = gone.gathering ? 'gathering' : 'trip';
+    if (!window.confirm(`Delete this whole ${what} and everything in it (plan, photos, notes)? This cannot be undone.`)) return false;
     const rest = trips.filter((t) => t.id !== id);
     applyTrips(rest);
     // a trip planned from Someday that isn't happening: its ideas go back on the board
     if ((trips.find((t) => t.id === id) || {}).source === 'someday') someday.reopen(id);
     if (mapSel.tripId === id) setMapSel({ tripId: 'all', stop: 0 });
     go({ tab: 'trips', tripId: null });
-    showToast('Trip deleted');
+    showToast(gone.gathering ? 'Gathering deleted' : 'Trip deleted');
+    return true;
   };
 
   // everything in one trip moved into another trip or a gathering (an email that made a trip of its
@@ -995,6 +998,7 @@ export default function App() {
         {editTripId && trips.some((t) => t.id === editTripId) && (
           <TripEditSheet trip={trips.find((t) => t.id === editTripId)} home={home} onClose={() => setEditTripId(null)}
             others={trips.filter((t) => t.id !== editTripId)} onMoveInto={(toId) => moveTripInto(editTripId, toId)}
+            onDelete={() => { if (deleteTrip(editTripId)) setEditTripId(null); }}
             onSave={({ title, place, dates, grad, gathering }) => {
               updateTrip(editTripId, (t) => {
                 const { gathering: _g, ...rest } = t; // eslint-disable-line no-unused-vars
