@@ -282,3 +282,12 @@ test('one list of people: the guest list, events marked Everyone, and names to a
   assert.ok(lines.length > 1 && lines.every((l) => l.length <= 120));
   assert.deepEqual(lines.flatMap((l) => l.split(', ')), many);
 });
+
+import { shortUpdate } from '../src/lib/gathering.js';
+
+test('the short update is one line and the link', () => {
+  const m = shortUpdate({ title: 'Thanksgiving 2026' }, 'https://link');
+  assert.ok(m.startsWith('Thanksgiving 2026: the plan'));
+  assert.ok(m.endsWith('https://link'));
+  assert.ok(m.length < 160);
+});

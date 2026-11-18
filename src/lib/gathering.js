@@ -416,3 +416,6 @@ export function nameLines(names) {
   if (cur) lines.push(cur);
   return lines;
 }
+
+// the short update text: just that the plan changed, and the link
+export const shortUpdate = (trip, link) => `${(trip && trip.title) || 'The plan'}: the plan’s been updated! Take a look and tap “I’m in” on what you’re doing: ${link}`;

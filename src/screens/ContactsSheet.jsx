@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { mailtoMany, smsTo, smsMany, formatPhone } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
-import { guestMessage, updateMessage, gatheringDays } from '../lib/gathering.js';
+import { guestMessage, updateMessage, shortUpdate, gatheringDays } from '../lib/gathering.js';
 import { datesRange, tripSpan } from '../lib/stages.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
@@ -12,6 +12,8 @@ import { datesRange, tripSpan } from '../lib/stages.js';
 // mode 'manage': just the list. In every mode you can add, change or remove a contact.
 export default function ContactsSheet({ mode, contacts, followers, trip, link, gathering, update = false, onSent, onClose, toast }) {
   const [picked, setPicked] = useState(() => new Set(update && trip ? trip.guestIds || [] : []));
+  // an update is short unless the details are asked for (a long text gets cut off or split)
+  const [details, setDetails] = useState(false);
   const [editing, setEditing] = useState(null); // contact id, or 'new'
   const [busy, setBusy] = useState(false);
 
@@ -36,7 +38,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   };
 
   const guestText = trip ? (gathering
-    ? (update ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : guestMessage(trip, link))
+    ? (update ? (details ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : shortUpdate(trip, link)) : guestMessage(trip, link))
     : `${trip.title}: see the plan and add your photos and notes from the trip.\n\n${link}`) : '';
 
   const inviteFollowers = () => run(async () => {
@@ -112,6 +114,12 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
           </button>
         )}
         {mode === 'guests' && (<>
+          {update && (
+            <div className="msg-kind" role="group" aria-label="Message">
+              <button className={'plan-pick' + (!details ? ' on' : '')} aria-pressed={!details} onClick={() => setDetails(false)}>Short</button>
+              <button className={'plan-pick' + (details ? ' on' : '')} aria-pressed={details} onClick={() => setDetails(true)}>With what changed</button>
+            </div>
+          )}
           {guestText && <div className="guest-msg">{guestText}</div>}
           <div className="guest-send">
             <button className="btn-primary press" disabled={!toText.length} onClick={textGuests}>
