@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   PLAN_SECTIONS, votesOf, hasVoted, scheduleByDay, timeMinutes, fmtTime, pickerTime,
   COURSES, courseOf, bringByCourse, stillNeeded, daySlots, linkLabel, bringByEvent, bringCounts, defaultEvent, eventLabel,
+  emojiFor, COURSE_EMOJI, SECTION_EMOJI, dayParts,
 } from '../lib/gathering.js';
 
 // A gathering's plan: ideas to choose from, the schedule (day by day), who's bringing what (course by
@@ -92,15 +93,15 @@ function ScheduleSection({ title, items, bring, days, onAdd, onEdit, onRemove, o
   const many = groups.length > 1;
   return (
     <div className="plan-sec plan-sec-time">
-      <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI.time}</span>{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
       <div className="plan-note">Tap anything to move it to another time or day{many ? ', or drag it onto a day' : ''}.</div>
       {groups.length === 0 && <div className="plan-empty">Nothing yet.</div>}
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <div key={g.label || 'any'} className={'plan-day-group' + (over === g.label ? ' over' : '')}
           onDragOver={(e) => { if (e.dataTransfer.types.includes('text/plan-id')) { e.preventDefault(); setOver(g.label); } }}
           onDragLeave={() => setOver((o) => (o === g.label ? '' : o))} onDrop={drop(g.label)}>
-          {many && <div className="plan-day-head">{g.name}</div>}
-          {g.items.length === 0 && <div className="plan-empty">Nothing planned{many ? ' this day' : ''} yet.</div>}
+          {many && <div className={'plan-day-pill c' + (gi % 5)}><b>{dayParts(g.name)[0]}</b>{dayParts(g.name)[1] && <span>{dayParts(g.name)[1]}</span>}</div>}
+          {g.items.length === 0 && <div className="plan-empty">Free day so far ☀️ Nothing planned yet.</div>}
           {daySlots(g.items).map((slot) => {
             const row = (d) => (open === d.id
               ? <ScheduleEdit key={d.id} d={d} days={days} busy={busy} onEdit={onEdit} onShift={onShift}
@@ -135,16 +136,16 @@ function ScheduleRow({ d, me, busy, onGo, bring, onOpen }) {
       <button className="plan-idea-main" onClick={onOpen} title="Tap to change or move"
         draggable onDragStart={(e) => { e.dataTransfer.setData('text/plan-id', d.id); e.dataTransfer.effectAllowed = 'move'; }}>
         <span className={'plan-time' + (d.time ? '' : ' none')}>{whenOf(d)}</span>
-        <span className="plan-text">{d.title}</span>
+        <span className="plan-text">{emojiFor(d.title) && <span className="plan-emoji">{emojiFor(d.title)}</span>}{d.title}</span>
         {d.group && <span className="plan-group">{d.group}</span>}
         {d.detail && <Detail text={d.detail} />}
         {going.length > 0 && <span className="plan-votes"><b>Going ({going.length})</b> · {going.join(', ')}</span>}
-        {bring && bring.total > 0 && <span className="plan-votes plan-bring-count">{bring.total} to bring{bring.needed ? <> · <b className="plan-needed-count">{bring.needed} still needed</b></> : ' · all covered'}</span>}
+        {bring && bring.total > 0 && <span className="plan-votes plan-bring-count">{bring.total} to bring{bring.needed ? <> · <b className="plan-needed-count">{bring.needed} still needed</b></> : ' · all covered 🎉'}</span>}
         {d.by && <span className="plan-by">added by {d.by}</span>}
       </button>
       {onGo && (
         <button className={'plan-vote press' + (mine ? ' on' : '')} disabled={busy} onClick={() => onGo(d.id)} aria-pressed={mine}>
-          {mine ? '✓ I’m in' : 'I’m in'}
+          {mine ? '✓ Going!' : '🙋 I’m in'}
         </button>
       )}
     </div>
@@ -256,7 +257,7 @@ function BringSection({ title, items, schedule, days, me, onAdd, onEdit, onRemov
   const titled = groups.some((g) => g.event);
   return (
     <div className="plan-sec plan-sec-bring">
-      <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI.bring}</span>{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
       <div className="plan-note">
         {needed > 0 && <b className="plan-needed-count">{needed} still needed. </b>}
         {onClaim ? 'Tap “I’ll bring it” on anything still needed, or add what you’re bringing.' : 'List what’s needed and leave Who empty; guests tap “I’ll bring it” on their link.'}
@@ -269,6 +270,12 @@ function BringSection({ title, items, schedule, days, me, onAdd, onEdit, onRemov
           <button className="btn-primary small press" disabled={busy || !target} onClick={moveLoose}>Move {loose.items.length === 1 ? 'it' : `all ${loose.items.length}`}</button>
         </div>
       )}
+      {items.length > 0 && (
+        <div className="plan-progress" aria-label={`${items.length - needed} of ${items.length} covered`}>
+          <div className="plan-progress-bar"><div style={{ width: `${Math.round(((items.length - needed) / items.length) * 100)}%` }} /></div>
+          <span>{needed ? `${items.length - needed} of ${items.length} covered` : 'Everything’s covered 🎉'}</span>
+        </div>
+      )}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
       {groups.map((g) => (
         <div key={g.event ? g.event.id : 'loose'} className="plan-bring-event">
@@ -279,7 +286,7 @@ function BringSection({ title, items, schedule, days, me, onAdd, onEdit, onRemov
           )}
           {bringByCourse(g.items).map((c) => (
             <div key={c.course} className="plan-course">
-              <div className="plan-day-head">{c.course}</div>
+              <div className="plan-day-head">{COURSE_EMOJI[c.course]} {c.course}</div>
               {c.items.map((d) => (open === d.id
                 ? <BringEdit key={d.id} d={d} events={events} days={days} busy={busy} onClose={() => setOpen(null)}
                     onSave={async (ch) => { await onEdit(d.id, ch); setOpen(null); }}
@@ -309,13 +316,13 @@ function BringRow({ d, me, busy, onClaim, onOpen }) {
   return (
     <div className={'plan-row plan-idea' + (need ? ' needed' : '')}>
       <button className="plan-idea-main" onClick={onOpen} title="Tap to change">
-        <span className="plan-text">{d.title}</span>
+        <span className="plan-text">{emojiFor(d.title) && <span className="plan-emoji">{emojiFor(d.title)}</span>}{d.title}</span>
         {need ? <span className="plan-need">Still needed</span> : <span className="plan-who">{d.who}</span>}
         {d.detail && <Detail text={d.detail} />}
       </button>
       {onClaim && (need || mine) && (
         <button className={'plan-vote press' + (mine ? ' on' : '')} disabled={busy} onClick={() => onClaim(d.id)} aria-pressed={mine}>
-          {mine ? '✓ I’m bringing it' : 'I’ll bring it'}
+          {mine ? '✓ I’m bringing it' : '🙋 I’ll bring it'}
         </button>
       )}
     </div>
@@ -364,7 +371,7 @@ function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onR
     : 'Things you could do together. Guests tap “I’m in” on their link; tap one you pick to put it on the schedule.');
   return (
     <div className={'plan-sec plan-sec-' + type}>
-      <div className="plan-title">{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
+      <div className="plan-title"><span className="plan-icon">{SECTION_EMOJI[type]}</span>{title} {items.length > 0 && <span className="plan-count">{items.length}</span>}</div>
       {note && <div className="plan-note">{note}</div>}
       {items.length === 0 && <div className="plan-empty">Nothing yet.</div>}
       {items.map((d) => (editing === d.id
@@ -376,6 +383,7 @@ function PlanSection({ type, title, hint, extra, items, days, onAdd, onEdit, onR
           ? <IdeaRow key={d.id} d={d} me={me} busy={busy} onVote={onVote} onOpen={() => setEditing(d.id)} />
           : (
             <button key={d.id} className="plan-row" onClick={() => setEditing(d.id)} title="Tap to change">
+              {type === 'coming' && <span className={'plan-avatar c' + (String(d.title).length % 5)}>{String(d.title).trim().charAt(0).toUpperCase()}</span>}
               <span className="plan-text">{d.title}</span>
               {d.by && <span className="plan-by">added by {d.by}</span>}
             </button>

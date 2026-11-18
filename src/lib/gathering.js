@@ -342,3 +342,33 @@ export function defaultEvent(bring, schedule) {
   const meal = (schedule || []).find((e) => MEAL.test(e.title || ''));
   return meal ? meal.id : '';
 }
+
+// ---- a little fun: an emoji for what something is, from its name ----
+const EMOJI = [
+  [/\b(thanksgiving|turkey dinner|feast)\b/i, '🦃'], [/\bbirthday|bday\b/i, '🎂'], [/\b(golf|tee time)/i, '⛳'],
+  [/\b(hike|hiking|trail|walk)/i, '🥾'], [/\b(trot|run|race|5k|10k|marathon)\b/i, '🏃'], [/\bpickleball|tennis|padel\b/i, '🎾'],
+  [/\b(game|football|packers?|rams|cowboys|nfl|watch)\b/i, '🏈'], [/\b(shop|shopping|mall|galleria)/i, '🛍️'],
+  [/\b(lights?|christmas|tree)\b/i, '🎄'], [/\b(movie|film|cinema)/i, '🎬'], [/\b(resort|park|universal|disney|zoo|aquarium)\b/i, '🎢'],
+  [/\b(arriv|land|flight|airport|pick ?up)/i, '🛬'], [/\b(leav|depart|drive home|head home)/i, '👋'], [/\b(church|mass|service)\b/i, '⛪'],
+  [/\b(board games?|cards|puzzle|games)\b/i, '🎲'], [/\b(breakfast|brunch|pancake)/i, '🥞'], [/\b(lunch)\b/i, '🥪'],
+  [/\b(dinner|supper|meal|bbq|barbecue|cookout)\b/i, '🍽️'], [/\b(party|celebrat)/i, '🎉'], [/\b(pool|swim|lake|beach|boat)/i, '🏊'],
+  [/\b(nap|rest|relax|sleep)/i, '😴'], [/\b(photo|picture)/i, '📸'], [/\b(coffee)\b/i, '☕'], [/\b(drinks?|bar|happy hour|wine|beer)\b/i, '🍷'],
+  // things to bring
+  [/\b(turkey)\b/i, '🦃'], [/\bham\b/i, '🍖'], [/\b(pie|pies)\b/i, '🥧'], [/\b(cake|cupcake)/i, '🎂'], [/\b(cookie|brownie|dessert)/i, '🍪'],
+  [/\b(potato|mashed)/i, '🥔'], [/\b(carrot)/i, '🥕'], [/\b(corn)\b/i, '🌽'], [/\b(bean|green bean|broccoli|salad|veg)/i, '🥗'],
+  [/\b(roll|bread|biscuit|stuffing|dressing)/i, '🍞'], [/\b(cheese|appetizer|dip|chips|snack)/i, '🧀'], [/\b(ice)\b/i, '🧊'],
+  [/\b(plates?|napkins?|cups?|forks?|utensils|chairs?|tables?)\b/i, '🍴'], [/\b(soda|juice|tea|lemonade)\b/i, '🥤'],
+];
+export function emojiFor(text) {
+  const t = String(text || '');
+  for (const [re, e] of EMOJI) if (re.test(t)) return e;
+  return '';
+}
+export const COURSE_EMOJI = { Main: '🍗', Sides: '🥔', Desserts: '🥧', Drinks: '🥤', Supplies: '🍴', Other: '✨' };
+export const SECTION_EMOJI = { idea: '💡', time: '🗓️', bring: '🧺', coming: '👋' };
+const WEEKDAYS = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' };
+// "Thu Nov 26" → ['Thursday', 'Nov 26']
+export function dayParts(name) {
+  const m = /^(\w{3}) (.+)$/.exec(String(name || ''));
+  return m && WEEKDAYS[m[1]] ? [WEEKDAYS[m[1]], m[2]] : [String(name || ''), ''];
+}
