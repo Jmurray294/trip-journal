@@ -287,7 +287,7 @@ import { shortUpdate } from '../src/lib/gathering.js';
 
 test('the short update is one line and the link', () => {
   const m = shortUpdate({ title: 'Thanksgiving 2026' }, 'https://link');
-  assert.ok(m.startsWith('Thanksgiving 2026: the plan'));
+  assert.equal(m, 'Thanksgiving 2026 has been updated! See what’s new: https://link');
   assert.ok(m.endsWith('https://link'));
   assert.ok(m.length < 160);
 });

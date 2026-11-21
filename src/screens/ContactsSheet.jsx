@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { mailtoMany, smsTo, smsMany, formatPhone, textGroups, textedThisRound } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
-import { guestMessage, updateMessage, shortUpdate, gatheringDays, respondedNames, contactsNamed } from '../lib/gathering.js';
-import { datesRange, tripSpan } from '../lib/stages.js';
+import { guestMessage, shortUpdate, respondedNames, contactsNamed } from '../lib/gathering.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
 // mode 'followers': tick people and invite them to follow along (email);
@@ -16,10 +15,6 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   const [answered] = useState(() => (mode === 'guests' && gathering && trip ? contactsNamed(contacts.list, respondedNames(trip)) : []));
   const [update] = useState(() => asked || (mode === 'guests' && gathering && !!((trip && trip.guestIds && trip.guestIds.length) || answered.length)));
   const [picked, setPicked] = useState(() => new Set(update && trip ? [...(trip.guestIds || []), ...answered] : []));
-  // an update is short unless the details are asked for (a long text gets cut off or split); 'invite'
-  // is the first message again, with the ideas
-  const [kind, setKind] = useState('short');
-  const details = kind === 'details';
   const [editing, setEditing] = useState(null); // contact id, or 'new'
   const [busy, setBusy] = useState(false);
   // texted this round: saved on the trip (onTexted), so it's still there after going to Messages and back
@@ -53,7 +48,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   };
 
   const guestText = trip ? (gathering
-    ? (update && kind !== 'invite' ? (details ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : shortUpdate(trip, link)) : guestMessage(trip, link))
+    ? (update ? shortUpdate(trip, link) : guestMessage(trip, link)) // an update is just a short note and the link (Joe: the long list was too much)
     : `${trip.title}: see the plan and add your photos and notes from the trip.\n\n${link}`) : '';
 
   const inviteFollowers = () => run(async () => {
@@ -113,13 +108,6 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
         {!contacts.ready && <div className="sheet-copy" style={{ color: '#9E1B1B' }}>Contacts need a one-time setup: run supabase/contacts.sql in Supabase.</div>}
 
         {mode === 'guests' && (<>
-          {update && (
-            <div className="msg-kind" role="group" aria-label="Message">
-              {[['short', 'Short'], ['details', 'With what changed'], ['invite', 'The first invite']].map(([k, label]) => (
-                <button key={k} className={'plan-pick' + (kind === k ? ' on' : '')} aria-pressed={kind === k} onClick={() => setKind(k)}>{label}</button>
-              ))}
-            </div>
-          )}
           {guestText && <div className="guest-msg">{guestText}</div>}
         </>)}
 

@@ -418,7 +418,7 @@ export function nameLines(names) {
 }
 
 // the short update text: just that the plan changed, and the link
-export const shortUpdate = (trip, link) => `${(trip && trip.title) || 'The plan'}: the plan’s been updated! Take a look and tap “I’m in” on what you’re doing: ${link}`;
+export const shortUpdate = (trip, link) => `${(trip && trip.title) || 'The plan'} has been updated! See what’s new: ${link}`;
 // everyone who has answered the plan: on Who's coming, an "I'm in" on an idea or event, or bringing something
 export function respondedNames(trip) {
   const out = [];
