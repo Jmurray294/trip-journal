@@ -49,6 +49,21 @@ export const mailtoMany = (emails, subject, body) =>
 export const smsTo = (phone, body) => `sms:${String(phone).replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(body)}`;
 // one group text to several people. iPhone and Mac need the sms:/open?addresses= form; Android takes
 // the numbers comma-separated. One person is a plain text.
+// split people into the fewest groups of at most `max`, as even as possible (22 → 8, 7, 7): carriers
+// refuse group texts much over 10-20 people.
+export function textGroups(people, max = 10) {
+  const list = people || [];
+  if (!list.length) return [];
+  const n = Math.ceil(list.length / max);
+  const out = [];
+  let at = 0;
+  for (let i = 0; i < n; i++) {
+    const size = Math.floor(list.length / n) + (i < list.length % n ? 1 : 0);
+    out.push(list.slice(at, at + size));
+    at += size;
+  }
+  return out;
+}
 export function smsMany(phones, body, ua = typeof navigator !== 'undefined' ? navigator.userAgent : '') {
   const nums = [...new Set((phones || []).map((p) => String(p).replace(/[^\d+]/g, '')).filter(Boolean))];
   if (nums.length <= 1) return smsTo(nums[0] || '', body);

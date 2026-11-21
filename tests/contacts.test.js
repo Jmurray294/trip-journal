@@ -53,3 +53,13 @@ test('one group text to several people: the iPhone form and the Android form', a
   assert.equal(smsMany(['(972) 768-8136', '414 531 6536'], 'Hi', 'Android'), 'sms:9727688136,4145316536?body=Hi');
   assert.equal(smsMany(['(972) 768-8136'], 'Hi', 'iPhone'), 'sms:9727688136?&body=Hi');
 });
+
+test('textGroups splits into even groups of at most 10', async () => {
+  const { textGroups } = await import('../src/lib/contacts.js');
+  const people = Array.from({ length: 22 }, (_, i) => i);
+  assert.deepEqual(textGroups(people, 10).map((g) => g.length), [8, 7, 7]);
+  assert.deepEqual(textGroups(people.slice(0, 10), 10).map((g) => g.length), [10]);
+  assert.deepEqual(textGroups(people.slice(0, 11), 10).map((g) => g.length), [6, 5]);
+  assert.deepEqual(textGroups([], 10), []);
+  assert.deepEqual(textGroups(people, 10).flat(), people);
+});

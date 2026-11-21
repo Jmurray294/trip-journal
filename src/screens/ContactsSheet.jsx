@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { mailtoMany, smsTo, smsMany, formatPhone } from '../lib/contacts.js';
+import { mailtoMany, smsTo, smsMany, formatPhone, textGroups } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
 import { guestMessage, updateMessage, shortUpdate, gatheringDays } from '../lib/gathering.js';
 import { datesRange, tripSpan } from '../lib/stages.js';
@@ -16,6 +16,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   const [details, setDetails] = useState(false);
   const [editing, setEditing] = useState(null); // contact id, or 'new'
   const [busy, setBusy] = useState(false);
+  const [texted, setTexted] = useState(() => new Set()); // contact ids texted one by one this time
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -53,11 +54,28 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
     sent();
     window.location.href = mailtoMany(toEmail.map((c) => c.email), trip.title, guestText);
   };
-  // one group text to everyone ticked who has a mobile number
-  const textGuests = () => {
-    sent();
-    window.location.href = smsMany(toText.map((c) => c.phone), guestText);
+  // one text per person, not a group text: carriers refuse group texts to ~20+ people, and this way
+  // replies come only to you. Each tap opens a text to the next person not yet texted.
+  const nextText = toText.length === 1 ? toText[0] : toText.find((c) => !texted.has(c.id));
+  const textNext = () => {
+    if (!nextText) return;
+    if (!texted.size) sent();
+    setTexted((s) => new Set(s).add(nextText.id));
+    window.location.href = smsTo(nextText.phone, guestText);
   };
+  // or a few smaller group texts (up to 10 each, split evenly), each its own thread
+  const groups = textGroups(toText, 10);
+  const textGroup = (g) => {
+    if (!texted.size) sent();
+    setTexted((s) => { const n = new Set(s); g.forEach((c) => n.add(c.id)); return n; });
+    window.location.href = smsMany(g.map((c) => c.phone), guestText);
+  };
+  const firstName = (c) => c.name.split(' ')[0];
+  const textLabel = !toText.length ? 'Tick who to text'
+    : toText.length === 1 ? `Text ${firstName(toText[0])}`
+      : !nextText ? `All ${toText.length} texted ✓`
+        : texted.size ? `Next: ${firstName(nextText)} →`
+          : `Text ${firstName(nextText)} (1 of ${toText.length})`;
   const copyMessage = async () => {
     try { await navigator.clipboard.writeText(guestText); toast('Message copied. Paste it into a text or group chat'); }
     catch (e) { toast('Could not copy. Try Email or Text instead'); }
@@ -66,7 +84,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   const title = mode === 'followers' ? 'Invite followers' : mode === 'guests' ? (update ? 'Send an update' : gathering ? 'Send the guest link' : 'Send the trip link') : 'Contacts';
   const sub = mode === 'followers' ? 'Tick the people to invite. They get an email with how to sign in.'
     : mode === 'guests' && update ? (trip && trip.guestIds && trip.guestIds.length ? 'Everyone you sent the link to is ticked. Check the message, then text or email them.' : 'Tick who to tell, check the message, then text or email them.')
-    : mode === 'guests' ? 'Tick people, then send them all one text or one email with the link.'
+    : mode === 'guests' ? 'Tick people, then text them one by one or send one email with the link.'
       : 'People you invite again and again. Only your family sees this list.';
 
   return (
@@ -95,7 +113,8 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
                   <span className="contact-sub">{[c.email, c.phone && formatPhone(c.phone)].filter(Boolean).join(' · ')}</span>
                 </button>
                 {mode === 'followers' && following.has(c.email) && <span className="contact-tag">Following</span>}
-                {mode === 'guests' && c.phone && <a className="btn-link inline" href={smsTo(c.phone, guestText)}>Text</a>}
+                {mode === 'guests' && texted.has(c.id) && <span className="contact-tag">Texted ✓</span>}
+                {mode === 'guests' && c.phone && <a className="btn-link inline" href={smsTo(c.phone, guestText)} onClick={() => setTexted((s) => new Set(s).add(c.id))}>Text</a>}
                 <button className="btn-link inline" onClick={() => setEditing(c.id)}>Edit</button>
               </div>
             )))}
@@ -122,14 +141,36 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
           )}
           {guestText && <div className="guest-msg">{guestText}</div>}
           <div className="guest-send">
-            <button className="btn-primary press" disabled={!toText.length} onClick={textGuests}>
-              {toText.length ? `Text ${toText.length === 1 ? toText[0].name.split(' ')[0] : 'all ' + toText.length}` : 'Tick who to text'}
-            </button>
+            <button className="btn-primary press" disabled={!nextText} onClick={textNext}>{textLabel}</button>
             <button className="btn-primary press" disabled={!toEmail.length} onClick={emailGuests}>
               {toEmail.length ? `Email ${toEmail.length === 1 ? toEmail[0].name.split(' ')[0] : 'all ' + toEmail.length}` : 'Tick who to email'}
             </button>
           </div>
-          {toText.length > 1 && <div className="sheet-copy" style={{ marginTop: 6 }}>It goes as one group text, so everyone sees the replies.</div>}
+          {toText.length > 1 && (
+            <div className="sheet-copy" style={{ marginTop: 6 }}>
+              {texted.size
+                ? <>Texted {Math.min(texted.size, toText.length)} of {toText.length}. {nextText ? 'Hit send in Messages, come back here, and tap Next.' : 'Everyone has it.'}{' '}
+                    <button className="btn-link inline" onClick={() => setTexted(new Set())}>Start over</button></>
+                : 'Each person gets their own text, so replies come only to you. Tap, hit send in Messages, come back and tap Next.'}
+            </div>
+          )}
+          {groups.length > 1 && (
+            <div className="text-groups">
+              <div className="sheet-copy">Or group texts instead (each group is its own thread):</div>
+              <div className="text-groups-btns">
+                {groups.map((g, i) => {
+                  const done = g.every((c) => texted.has(c.id));
+                  return (
+                    <button key={i} className={"btn-muted press" + (done ? " done" : "")} onClick={() => textGroup(g)}
+                      title={g.map((c) => c.name).join(", ")}>
+                      {done ? "✓ " : ""}Group {i + 1} ({g.length})
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="sheet-copy text-groups-who">{groups.map((g, i) => `${i + 1}: ${g.map(firstName).join(", ")}`).join(" · ")}</div>
+            </div>
+          )}
           <button className="btn-link" onClick={copyMessage}>Copy the message</button>
         </>)}
         <button className="btn-link" onClick={onClose}>Done</button>
