@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { mailtoMany, smsTo, smsMany, formatPhone, textGroups } from '../lib/contacts.js';
 import { portalLink } from '../lib/followers.js';
-import { guestMessage, updateMessage, shortUpdate, gatheringDays } from '../lib/gathering.js';
+import { guestMessage, updateMessage, shortUpdate, gatheringDays, respondedNames, contactsNamed } from '../lib/gathering.js';
 import { datesRange, tripSpan } from '../lib/stages.js';
 
 // The family's contacts, to pick from instead of typing addresses again (lib/contacts.js).
@@ -10,10 +10,16 @@ import { datesRange, tripSpan } from '../lib/stages.js';
 //   with `update`, it's "Send an update": the people already sent the link are ticked, and the message
 //   says what's new or changed since the last one. onSent(contact ids) remembers who was sent it, and when.
 // mode 'manage': just the list. In every mode you can add, change or remove a contact.
-export default function ContactsSheet({ mode, contacts, followers, trip, link, gathering, update = false, onSent, onClose, toast }) {
-  const [picked, setPicked] = useState(() => new Set(update && trip ? trip.guestIds || [] : []));
-  // an update is short unless the details are asked for (a long text gets cut off or split)
-  const [details, setDetails] = useState(false);
+export default function ContactsSheet({ mode, contacts, followers, trip, link, gathering, update: asked = false, onSent, onClose, toast }) {
+  // once a gathering's link has gone out and people have answered, sending it again is an update, with
+  // the people already sent it, or who answered and are in the contacts, ticked
+  const [answered] = useState(() => (mode === 'guests' && gathering && trip ? contactsNamed(contacts.list, respondedNames(trip)) : []));
+  const [update] = useState(() => asked || (mode === 'guests' && gathering && !!((trip && trip.guestIds && trip.guestIds.length) || answered.length)));
+  const [picked, setPicked] = useState(() => new Set(update && trip ? [...(trip.guestIds || []), ...answered] : []));
+  // an update is short unless the details are asked for (a long text gets cut off or split); 'invite'
+  // is the first message again, with the ideas
+  const [kind, setKind] = useState('short');
+  const details = kind === 'details';
   const [editing, setEditing] = useState(null); // contact id, or 'new'
   const [busy, setBusy] = useState(false);
   const [texted, setTexted] = useState(() => new Set()); // contact ids texted one by one this time
@@ -39,7 +45,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
   };
 
   const guestText = trip ? (gathering
-    ? (update ? (details ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : shortUpdate(trip, link)) : guestMessage(trip, link))
+    ? (update && kind !== 'invite' ? (details ? updateMessage(trip, link, trip.updateSentAt || 0, gatheringDays(datesRange(trip.dates) || tripSpan(trip))) : shortUpdate(trip, link)) : guestMessage(trip, link))
     : `${trip.title}: see the plan and add your photos and notes from the trip.\n\n${link}`) : '';
 
   const inviteFollowers = () => run(async () => {
@@ -83,7 +89,7 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
 
   const title = mode === 'followers' ? 'Invite followers' : mode === 'guests' ? (update ? 'Send an update' : gathering ? 'Send the guest link' : 'Send the trip link') : 'Contacts';
   const sub = mode === 'followers' ? 'Tick the people to invite. They get an email with how to sign in.'
-    : mode === 'guests' && update ? (trip && trip.guestIds && trip.guestIds.length ? 'Everyone you sent the link to is ticked. Check the message, then text or email them.' : 'Tick who to tell, check the message, then text or email them.')
+    : mode === 'guests' && update ? (picked.size ? 'Everyone you sent the link to, or who has answered, is ticked. Check the message, then text or email them.' : 'Tick who to tell, check the message, then text or email them.')
     : mode === 'guests' ? 'Tick people, then text them one by one or send one email with the link.'
       : 'People you invite again and again. Only your family sees this list.';
 
@@ -135,8 +141,9 @@ export default function ContactsSheet({ mode, contacts, followers, trip, link, g
         {mode === 'guests' && (<>
           {update && (
             <div className="msg-kind" role="group" aria-label="Message">
-              <button className={'plan-pick' + (!details ? ' on' : '')} aria-pressed={!details} onClick={() => setDetails(false)}>Short</button>
-              <button className={'plan-pick' + (details ? ' on' : '')} aria-pressed={details} onClick={() => setDetails(true)}>With what changed</button>
+              {[['short', 'Short'], ['details', 'With what changed'], ['invite', 'The first invite']].map(([k, label]) => (
+                <button key={k} className={'plan-pick' + (kind === k ? ' on' : '')} aria-pressed={kind === k} onClick={() => setKind(k)}>{label}</button>
+              ))}
             </div>
           )}
           {guestText && <div className="guest-msg">{guestText}</div>}

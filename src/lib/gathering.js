@@ -419,3 +419,27 @@ export function nameLines(names) {
 
 // the short update text: just that the plan changed, and the link
 export const shortUpdate = (trip, link) => `${(trip && trip.title) || 'The plan'}: the plan’s been updated! Take a look and tap “I’m in” on what you’re doing: ${link}`;
+// everyone who has answered the plan: on Who's coming, an "I'm in" on an idea or event, or bringing something
+export function respondedNames(trip) {
+  const out = [];
+  const add = (n) => { const c = clean(n, 40); if (c && !out.some((x) => sameName(x, c))) out.push(c); };
+  const items = (trip && trip.days ? trip.days : []).filter(isPlanItem);
+  guestNames(items).forEach(add);
+  for (const d of items) {
+    votesOf(d).forEach(add);
+    if (d.planType === 'bring') namesFrom(d.who).forEach(add);
+  }
+  return out;
+}
+// the contacts those names belong to: the full name, or a first name only one contact has
+export function contactsNamed(contacts, names) {
+  const first = (s) => clean(s, 40).toLowerCase().split(' ')[0];
+  const ids = new Set();
+  for (const n of names || []) {
+    const full = (contacts || []).filter((c) => sameName(c.name, n));
+    const byFirst = (contacts || []).filter((c) => first(c.name) === first(n) && !n.trim().includes(' '));
+    const hit = full.length ? full : byFirst.length === 1 ? byFirst : [];
+    hit.forEach((c) => ids.add(c.id));
+  }
+  return [...ids];
+}

@@ -291,3 +291,20 @@ test('the short update is one line and the link', () => {
   assert.ok(m.endsWith('https://link'));
   assert.ok(m.length < 160);
 });
+
+test('respondedNames and contactsNamed find who has already answered', async () => {
+  const { respondedNames, contactsNamed } = await import('../src/lib/gathering.js');
+  const trip = { days: [
+    { kind: 'Plan', planType: 'coming', title: 'Tonya Murray, Tyler' },
+    { kind: 'Plan', planType: 'idea', title: 'Slick City', votes: ['Macy Hansen', 'tyler'] },
+    { kind: 'Plan', planType: 'bring', title: 'Pie', who: 'Steve' },
+  ] };
+  const names = respondedNames(trip);
+  assert.deepEqual(names, ['Tonya Murray', 'Tyler', 'Macy Hansen', 'Steve']);
+  const contacts = [
+    { id: 1, name: 'Tonya Murray' }, { id: 2, name: 'Tyler Giddings' }, { id: 3, name: 'Macy Hansen' },
+    { id: 4, name: 'Steve Murray' }, { id: 5, name: 'Steve Smith' }, { id: 6, name: 'Sergio Guerrero' },
+  ];
+  // "Steve" could be either Steve, so neither is picked
+  assert.deepEqual(contactsNamed(contacts, names).sort(), [1, 2, 3]);
+});

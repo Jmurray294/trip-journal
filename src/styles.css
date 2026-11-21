@@ -1055,7 +1055,7 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .plan-avatar.c3 { background: #8B5CC9; }
 .plan-avatar.c4 { background: #D9822B; }
 .plan-sec-coming .plan-row { align-items: center; }
-.msg-kind { display: flex; gap: 8px; margin-top: 16px; }
+.msg-kind { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 /* who's going on an event: tap names from the guest list */
 .plan-picks { display: flex; flex-wrap: wrap; gap: 6px; }
 .plan-pick { min-height: 36px; padding: 0 13px; border-radius: 999px; border: 1.5px solid rgba(47,143,107,0.4); background: #fff; color: #23704F; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
