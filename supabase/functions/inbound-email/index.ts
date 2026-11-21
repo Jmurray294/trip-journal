@@ -1167,7 +1167,7 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     ...(type === "bring" && planClean(body.who, 40) ? { who: planClean(body.who, 40) } : {}),
     // which event on the schedule it's for (a schedule item's id)
     ...(type === "bring" && planClean(body.event, 40) ? { event: planClean(body.event, 40) } : {}),
-    ...(type !== "coming" && planClean(body.detail, 300) ? { detail: planClean(body.detail, 300) } : {}),
+    ...(type !== "coming" && planClean(body.detail, 1000) ? { detail: planClean(body.detail, 1000) } : {}),
   });
   const day = /^[A-Z][a-z]{2} \d{1,2}$/.test(planClean(body.day, 12)) ? planClean(body.day, 12) : "";
   if (body.action === "plan-add") {
@@ -1272,7 +1272,7 @@ async function guestPlan(admin: any, hid: string, t: { id: string; doc: Record<s
     if (has("going")) doc.votes = [...new Set((Array.isArray(body.going) ? body.going.join(",") : String(body.going || "")).split(/[,;&]|\band\b/).map((x) => planClean(x, 40)).filter(Boolean))];
   }
   if (type === "bring") { if (has("course")) doc.course = planCourse(body.course); set("who", 40); set("event", 40); }
-  if (type !== "coming") set("detail", 300);
+  if (type !== "coming") set("detail", 1000);
   doc.changed = Date.now(); // for the family's "Send an update"
   const { error } = await admin.from("entries").update({ doc }).eq("household_id", hid).eq("id", id);
   if (error) return ok({ error: error.message }, 500);

@@ -93,7 +93,7 @@ export function makePlanItem({ planType, text, time, until, group, day, course, 
     ...(type === 'bring' ? { course: courseOf({ course }) } : {}),
     ...(type === 'bring' && clean(event, 40) ? { event: clean(event, 40) } : {}),
     ...(type === 'bring' && clean(who, 40) ? { who: clean(who, 40) } : {}),
-    ...(type !== 'coming' && clean(detail, 300) ? { detail: clean(detail, 300) } : {}),
+    ...(type !== 'coming' && clean(detail, 1000) ? { detail: clean(detail, 1000) } : {}),
     ...(type === 'idea' ? { votes: [] } : {}),
     ...(by ? { by: clean(by, 40) } : {}),
     photos: [], source: 'plan', pos: now, added: now,
@@ -113,7 +113,7 @@ export function editPlanItem(d, { text, time, until, group, day, course, who, de
   if (course !== undefined && d.planType === 'bring') next.course = courseOf({ course });
   if (event !== undefined && d.planType === 'bring') set('event', event, 40);
   if (who !== undefined) set('who', who, 40);
-  if (detail !== undefined) set('detail', detail, 300);
+  if (detail !== undefined) set('detail', detail, 1000);
   if (going !== undefined && d.planType === 'time') next.votes = namesFrom(Array.isArray(going) ? going.join(',') : going);
   if (everyone !== undefined && d.planType === 'time') { if (everyone) next.everyone = true; else delete next.everyone; }
   return next;

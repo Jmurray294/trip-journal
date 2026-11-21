@@ -42,6 +42,13 @@ const whenOf = (d) => (d.time ? (d.until ? `${d.time}–${d.until}` : d.time) : 
 
 // details, with any web address made into a small button named for the site ("Map", "AllTrails")
 const URL_RE = /(https?:\/\/[^\s]*[^\s.,;:!?)])/g;
+// the edit form shows notes and links in their own boxes, and joins them back into one `detail`
+function splitDetail(text) {
+  const s = String(text || '');
+  const links = s.match(URL_RE) || [];
+  return { notes: s.replace(URL_RE, ' ').replace(/\s+/g, ' ').trim(), links: links.join(' ') };
+}
+const joinDetail = (notes, links) => [String(notes || '').trim(), String(links || '').trim()].filter(Boolean).join(' ');
 function Detail({ text }) {
   const parts = String(text || '').split(URL_RE);
   return (
@@ -196,7 +203,10 @@ function ScheduleForm({ d, days, guests = [], busy, onSave, onRemove, onClose })
   const [time, setTime] = useState(pickerTime(d.time));
   const [until, setUntil] = useState(pickerTime(d.until));
   const [group, setGroup] = useState(d.group || '');
-  const [detail, setDetail] = useState(d.detail || '');
+  // notes and links are kept together in `detail`; here they're two boxes so a long link doesn't
+  // crowd out the notes
+  const [notes, setNotes] = useState(() => splitDetail(d.detail).notes);
+  const [links, setLinks] = useState(() => splitDetail(d.detail).links);
   // who's going: tap names from the guest list, or Everyone
   const [going, setGoing] = useState(() => votesOf(d));
   const [everyone, setEveryone] = useState(!!d.everyone);
@@ -208,7 +218,7 @@ function ScheduleForm({ d, days, guests = [], busy, onSave, onRemove, onClose })
   const [timeTouched, setTimeTouched] = useState(false);
   const save = () => {
     if (!text.trim()) return;
-    const c = { text, day, group, detail, going: everyone ? [] : going, everyone };
+    const c = { text, day, group, detail: joinDetail(notes, links), going: everyone ? [] : going, everyone };
     if (!odd || timeTouched) { c.time = fromPicker(time); c.until = time ? fromPicker(until) : ''; }
     onSave(c);
   };
@@ -232,7 +242,8 @@ function ScheduleForm({ d, days, guests = [], busy, onSave, onRemove, onClose })
           </div>
           {pool.length === 0 && <span className="plan-picks-hint">Add people under Who’s coming, then tap them here.</span>}
         </div>
-        <label className="plan-f wide"><span>Notes or link (optional)</span><input className="field" value={detail} onChange={(e) => setDetail(e.target.value)} onKeyDown={key} aria-label="Notes or link" /></label>
+        <label className="plan-f wide"><span>Notes (optional)</span><textarea className="field plan-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} placeholder="e.g. Tickets are $35, wear warm clothes, meet in the lobby" aria-label="Notes" /></label>
+        <label className="plan-f wide"><span>Link (optional)</span><input className="field" type="url" inputMode="url" value={links} onChange={(e) => setLinks(e.target.value)} onKeyDown={key} placeholder="Paste a web address" aria-label="Link" /></label>
       </div>
       {time && <button className="btn-link inline plan-anytime" onClick={() => { setTime(''); setUntil(''); setTimeTouched(true); }}>No set time (anytime)</button>}
       <EditButtons busy={busy} ok={!!text.trim()} onSave={save} onCancel={onClose} onRemove={onRemove} />
