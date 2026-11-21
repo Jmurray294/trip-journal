@@ -109,3 +109,11 @@ export function useContacts(household) {
   const remove = (id) => change((l) => removeContact(l, id));
   return { list, ready, save, remove, reload: load };
 }
+// who has been texted the guest link or an update, saved on the trip (trip.textedAt: { contactId: time })
+// so it survives going to Messages and back. A text counts for this round if it's from the last 12
+// hours and after any "Start over" (trip.textRoundAt).
+export const TEXT_ROUND_MS = 12 * 60 * 60 * 1000;
+export function textedThisRound(trip, id, now = Date.now()) {
+  const t = trip && trip.textedAt ? trip.textedAt[id] : 0;
+  return !!t && t > Math.max(now - TEXT_ROUND_MS, (trip && trip.textRoundAt) || 0);
+}

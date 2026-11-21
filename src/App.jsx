@@ -1030,6 +1030,8 @@ export default function App() {
           return <ContactsSheet mode={contactsOpen.mode} contacts={contacts} followers={followers} toast={showToast}
             trip={t} link={t && t.shareToken ? tripLink(t) : ''} gathering={!!(t && t.gathering)} update={!!contactsOpen.update}
             onSent={t ? (ids) => updateTrip(t.id, (x) => ({ ...x, guestIds: [...new Set([...(x.guestIds || []), ...ids])], updateSentAt: Date.now() })) : null}
+            onTexted={t ? (ids) => updateTrip(t.id, (x) => ({ ...x, textedAt: { ...(x.textedAt || {}), ...Object.fromEntries(ids.map((id) => [id, Date.now()])) } })) : null}
+            onTextRound={t ? () => updateTrip(t.id, (x) => ({ ...x, textRoundAt: Date.now() })) : null}
             onClose={() => setContactsOpen(null)} />;
         })()}
         {followPreview && <Portal preview onClose={() => { setFollowPreview(false); followers.reload(); }} />}

@@ -1086,6 +1086,18 @@ button.masonry-item { display: block; width: 100%; padding: 0; border: none; bac
 .contact-name { font-size: 15px; font-weight: 600; }
 .contact-sub { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-tag { font-size: 11.5px; font-weight: 600; color: #2A7D34; background: rgba(42,125,52,0.1); border-radius: 999px; padding: 3px 8px; }
+.guest-head { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--secondary); margin: 10px 4px 4px; }
+.guest-head.muted { color: var(--muted); margin-top: 18px; }
+.contact.texted .contact-name { color: #2A7D34; }
+.contact button.btn-link.inline { white-space: nowrap; }
+.guest-bar { position: sticky; bottom: -30px; margin: 14px -20px 0; padding: 12px 20px 14px; background: var(--bg); border-top: 1px solid rgba(42,37,32,0.1); box-shadow: 0 -8px 18px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 8px; z-index: 2; }
+.guest-bar .btn-primary { margin: 0; width: 100%; }
+.guest-bar .plan-progress-bar { flex: none; }
+.guest-progress { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 700; color: var(--secondary); }
+.guest-how { margin: 0; font-size: 12.5px; text-align: center; }
+.guest-more { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 12px; }
+.guest-more .btn-muted { margin: 0; width: 100%; text-align: left; }
+.text-groups-btns { width: 100%; }
 .contact-add { align-self: flex-start; margin-top: 6px !important; }
 .contact-form { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid rgba(42,37,32,0.08); }
 .contact-form .field { padding: 10px 12px; font-size: 15px; border-radius: 10px; }

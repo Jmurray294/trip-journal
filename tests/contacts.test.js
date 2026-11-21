@@ -63,3 +63,14 @@ test('textGroups splits into even groups of at most 10', async () => {
   assert.deepEqual(textGroups([], 10), []);
   assert.deepEqual(textGroups(people, 10).flat(), people);
 });
+
+test('textedThisRound: within 12 hours and after Start over', async () => {
+  const { textedThisRound } = await import('../src/lib/contacts.js');
+  const now = 1_000_000_000_000;
+  const trip = { textedAt: { a: now - 60_000, b: now - 13 * 3600_000 } };
+  assert.equal(textedThisRound(trip, 'a', now), true);
+  assert.equal(textedThisRound(trip, 'b', now), false);
+  assert.equal(textedThisRound(trip, 'c', now), false);
+  assert.equal(textedThisRound({ ...trip, textRoundAt: now - 30_000 }, 'a', now), false);
+  assert.equal(textedThisRound(null, 'a', now), false);
+});
